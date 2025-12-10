@@ -23,14 +23,32 @@ MUTATION_PATTERNS = {
     "KIT": r"\bKIT\b",
     "CEBPA": r"\bCEBPA\b",
     "RUNX1": r"\bRUNX1\b",
-    "ASXL1": r"\bASXL1\b"
+    "ASXL1": r"\bASXL1\b",
+    "DNMT3A": r"\bDNMT3A\b",
+    "TET2": r"\bTET2\b",
+    "KRAS": r"\bKRAS\b",
+    "NRAS": r"\bNRAS\b",
+    "WT1": r"\bWT1\b",
+    "BCR-ABL1": r"\bBCR[- ]?ABL1?\b",
+    "PML-RARA": r"\bPML[- ]?RARA\b",
+    "SF3B1": r"\bSF3B1\b",
+    "GATA2": r"\bGATA2\b"
+}
+
+# Topic Regex Patterns
+TOPIC_PATTERNS = {
+    "Data Science/AI": r"\b(Artificial Intelligence|Machine Learning|Deep Learning|Bioinformatics|Neural Network|Big Data|Data Science|AI|ML)\b",
+    "Cell Therapy": r"\b(Cell Therapy|Stem Cell|HSCT|Bone Marrow Transplant|HSC|Hematopoietic)\b",
+    "CAR-T": r"\b(CAR-T|Chimeric Antigen|CART)\b",
+    "Immunotherapy": r"\b(Immunotherapy|Checkpoint Inhibitor|PD-1|PD-L1|CTLA-4)\b"
 }
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+    # Updated schema with tags
     c.execute('''CREATE TABLE IF NOT EXISTS articles
-                 (pubmed_id TEXT PRIMARY KEY, title TEXT, abstract TEXT, pub_date TEXT, url TEXT, mutations TEXT, diseases TEXT)''')
+                 (pubmed_id TEXT PRIMARY KEY, title TEXT, abstract TEXT, pub_date TEXT, url TEXT, mutations TEXT, diseases TEXT, authors TEXT, journal TEXT, affiliations TEXT, tags TEXT)''')
     conn.commit()
     conn.close()
 
@@ -76,6 +94,15 @@ def extract_mutations(text):
             found.append(gene)
     return ",".join(found)
 
+def extract_topics(text):
+    found = []
+    if not text:
+        return ""
+    for topic, pattern in TOPIC_PATTERNS.items():
+        if re.search(pattern, text, re.IGNORECASE):
+            found.append(topic)
+    return ",".join(found)
+
 def parse_and_save(xml_content):
     root = ET.fromstring(xml_content)
     articles = []
@@ -93,7 +120,6 @@ def parse_and_save(xml_content):
         abstract = ""
         if abstract_node is not None:
             abstract = abstract_node.text or ""
-            # specific logic if there are multiple parts
         
         pub_date_node = article_node.find("Journal/JournalIssue/PubDate")
         year = pub_date_node.find("Year")
@@ -104,18 +130,47 @@ def parse_and_save(xml_content):
             
         url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
         
+        # New Metadata Extraction
+        journal = article_node.find("Journal/Title").text if article_node.find("Journal/Title") is not None else "Unknown Journal"
+        
+        authors_list = []
+        affiliations_list = []
+        author_list_node = article_node.find("AuthorList")
+        if author_list_node is not None:
+            for author in author_list_node.findall("Author"):
+                last_name = author.find("LastName").text if author.find("LastName") is not None else ""
+                initials = author.find("Initials").text if author.find("Initials") is not None else ""
+                if last_name:
+                    authors_list.append(f"{last_name} {initials}")
+                
+                # Naive affiliation grabbing (just grabs all unique ones found)
+                aff_info = author.find("AffiliationInfo/Affiliation")
+                if aff_info is not None and aff_info.text:
+                    if aff_info.text not in affiliations_list:
+                        affiliations_list.append(aff_info.text)
+
+        authors_str = ", ".join(authors_list)
+        affiliations_str = " | ".join(affiliations_list) # Using pipe to separate complex strings
+
         full_text = f"{title} {abstract}"
         mutations = extract_mutations(full_text)
+        tags = extract_topics(full_text)
         
-        # Simple disease detection (hardcoded for now to just Leukemia types if found)
+        # Simple disease detection
         diseases = []
         if "AML" in full_text or "Acute Myeloid Leukemia" in full_text:
             diseases.append("AML")
+        if "CML" in full_text or "Check Myeloid Leukemia" in full_text:
+             diseases.append("CML")
+        if "ALL" in full_text or "Acute Lymphoblastic Leukemia" in full_text:
+             diseases.append("ALL")
+             
         disease_str = ",".join(diseases)
 
         try:
-            c.execute("INSERT OR IGNORE INTO articles VALUES (?, ?, ?, ?, ?, ?, ?)",
-                      (pmid, title, abstract, pub_date, url, mutations, disease_str))
+            # Update INSERT statement
+            c.execute("INSERT OR IGNORE INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      (pmid, title, abstract, pub_date, url, mutations, disease_str, authors_str, journal, affiliations_str, tags))
         except Exception as e:
             print(f"Error saving {pmid}: {e}")
             
