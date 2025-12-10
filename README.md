@@ -3,10 +3,6 @@
 LeukemiaLens is a specialized research tracker designed to help researchers and clinicians stay updated with the latest scientific developments in leukemia. It aggregates articles from PubMed and enriches them with intelligent tagging for specific gene mutations, disease subtypes, and study topics.
 
 ## Screenshots
-
-### Main Dashboard
-![Dashboard](assets/images/dashboard.png)
-
 ### Advanced Filtering & Study Topics
 ![Advanced Filters](assets/images/advanced_filters.png)
 
