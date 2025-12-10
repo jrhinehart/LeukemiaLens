@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 
+// Helper to serialize arrays as repeat params: key=val1&key=val2
+const paramsSerializer = (params: any) => {
+  const parts: string[] = []
+  Object.keys(params).forEach(key => {
+    const val = params[key]
+    if (Array.isArray(val)) {
+      val.forEach(v => parts.push(`${key}=${encodeURIComponent(v)}`))
+    } else if (val !== null && val !== undefined && val !== '') {
+      parts.push(`${key}=${encodeURIComponent(val)}`)
+    }
+  })
+  return parts.join('&')
+}
+
 interface Article {
   pubmed_id: string
   title: string
@@ -15,14 +29,34 @@ interface Article {
   tags: string[]
 }
 
+// Helper component for highlighting text
+const HighlightText = ({ text, highlight }: { text: string, highlight: string }) => {
+  if (!highlight.trim()) return <>{text}</>
+
+  const parts = text.split(new RegExp(`(${highlight})`, 'gi'))
+
+  return (
+    <span>
+      {parts.map((part, i) =>
+        part.toLowerCase() === highlight.toLowerCase() ? (
+          <span key={i} className="bg-yellow-200 text-gray-900 font-medium px-0.5 rounded-sm">{part}</span>
+        ) : (
+          part
+        )
+      )}
+    </span>
+  )
+}
+
 function App() {
   const [articles, setArticles] = useState<Article[]>([])
 
   // Filters
-  const [selectedMutation, setSelectedMutation] = useState<string | null>(null)
-  const [selectedDisease, setSelectedDisease] = useState<string | null>(null)
-  const [selectedTag, setSelectedTag] = useState<string | null>(null)
+  const [selectedMutation, setSelectedMutation] = useState<string[]>([])
+  const [selectedDisease, setSelectedDisease] = useState<string[]>([])
+  const [selectedTag, setSelectedTag] = useState<string[]>([])
 
+  const [searchQuery, setSearchQuery] = useState("")
   const [authorFilter, setAuthorFilter] = useState("")
   const [journalFilter, setJournalFilter] = useState("")
   const [institutionFilter, setInstitutionFilter] = useState("")
@@ -37,6 +71,7 @@ function App() {
       fetchArticles()
     }, 500)
     return () => clearTimeout(timeoutId)
+    // Removed searchQuery from dependencies to make search manual (Enter/Click)
   }, [selectedMutation, selectedDisease, selectedTag, authorFilter, journalFilter, institutionFilter, startDate, endDate])
 
   useEffect(() => {
@@ -46,9 +81,10 @@ function App() {
   const fetchArticles = async () => {
     try {
       const params: any = {}
-      if (selectedMutation) params.mutation = selectedMutation
-      if (selectedDisease) params.disease = selectedDisease
-      if (selectedTag) params.tag = selectedTag
+      if (searchQuery) params.search = searchQuery
+      if (selectedMutation.length > 0) params.mutation = selectedMutation
+      if (selectedDisease.length > 0) params.disease = selectedDisease
+      if (selectedTag.length > 0) params.tag = selectedTag
 
       if (authorFilter) params.author = authorFilter
       if (journalFilter) params.journal = journalFilter
@@ -56,7 +92,10 @@ function App() {
       if (startDate) params.start_date = startDate
       if (endDate) params.end_date = endDate
 
-      const res = await axios.get('http://localhost:8000/articles', { params })
+      const res = await axios.get('http://localhost:8000/articles', {
+        params,
+        paramsSerializer: { serialize: paramsSerializer }
+      })
       setArticles(res.data)
     } catch (err) {
       console.error(err)
@@ -73,9 +112,10 @@ function App() {
   }
 
   const resetAll = () => {
-    setSelectedMutation(null)
-    setSelectedDisease(null)
-    setSelectedTag(null)
+    setSelectedMutation([])
+    setSelectedDisease([])
+    setSelectedTag([])
+    setSearchQuery("")
     setAuthorFilter("")
     setJournalFilter("")
     setInstitutionFilter("")
@@ -92,21 +132,26 @@ function App() {
             <div className="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center text-white font-bold">L</div>
             <h1 className="text-xl font-semibold text-gray-900">LeukemiaLens</h1>
           </div>
-          <div className="text-sm text-gray-500">Tracking Scientific Developments</div>
+
+
         </div>
       </header>
+
+      {/* Intro Section */}
+      <div className="bg-blue-900 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <h2 className="text-3xl font-bold mb-3">Accelerating Leukemia Research</h2>
+          <p className="max-w-3xl text-blue-100 text-lg leading-relaxed">
+            LeukemiaLens empowers researchers and clinicians by aggregating the latest scientific findings from PubMed.
+            We automatically categorize articles by gene mutations, disease types, and emerging study topics to help you discover critical insights faster.
+          </p>
+        </div>
+      </div>
 
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8">
 
         {/* Sidebar Filters */}
         <aside className="w-64 flex-shrink-0 space-y-6">
-
-          <button
-            onClick={resetAll}
-            className="w-full py-2 px-4 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            Reset All Filters
-          </button>
 
           {/* Advanced Filters */}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
@@ -162,24 +207,37 @@ function App() {
             </div>
           </div>
 
+          <button
+            onClick={resetAll}
+            className="w-full py-2 px-4 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            Reset All Filters
+          </button>
+
           {/* Study Tags */}
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Study Topics</h3>
             <div className="space-y-1">
-              {Object.entries(stats.tags).map(([tag, count]) => (
-                <button
-                  key={tag}
-                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${selectedTag === tag ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                    }`}
-                >
-                  <span className="truncate">{tag}</span>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs py-0.5 px-1.5 rounded-full ${selectedTag === tag ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
-                    {selectedTag === tag && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
-                  </div>
-                </button>
-              ))}
+              {Object.entries(stats.tags).map(([tag, count]) => {
+                const isSelected = selectedTag.includes(tag)
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => {
+                      if (isSelected) setSelectedTag(prev => prev.filter(x => x !== tag))
+                      else setSelectedTag(prev => [...prev, tag])
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                      }`}
+                  >
+                    <span className="truncate">{tag}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
+                      {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
+                    </div>
+                  </button>
+                )
+              })}
               {Object.keys(stats.tags).length === 0 && <p className="text-xs text-gray-400 px-3">No topics found.</p>}
             </div>
           </div>
@@ -189,41 +247,76 @@ function App() {
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Common Mutations</h3>
             <div className="space-y-1">
-              {Object.entries(stats.mutations).map(([mut, count]) => (
-                <button
-                  key={mut}
-                  onClick={() => setSelectedMutation(selectedMutation === mut ? null : mut)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${selectedMutation === mut ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                    }`}
-                >
-                  <span>{mut}</span>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs py-0.5 px-1.5 rounded-full ${selectedMutation === mut ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
-                    {selectedMutation === mut && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
-                  </div>
-                </button>
-              ))}
+              {Object.entries(stats.mutations).map(([mut, count]) => {
+                const isSelected = selectedMutation.includes(mut)
+                return (
+                  <button
+                    key={mut}
+                    onClick={() => {
+                      if (isSelected) setSelectedMutation(prev => prev.filter(x => x !== mut))
+                      else setSelectedMutation(prev => [...prev, mut])
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                      }`}
+                  >
+                    <span>{mut}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
+                      {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Diseases</h3>
-            {['AML', 'CML', 'ALL'].map(d => (
-              <button
-                key={d}
-                onClick={() => setSelectedDisease(selectedDisease === d ? null : d)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex justify-between items-center group ${selectedDisease === d ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                  }`}
-              >
-                <span>{d}</span>
-                {selectedDisease === d && <span className="text-xs font-bold hover:text-blue-200 mr-2">✕</span>}
-              </button>
-            ))}
+            {['AML', 'CML', 'ALL'].map(d => {
+              const isSelected = selectedDisease.includes(d)
+              return (
+                <button
+                  key={d}
+                  onClick={() => {
+                    if (isSelected) setSelectedDisease(prev => prev.filter(x => x !== d))
+                    else setSelectedDisease(prev => [...prev, d])
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                    }`}
+                >
+                  <span>{d}</span>
+                  {isSelected && <span className="text-xs font-bold hover:text-blue-200 mr-2">✕</span>}
+                </button>
+              )
+            })}
           </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1">
+        <main className="flex-1 min-w-0">
+
+          <div className="mb-8">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search titles and abstracts..."
+                className="w-full pl-5 pr-12 py-3 border border-gray-300 rounded-xl text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fetchArticles()}
+              />
+              <button
+                onClick={fetchArticles}
+                className="absolute right-2 top-2 p-1 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
+                title="Search"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">Latest Articles</h2>
             <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">{articles.length} results</span>
@@ -233,7 +326,7 @@ function App() {
             {articles.map((article) => (
               <div key={article.pubmed_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap gap-2 mb-3">
                       {article.mutations.map(m => (
                         <span key={m} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
@@ -254,17 +347,17 @@ function App() {
                         {article.journal}
                       </span>
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2">
+                    <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2 break-words">
                       <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline">
-                        {article.title}
+                        <HighlightText text={article.title} highlight={searchQuery} />
                       </a>
                     </h3>
                     <div className="text-xs text-gray-500 mb-3 flex flex-col gap-1">
-                      <span className="font-semibold text-gray-800">{article.authors}</span>
+                      <span className="font-semibold text-gray-800 break-words">{article.authors}</span>
                       {article.affiliations && <span className="text-gray-400 italic truncate w-full" title={article.affiliations}>{article.affiliations}</span>}
                     </div>
-                    <p className="text-sm text-gray-700 mb-4 line-clamp-3 leading-relaxed">
-                      {article.abstract}
+                    <p className="text-sm text-gray-700 mb-4 line-clamp-3 leading-relaxed break-words">
+                      <HighlightText text={article.abstract} highlight={searchQuery} />
                     </p>
                     <div className="flex items-center text-xs font-medium text-gray-500 gap-4 border-t border-gray-100 pt-3">
                       <span>PMID: {article.pubmed_id}</span>

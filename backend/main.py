@@ -42,9 +42,10 @@ def get_db_connection():
 
 @app.get("/articles", response_model=List[Article])
 def get_articles(
-    mutation: Optional[str] = None,
-    disease: Optional[str] = None,
-    tag: Optional[str] = None,
+    mutation: Optional[List[str]] = Query(None),
+    disease: Optional[List[str]] = Query(None),
+    tag: Optional[List[str]] = Query(None),
+    search: Optional[str] = None,
     start_date: Optional[str] = None, # YYYY-MM-DD
     end_date: Optional[str] = None,   # YYYY-MM-DD
     author: Optional[str] = None,
@@ -59,17 +60,24 @@ def get_articles(
     params = []
     conditions = []
     
-    if mutation:
-        conditions.append("mutations LIKE ?")
-        params.append(f"%{mutation}%")
-        
-    if disease:
-        conditions.append("diseases LIKE ?")
-        params.append(f"%{disease}%")
+    # Helper to add OR conditions for a list of values
+    def add_list_condition(column, values):
+        if not values:
+            return
+        # (column LIKE ? OR column LIKE ?)
+        clauses = [f"{column} LIKE ?" for _ in values]
+        conditions.append(f"({' OR '.join(clauses)})")
+        for v in values:
+            params.append(f"%{v}%")
 
-    if tag:
-        conditions.append("tags LIKE ?")
-        params.append(f"%{tag}%")
+    add_list_condition("mutations", mutation)
+    add_list_condition("diseases", disease)
+    add_list_condition("tags", tag)
+
+    if search:
+        conditions.append("(title LIKE ? OR abstract LIKE ?)")
+        params.append(f"%{search}%")
+        params.append(f"%{search}%")
 
     # Date filtering (very basic string comparison for YYYY, might need robust parsing if dates are messy)
     if start_date:
