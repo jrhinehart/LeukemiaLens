@@ -78,11 +78,13 @@ app.get('/api/search', async (c) => {
     // Date Range
     if (year_start) {
         constraints.push(`s.pub_date >= ?`);
-        params.push(`${year_start}-01-01`);
+        // If it's just a year (4 digits), append start of year. Otherwise assume full date.
+        params.push(/^\d{4}$/.test(year_start) ? `${year_start}-01-01` : year_start);
     }
     if (year_end) {
         constraints.push(`s.pub_date <= ?`);
-        params.push(`${year_end}-12-31`);
+        // If it's just a year, append end of year.
+        params.push(/^\d{4}$/.test(year_end) ? `${year_end}-12-31` : year_end);
     }
 
     if (constraints.length > 0) {

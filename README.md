@@ -4,7 +4,7 @@ LeukemiaLens is a specialized research tracker designed to help researchers and 
 
 ## Screenshots
 ### Advanced Filtering & Study Topics
-![Advanced Filters](assets/images/advanced_filters.png)
+![LeukemiaLens UI](assets/images/filter-screenshot.png)
 
 ## Features
 
@@ -21,8 +21,9 @@ LeukemiaLens is a specialized research tracker designed to help researchers and 
 
 ## Tech Stack
 
--   **Backend**: Python, FastAPI, SQLite
--   **Frontend**: React, Vite, TailwindCSS
+-   **Backend**: Cloudflare Workers (TypeScript)
+-   **Frontend**: React, Vite, TailwindCSS (deployed via Cloudflare Pages / Workers Assets)
+-   **Database**: Cloudflare D1 (SQLite)
 -   **Data Source**: PubMed Entrez E-utilities API
 
 ## Setup & Running

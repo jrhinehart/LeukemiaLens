@@ -142,7 +142,14 @@ function App() {
     <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-200">
       {/* Header */}
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 text-white shadow-md">
+      <div className="relative bg-gradient-to-r from-blue-950 via-blue-800 to-blue-900 text-white shadow-md">
+        {/* Top Navigation */}
+        <nav className="absolute top-4 right-4 sm:right-8 flex gap-6 text-sm font-medium z-10">
+          <a href="#about" className="text-blue-100 hover:text-white transition-colors">About</a>
+          <a href="#usage" className="text-blue-100 hover:text-white transition-colors">Usage</a>
+          <a href="#resources" className="text-blue-100 hover:text-white transition-colors">Resources</a>
+        </nav>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row items-center gap-8">
           <div className="flex-shrink-0">
             <img src={bannerImage} alt="LeukemiaLens" className="h-20 md:h-24 object-contain" />
@@ -161,6 +168,89 @@ function App() {
 
         {/* Sidebar Filters */}
         <aside className="w-64 flex-shrink-0 space-y-6">
+
+          {/* Diseases */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Diseases</h3>
+            {['AML', 'CML', 'ALL'].map(d => {
+              const isSelected = selectedDisease.includes(d)
+              return (
+                <button
+                  key={d}
+                  onClick={() => {
+                    if (isSelected) setSelectedDisease(prev => prev.filter(x => x !== d))
+                    else setSelectedDisease(prev => [...prev, d])
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                    }`}
+                >
+                  <span>{d}</span>
+                  {isSelected && <span className="text-xs font-bold hover:text-blue-200 mr-2">✕</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          <hr className="border-gray-300" />
+
+          {/* Common Mutations */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Common Mutations</h3>
+            <div className="space-y-1">
+              {Object.entries(stats.mutations).map(([mut, count]) => {
+                const isSelected = selectedMutation.includes(mut)
+                return (
+                  <button
+                    key={mut}
+                    onClick={() => {
+                      if (isSelected) setSelectedMutation(prev => prev.filter(x => x !== mut))
+                      else setSelectedMutation(prev => [...prev, mut])
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                      }`}
+                  >
+                    <span>{mut}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
+                      {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <hr className="border-gray-300" />
+
+          {/* Study Tags */}
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Study Topics</h3>
+            <div className="space-y-1">
+              {Object.entries(stats.tags).map(([tag, count]) => {
+                const isSelected = selectedTag.includes(tag)
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => {
+                      if (isSelected) setSelectedTag(prev => prev.filter(x => x !== tag))
+                      else setSelectedTag(prev => [...prev, tag])
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                      }`}
+                  >
+                    <span className="truncate">{tag}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
+                      {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
+                    </div>
+                  </button>
+                )
+              })}
+              {Object.keys(stats.tags).length === 0 && <p className="text-xs text-gray-400 px-3">No topics found.</p>}
+            </div>
+          </div>
+
+          <hr className="border-gray-300" />
 
           {/* Advanced Filters */}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
@@ -193,12 +283,12 @@ function App() {
                   onChange={e => setInstitutionFilter(e.target.value)}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 <div>
                   <input
                     type="text"
                     className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                    placeholder="Start Year"
+                    placeholder="Start Date (YYYY or YYYY-MM-DD)"
                     value={startDate}
                     onChange={e => setStartDate(e.target.value)}
                   />
@@ -207,7 +297,7 @@ function App() {
                   <input
                     type="text"
                     className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                    placeholder="End Year"
+                    placeholder="End Date (YYYY or YYYY-MM-DD)"
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
                   />
@@ -222,83 +312,6 @@ function App() {
           >
             Reset All Filters
           </button>
-
-          {/* Study Tags */}
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Study Topics</h3>
-            <div className="space-y-1">
-              {Object.entries(stats.tags).map(([tag, count]) => {
-                const isSelected = selectedTag.includes(tag)
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => {
-                      if (isSelected) setSelectedTag(prev => prev.filter(x => x !== tag))
-                      else setSelectedTag(prev => [...prev, tag])
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                      }`}
-                  >
-                    <span className="truncate">{tag}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
-                      {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
-                    </div>
-                  </button>
-                )
-              })}
-              {Object.keys(stats.tags).length === 0 && <p className="text-xs text-gray-400 px-3">No topics found.</p>}
-            </div>
-          </div>
-
-          <hr className="border-gray-300" />
-
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Common Mutations</h3>
-            <div className="space-y-1">
-              {Object.entries(stats.mutations).map(([mut, count]) => {
-                const isSelected = selectedMutation.includes(mut)
-                return (
-                  <button
-                    key={mut}
-                    onClick={() => {
-                      if (isSelected) setSelectedMutation(prev => prev.filter(x => x !== mut))
-                      else setSelectedMutation(prev => [...prev, mut])
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                      }`}
-                  >
-                    <span>{mut}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
-                      {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Diseases</h3>
-            {['AML', 'CML', 'ALL'].map(d => {
-              const isSelected = selectedDisease.includes(d)
-              return (
-                <button
-                  key={d}
-                  onClick={() => {
-                    if (isSelected) setSelectedDisease(prev => prev.filter(x => x !== d))
-                    else setSelectedDisease(prev => [...prev, d])
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                    }`}
-                >
-                  <span>{d}</span>
-                  {isSelected && <span className="text-xs font-bold hover:text-blue-200 mr-2">✕</span>}
-                </button>
-              )
-            })}
-          </div>
         </aside>
 
         {/* Main Content */}
