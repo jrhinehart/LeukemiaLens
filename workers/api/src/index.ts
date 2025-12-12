@@ -108,6 +108,31 @@ app.get('/api/search', async (c) => {
     }
 });
 
+app.get('/api/stats', async (c) => {
+    try {
+        const mutationStats = await c.env.DB.prepare(`
+            SELECT gene_symbol as name, COUNT(*) as count 
+            FROM mutations 
+            GROUP BY gene_symbol 
+            ORDER BY count DESC 
+            LIMIT 50
+        `).all();
+
+        // Transform to format expected by frontend { mutations: { "FLT3": 10 }, tags: {} }
+        const mutations: Record<string, number> = {};
+        mutationStats.results?.forEach((r: any) => {
+            mutations[r.name] = r.count;
+        });
+
+        return c.json({
+            mutations,
+            tags: {} // Tags not yet implemented in D1
+        });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
 app.get('/api/study/:id', async (c) => {
     const id = c.req.param('id');
 

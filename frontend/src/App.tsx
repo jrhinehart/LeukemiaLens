@@ -7,7 +7,7 @@ const paramsSerializer = (params: any) => {
   Object.keys(params).forEach(key => {
     const val = params[key]
     if (Array.isArray(val)) {
-      val.forEach(v => parts.push(`${key}=${encodeURIComponent(v)}`))
+      if (val.length > 0) parts.push(`${key}=${encodeURIComponent(val.join(','))}`)
     } else if (val !== null && val !== undefined && val !== '') {
       parts.push(`${key}=${encodeURIComponent(val)}`)
     }
@@ -31,7 +31,7 @@ interface Article {
 
 // Helper component for highlighting text
 const HighlightText = ({ text, highlight }: { text: string, highlight: string }) => {
-  if (!highlight.trim()) return <>{text}</>
+  if (!highlight || !highlight.trim()) return <>{text}</>
 
   const parts = text.split(new RegExp(`(${highlight})`, 'gi'))
 
@@ -81,22 +81,36 @@ function App() {
   const fetchArticles = async () => {
     try {
       const params: any = {}
-      if (searchQuery) params.search = searchQuery
+      if (searchQuery) params.q = searchQuery // Changed from 'search' to 'q'
       if (selectedMutation.length > 0) params.mutation = selectedMutation
       if (selectedDisease.length > 0) params.disease = selectedDisease
       if (selectedTag.length > 0) params.tag = selectedTag
 
-      if (authorFilter) params.author = authorFilter
-      if (journalFilter) params.journal = journalFilter
-      if (institutionFilter) params.institution = institutionFilter
-      if (startDate) params.start_date = startDate
-      if (endDate) params.end_date = endDate
+      if (authorFilter) params.author = authorFilter // API: not impl in filtering but ignored safely
+      if (journalFilter) params.journal = journalFilter // API: not impl
+      if (institutionFilter) params.institution = institutionFilter // API: not impl
+      if (startDate) params.year_start = startDate
+      if (endDate) params.year_end = endDate
 
-      const res = await axios.get('http://localhost:8000/articles', {
+      const res = await axios.get('https://leukemialens-api.jr-rhinehart.workers.dev/api/search', {
         params,
         paramsSerializer: { serialize: paramsSerializer }
       })
-      setArticles(res.data)
+
+      const mapped = res.data.map((r: any) => ({
+        pubmed_id: r.source_id ? r.source_id.replace('PMID:', '') : String(r.id),
+        title: r.title,
+        abstract: r.abstract,
+        pub_date: r.pub_date,
+        url: r.source_id ? `https://pubmed.ncbi.nlm.nih.gov/${r.source_id.replace('PMID:', '')}/` : '#',
+        mutations: r.mutations || [],
+        diseases: r.disease_subtype ? r.disease_subtype.split(',') : [],
+        authors: r.authors,
+        journal: r.journal,
+        affiliations: '',
+        tags: []
+      }))
+      setArticles(mapped)
     } catch (err) {
       console.error(err)
     }
@@ -104,7 +118,7 @@ function App() {
 
   const fetchStats = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/stats')
+      const res = await axios.get('https://leukemialens-api.jr-rhinehart.workers.dev/api/stats')
       setStats(res.data)
     } catch (err) {
       console.error(err)

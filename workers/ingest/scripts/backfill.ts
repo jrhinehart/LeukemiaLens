@@ -1,9 +1,10 @@
-import { fetch } from 'undici'; // Or native fetch if node 18+
+// import { fetch } from 'undici'; // using global fetch (Node 18+)
 
-const WORKER_URL = "http://localhost:8787"; // Default wrangler dev port
+let WORKER_URL = "http://localhost:8787";
 
-async function runBackfill(startYear: number, endYear: number) {
-    console.log(`Starting backfill from ${startYear} to ${endYear}...`);
+async function runBackfill(startYear: number, endYear: number, workerUrl?: string) {
+    if (workerUrl) WORKER_URL = workerUrl;
+    console.log(`Starting backfill from ${startYear} to ${endYear} against ${WORKER_URL}...`);
 
     for (let year = startYear; year <= endYear; year++) {
         console.log(`Triggering ingest for ${year}...`);
@@ -24,7 +25,8 @@ async function runBackfill(startYear: number, endYear: number) {
 
 // Check if running directly
 if (require.main === module) {
-    const start = process.argv[2] ? parseInt(process.argv[2]) : 2020;
-    const end = process.argv[3] ? parseInt(process.argv[3]) : new Date().getFullYear();
-    runBackfill(start, end);
+    const start = process.argv[2] ? parseInt(process.argv[2]) : 2023;
+    const end = process.argv[3] ? parseInt(process.argv[3]) : 2023;
+    const url = process.argv[4];
+    runBackfill(start, end, url);
 }
