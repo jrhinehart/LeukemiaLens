@@ -65,6 +65,7 @@ function App() {
   const [endDate, setEndDate] = useState("")
 
   const [stats, setStats] = useState<{ mutations: { [key: string]: number }, tags: { [key: string]: number } }>({ mutations: {}, tags: {} })
+  const [ontology, setOntology] = useState<{ diseases: any[], mutations: any[] }>({ diseases: [], mutations: [] })
 
   useEffect(() => {
     // Debounce text inputs if needed, but for now just fetch on effect
@@ -77,6 +78,7 @@ function App() {
 
   useEffect(() => {
     fetchStats()
+    fetchOntology()
   }, [])
 
   const fetchArticles = async () => {
@@ -126,6 +128,15 @@ function App() {
     }
   }
 
+  const fetchOntology = async () => {
+    try {
+      const res = await axios.get('https://leukemialens-api.jr-rhinehart.workers.dev/api/ontology')
+      setOntology(res.data)
+    } catch (err) {
+      console.error("Failed to fetch ontology", err)
+    }
+  }
+
   const resetAll = () => {
     setSelectedMutation([])
     setSelectedDisease([])
@@ -138,11 +149,26 @@ function App() {
     setEndDate("")
   }
 
+  const handleExport = () => {
+    const params = new URLSearchParams()
+    if (searchQuery) params.append('q', searchQuery)
+    if (selectedMutation.length) params.append('mutation', selectedMutation.join(','))
+    if (selectedDisease.length) params.append('disease', selectedDisease.join(','))
+    if (authorFilter) params.append('author', authorFilter)
+    if (journalFilter) params.append('journal', journalFilter)
+    if (institutionFilter) params.append('institution', institutionFilter)
+    if (startDate) params.append('year_start', startDate)
+    if (endDate) params.append('year_end', endDate)
+
+    // Trigger download
+    window.location.href = `https://leukemialens-api.jr-rhinehart.workers.dev/api/export?${params.toString()}`
+  }
+
   return (
     <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-200">
       {/* Header */}
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-r from-blue-950 via-blue-800 to-blue-900 text-white shadow-md">
+      <div className="relative bg-gradient-to-r from-blue-950 via-blue-700 to-blue-500 text-white shadow-md">
         {/* Top Navigation */}
         <nav className="absolute top-4 right-4 sm:right-8 flex gap-6 text-sm font-medium z-10">
           <a href="#about" className="text-blue-100 hover:text-white transition-colors">About</a>
@@ -172,51 +198,79 @@ function App() {
           {/* Diseases */}
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Diseases</h3>
-            {['AML', 'CML', 'ALL'].map(d => {
-              const isSelected = selectedDisease.includes(d)
-              return (
+            {ontology.diseases.length > 0 ? (
+              ontology.diseases.map(d => {
+                const isSelected = selectedDisease.includes(d.code)
+                return (
+                  <button
+                    key={d.code}
+                    onClick={() => {
+                      if (isSelected) setSelectedDisease(prev => prev.filter(x => x !== d.code))
+                      else setSelectedDisease(prev => [...prev, d.code])
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                      }`}
+                  >
+                    <span>{d.code}</span>
+                    {d.name !== d.code && <span className="text-xs text-gray-400 group-hover:text-gray-500 ml-2 truncate max-w-[100px]">{d.name}</span>}
+                    {isSelected && <span className="text-xs font-bold hover:text-blue-200 ml-auto">✕</span>}
+                  </button>
+                )
+              })
+            ) : (
+              // Fallback if API fails or loading (or use skeletons)
+              ['AML', 'CML', 'ALL'].map(d => (
                 <button
                   key={d}
                   onClick={() => {
-                    if (isSelected) setSelectedDisease(prev => prev.filter(x => x !== d))
+                    if (selectedDisease.includes(d)) setSelectedDisease(prev => prev.filter(x => x !== d))
                     else setSelectedDisease(prev => [...prev, d])
                   }}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                    }`}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex justify-between items-center ${selectedDisease.includes(d) ? 'bg-blue-600 text-white' : 'text-gray-700'}`}
                 >
                   <span>{d}</span>
-                  {isSelected && <span className="text-xs font-bold hover:text-blue-200 mr-2">✕</span>}
                 </button>
-              )
-            })}
+              ))
+            )}
           </div>
 
           <hr className="border-gray-300" />
 
-          {/* Common Mutations */}
+          {/* Common Mutations (Ontology Driven) */}
           <div>
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Common Mutations</h3>
-            <div className="space-y-1">
-              {Object.entries(stats.mutations).map(([mut, count]) => {
-                const isSelected = selectedMutation.includes(mut)
-                return (
-                  <button
-                    key={mut}
-                    onClick={() => {
-                      if (isSelected) setSelectedMutation(prev => prev.filter(x => x !== mut))
-                      else setSelectedMutation(prev => [...prev, mut])
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                      }`}
-                  >
-                    <span>{mut}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
-                      {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
-                    </div>
-                  </button>
-                )
-              })}
+            <div className="space-y-1 max-h-96 overflow-y-auto custom-scrollbar pr-1">
+              {ontology.mutations.length > 0 ? (
+                ontology.mutations.map(m => {
+                  const isSelected = selectedMutation.includes(m.gene_symbol)
+                  // Optional: Show count from stats if available, otherwise just list it
+                  const count = stats.mutations[m.gene_symbol] || 0
+
+                  return (
+                    <button
+                      key={m.gene_symbol}
+                      onClick={() => {
+                        if (isSelected) setSelectedMutation(prev => prev.filter(x => x !== m.gene_symbol))
+                        else setSelectedMutation(prev => [...prev, m.gene_symbol])
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                        }`}
+                    >
+                      <span>{m.gene_symbol}</span>
+                      <div className="flex items-center gap-2">
+                        {/* Show count only if > 0 to reduce clutter, or if selected */}
+                        {count > 0 && <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>}
+                        {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
+                      </div>
+                    </button>
+                  )
+                })
+              ) : (
+                // Fallback to stats-only if ontology fails
+                Object.keys(stats.mutations).map((mut) => (
+                  <div key={mut} className="px-3 py-2 text-sm text-gray-500">Loading...</div>
+                ))
+              )}
             </div>
           </div>
 
@@ -341,7 +395,19 @@ function App() {
 
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">Latest Articles</h2>
-            <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">{articles.length} results</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">{articles.length} results</span>
+              <button
+                onClick={handleExport}
+                className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
+                title="Export results to CSV"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Export CSV
+              </button>
+            </div>
           </div>
 
           <div className="space-y-4">

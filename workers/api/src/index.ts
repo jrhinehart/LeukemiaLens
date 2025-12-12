@@ -126,6 +126,113 @@ app.get('/api/search', async (c) => {
     }
 });
 
+app.get('/api/export', async (c) => {
+    const {
+        q,
+        mutation,
+        disease,
+        year_start,
+        year_end,
+        complex_karyotype,
+        limit = '1000' // Higher limit for export
+    } = c.req.query();
+
+    let query = `
+    SELECT DISTINCT s.* 
+    FROM studies s
+  `;
+    const params: any[] = [];
+    const constraints: string[] = [];
+
+    // Joins if filtering by related tables
+    if (mutation) {
+        query += ` JOIN mutations m ON s.id = m.study_id`;
+        const mutations = mutation.split(',').map(m => m.trim());
+        constraints.push(`m.gene_symbol IN (${mutations.map(() => '?').join(',')})`);
+        params.push(...mutations);
+    }
+
+    // Text Search
+    if (q) {
+        constraints.push(`(s.title LIKE ? OR s.abstract LIKE ?)`);
+        params.push(`%${q}%`, `%${q}%`);
+    }
+
+    // Disease Subtype
+    if (disease) {
+        const diseases = disease.split(',').map(d => d.trim());
+        const diseaseConditions = diseases.map(() => `s.disease_subtype LIKE ?`).join(' OR ');
+        constraints.push(`(${diseaseConditions})`);
+        diseases.forEach(d => params.push(`%${d}%`));
+    }
+
+    // Complex Karyotype
+    if (complex_karyotype === 'true') {
+        constraints.push(`s.has_complex_karyotype = 1`);
+    }
+
+    // Advanced Filters
+    const { author, journal, institution } = c.req.query();
+
+    if (author) {
+        constraints.push(`s.authors LIKE ?`);
+        params.push(`%${author}%`);
+    }
+    if (journal) {
+        constraints.push(`s.journal LIKE ?`);
+        params.push(`%${journal}%`);
+    }
+    if (institution) {
+        constraints.push(`s.affiliations LIKE ?`);
+        params.push(`%${institution}%`);
+    }
+
+    // Date Range
+    if (year_start) {
+        constraints.push(`s.pub_date >= ?`);
+        params.push(/^\d{4}$/.test(year_start) ? `${year_start}-01-01` : year_start);
+    }
+    if (year_end) {
+        constraints.push(`s.pub_date <= ?`);
+        params.push(/^\d{4}$/.test(year_end) ? `${year_end}-12-31` : year_end);
+    }
+
+    if (constraints.length > 0) {
+        query += ` WHERE ` + constraints.join(' AND ');
+    }
+
+    query += ` ORDER BY s.pub_date DESC LIMIT ?`;
+    params.push(parseInt(limit));
+
+    try {
+        const { results } = await c.env.DB.prepare(query).bind(...params).run();
+
+        // Convert to CSV
+        const headers = ['ID', 'Title', 'Publication Date', 'Journal', 'Disease', 'Authors', 'Link'];
+        const csvRows = [headers.join(',')];
+
+        results.forEach((r: any) => {
+            const row = [
+                r.source_id || r.id,
+                `"${(r.title || '').replace(/"/g, '""')}"`, // Escape quotes
+                r.pub_date,
+                `"${(r.journal || '').replace(/"/g, '""')}"`,
+                `"${(r.disease_subtype || '').replace(/"/g, '""')}"`,
+                `"${(r.authors || '').replace(/"/g, '""')}"`,
+                `https://pubmed.ncbi.nlm.nih.gov/${(r.source_id || '').replace('PMID:', '')}/`
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        return c.text(csvRows.join('\n'), 200, {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename="leukemialens_export_${new Date().toISOString().split('T')[0]}.csv"`
+        });
+    } catch (e: any) {
+        return c.text(`Error exporting: ${e.message}`, 500);
+    }
+});
+
 app.get('/api/stats', async (c) => {
     try {
         const mutationStats = await c.env.DB.prepare(`

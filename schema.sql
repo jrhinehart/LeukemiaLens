@@ -69,3 +69,57 @@ CREATE TABLE links (
   FOREIGN KEY(study_id) REFERENCES studies(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_links_study ON links(study_id);
+
+-- ==========================================
+-- ONTOLOGY / REFERENCE TABLES
+-- ==========================================
+
+-- Reference: Diseases
+-- Authoritative list of diseases for filtering and normalization.
+CREATE TABLE ref_diseases (
+  id INTEGER PRIMARY KEY,
+  code TEXT UNIQUE NOT NULL, -- e.g., 'AML'
+  name TEXT NOT NULL, -- e.g., 'Acute Myeloid Leukemia'
+  display_order INTEGER DEFAULT 0
+);
+
+-- Seed Diseases
+INSERT INTO ref_diseases (code, name, display_order) VALUES 
+('AML', 'Acute Myeloid Leukemia', 1),
+('ALL', 'Acute Lymphoblastic Leukemia', 2),
+('CML', 'Chronic Myeloid Leukemia', 3),
+('CLL', 'Chronic Lymphocytic Leukemia', 4),
+('MDS', 'Myelodysplastic Syndromes', 5),
+('MPN', 'Myeloproliferative Neoplasms', 6),
+('DLBCL', 'Diffuse Large B-Cell Lymphoma', 7),
+('MM', 'Multiple Myeloma', 8);
+
+-- Reference: Mutations
+-- Authoritative list of mutations to track and filter by.
+CREATE TABLE ref_mutations (
+  id INTEGER PRIMARY KEY,
+  gene_symbol TEXT UNIQUE NOT NULL, -- e.g., 'FLT3'
+  name TEXT, -- Optional full name
+  category TEXT -- Optional: 'Kinase', 'Epigenetic', etc.
+);
+
+-- Seed Mutations (Top tracked)
+INSERT INTO ref_mutations (gene_symbol, category) VALUES
+('FLT3', 'Kinase'),
+('NPM1', 'Transcription Factor'),
+('IDH1', 'Metabolic'),
+('IDH2', 'Metabolic'),
+('TP53', 'Tumor Suppressor'),
+('KIT', 'Kinase'),
+('CEBPA', 'Transcription Factor'),
+('RUNX1', 'Transcription Factor'),
+('ASXL1', 'Epigenetic'),
+('DNMT3A', 'Epigenetic'),
+('TET2', 'Epigenetic'),
+('KRAS', 'Signaling'),
+('NRAS', 'Signaling'),
+('WT1', 'Transcription Factor'),
+('BCR-ABL1', 'Fusion'),
+('PML-RARA', 'Fusion'),
+('SF3B1', 'Splicing'),
+('GATA2', 'Transcription Factor');
