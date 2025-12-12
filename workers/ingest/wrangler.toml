@@ -1,0 +1,12 @@
+name = "leukemialens-ingest"
+main = "src/index.ts"
+compatibility_date = "2024-02-08"
+
+# Trigger via CRON
+[triggers]
+crons = ["0 0 * * *"] # Run once a day at midnight
+
+[[d1_databases]]
+binding = "DB"
+database_name = "leukemia-lens-db"
+database_id = "6f7d8bb5-1a41-428d-8692-4bc39384a08d"

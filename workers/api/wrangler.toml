@@ -1,0 +1,8 @@
+name = "leukemialens-api"
+main = "src/index.ts"
+compatibility_date = "2024-02-08"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "leukemia-lens-db"
+database_id = "6f7d8bb5-1a41-428d-8692-4bc39384a08d"

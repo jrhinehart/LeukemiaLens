@@ -1,0 +1,154 @@
+import { extractMetadata } from './parsers';
+import * as cheerio from 'cheerio';
+
+export interface Env {
+    DB: D1Database;
+}
+
+const SEARCH_TERM = '(Leukemia[Title/Abstract]) AND ("2023/01/01"[Date - Publication] : "3000"[Date - Publication])';
+const MAX_RESULTS = 20;
+const EMAIL = "antigravity@gemini.google.com";
+
+async function searchPubmed(termOverride: string | null = null): Promise<string[]> {
+    const params = new URLSearchParams({
+        db: "pubmed",
+        term: termOverride || SEARCH_TERM,
+        retmax: MAX_RESULTS.toString(),
+        usehistory: "y",
+        email: EMAIL,
+        retmode: 'json'
+    });
+
+    const response = await fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?${params.toString()}`);
+    const data: any = await response.json();
+    return data.esearchresult.idlist || [];
+}
+
+async function fetchDetails(ids: string[]): Promise<string> {
+    if (!ids.length) return "";
+    const params = new URLSearchParams({
+        db: "pubmed",
+        id: ids.join(","),
+        retmode: "xml",
+        email: EMAIL
+    });
+    const response = await fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?${params.toString()}`);
+    return await response.text();
+}
+
+export default {
+    async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+        ctx.waitUntil(this.processIngestion(env));
+    },
+
+    async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+        const url = new URL(request.url);
+        const year = url.searchParams.get("year");
+
+        let searchTermOverride = null;
+        if (year) {
+            searchTermOverride = `(Leukemia[Title/Abstract]) AND ("${year}/01/01"[Date - Publication] : "${year}/12/31"[Date - Publication])`;
+        }
+
+        // Manual trigger for testing
+        ctx.waitUntil(this.processIngestion(env, searchTermOverride));
+        return new Response(`Ingestion triggered for ${year || "default range"}`);
+    },
+
+    async processIngestion(env: Env, searchTermOverride: string | null = null) {
+        console.log(`Starting ingestion... term=${searchTermOverride || "default"}`);
+        try {
+            const ids = await searchPubmed(searchTermOverride);
+            console.log(`Found ${ids.length} articles.`);
+            if (ids.length === 0) return;
+
+            const xmlContent = await fetchDetails(ids);
+            const $ = cheerio.load(xmlContent, { xmlMode: true });
+
+            const articles = $('PubmedArticle');
+
+            for (const article of articles) {
+                const pmid = $(article).find('PMID').first().text();
+                const articleNode = $(article).find('MedlineCitation > Article');
+                const title = articleNode.find('ArticleTitle').text() || "No Title";
+                const abstract = articleNode.find('Abstract > AbstractText').text() || "";
+
+                const pubDateNode = articleNode.find('Journal > JournalIssue > PubDate');
+                let pubDateYear = pubDateNode.find('Year').text();
+                if (!pubDateYear) {
+                    // fallback if only MedlineDate
+                    const medlineDate = pubDateNode.find('MedlineDate').text();
+                    const match = medlineDate.match(/\d{4}/);
+                    pubDateYear = match ? match[0] : "1900";
+                }
+                const pubDate = `${pubDateYear}-01-01`; // Simplified date for now as per minimal requirements
+
+                const journal = articleNode.find('Journal > Title').text() || "Unknown Journal";
+
+                // Authors
+                const authorsList: string[] = [];
+                articleNode.find('AuthorList > Author').each((_, el) => {
+                    const last = $(el).find('LastName').text();
+                    const initials = $(el).find('Initials').text();
+                    if (last) authorsList.push(`${last} ${initials}`);
+                });
+                const authors = authorsList.join(", ");
+
+                const fullText = `${title} ${abstract}`;
+                const metadata = extractMetadata(fullText);
+
+                // --- D1 INSERTS ---
+                // 1. Studies Table
+                try {
+                    const { results } = await env.DB.prepare(`
+                INSERT INTO studies (title, abstract, pub_date, journal, authors, disease_subtype, has_complex_karyotype, transplant_context, source_id, source_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(source_id) DO UPDATE SET
+                    title=excluded.title,
+                    abstract=excluded.abstract,
+                    disease_subtype=excluded.disease_subtype
+                RETURNING id
+            `).bind(
+                        title,
+                        abstract,
+                        pubDate,
+                        journal,
+                        authors,
+                        metadata.diseaseSubtypes.join(','),
+                        metadata.hasComplexKaryotype ? 1 : 0,
+                        metadata.transplantContext ? 1 : 0,
+                        `PMID:${pmid}`,
+                        'pubmed'
+                    ).run();
+
+                    const studyId = results[0].id as number;
+
+                    // 2. Mutations
+                    // Clear existing for this study (simplest update strategy)
+                    await env.DB.prepare("DELETE FROM mutations WHERE study_id = ?").bind(studyId).run();
+                    if (metadata.mutations.length > 0) {
+                        const stmt = env.DB.prepare("INSERT INTO mutations (study_id, gene_symbol) VALUES (?, ?)");
+                        await env.DB.batch(metadata.mutations.map(m => stmt.bind(studyId, m)));
+                    }
+
+                    // 3. Cytogenetics (Complex karyotype logic is simple bool in main table, but if we had specific abnormalities we'd insert here)
+                    // For now, based on parser, we just check complex boolean. If we parse specific strings, we add them. 
+                    // In the parser we didn't extract specific cytogenetic strings other than the detecting complex.
+
+                    // 4. MRD (Not parsed yet)
+
+                    // 5. Links
+                    await env.DB.prepare("INSERT OR IGNORE INTO links (study_id, url, link_type) VALUES (?, ?, ?)")
+                        .bind(studyId, `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`, 'pubmed').run();
+
+                } catch (e: any) { // Use 'any' type for error to access 'message'
+                    console.error(`Error saving PMID:${pmid}:`, e.message);
+                }
+            }
+            console.log("Ingestion complete.");
+
+        } catch (e) {
+            console.error("Ingestion failed:", e);
+        }
+    }
+};
