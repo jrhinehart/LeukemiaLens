@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import bannerImage from '../../assets/images/LL-logo-banner.png'
 
 // Helper to serialize arrays as repeat params: key=val1&key=val2
 const paramsSerializer = (params: any) => {
@@ -143,8 +144,7 @@ function App() {
       <header className="bg-white border-b border-gray-300 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center text-white font-bold">L</div>
-            <h1 className="text-xl font-semibold text-gray-900">LeukemiaLens</h1>
+            <img src={bannerImage} alt="LeukemiaLens" className="h-12 object-contain" />
           </div>
 
 

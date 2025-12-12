@@ -7,6 +7,7 @@ CREATE TABLE studies (
   pub_date TEXT, -- ISO format YYYY-MM-DD
   journal TEXT,
   authors TEXT, -- Compact string or JSON array if needed, keeping simple text for now
+  affiliations TEXT, -- Added for institution filtering
   
   -- Extracted Metadata Fields
   disease_subtype TEXT, -- e.g., 'AML', 'ALL', 'CML'

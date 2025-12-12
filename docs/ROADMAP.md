@@ -1,0 +1,19 @@
+# LeukemiaLens Project Roadmap
+
+## 🚀 Immediate To-Do
+- [ ] **UI Polish**: Incorporate the new banner image (`LL-logo-banner.png`) into the header.
+- [ ] **Bug Fix**: Advanced search filters (Author, Journal, Institution) are currently placeholders in the UI and need backend support.
+
+## 🎨 Design & UX
+### Filter Experience Redesign
+**Current State**: Sidebar with lists.
+**Problem**: Cluttered, sidebar "floats" the concept but isn't scalable.
+**Goal**: A redesigned filter selection experience that is a key differentiator.
+**Ideas**:
+- Faceted search on top?
+- Modal for advanced filtering?
+- Natural language query builder?
+
+## 🔮 Future Features
+- **Data Expansion**: Parse more fields from XML.
+- **Analytics Dashboard**: Visualizing trends in leukemia research over time.

@@ -59,6 +59,22 @@ app.get('/api/search', async (c) => {
         constraints.push(`s.has_complex_karyotype = 1`);
     }
 
+    // Advanced Filters
+    const { author, journal, institution } = c.req.query();
+
+    if (author) {
+        constraints.push(`s.authors LIKE ?`);
+        params.push(`%${author}%`);
+    }
+    if (journal) {
+        constraints.push(`s.journal LIKE ?`);
+        params.push(`%${journal}%`);
+    }
+    if (institution) {
+        constraints.push(`s.affiliations LIKE ?`);
+        params.push(`%${institution}%`);
+    }
+
     // Date Range
     if (year_start) {
         constraints.push(`s.pub_date >= ?`);

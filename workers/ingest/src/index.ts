@@ -85,14 +85,21 @@ export default {
 
                 const journal = articleNode.find('Journal > Title').text() || "Unknown Journal";
 
-                // Authors
+                // Authors & Affiliations
                 const authorsList: string[] = [];
+                const affiliationsList: string[] = [];
                 articleNode.find('AuthorList > Author').each((_, el) => {
                     const last = $(el).find('LastName').text();
                     const initials = $(el).find('Initials').text();
                     if (last) authorsList.push(`${last} ${initials}`);
+
+                    const aff = $(el).find('AffiliationInfo > Affiliation').text();
+                    if (aff && !affiliationsList.includes(aff)) {
+                        affiliationsList.push(aff);
+                    }
                 });
                 const authors = authorsList.join(", ");
+                const affiliations = affiliationsList.join(" | ");
 
                 const fullText = `${title} ${abstract}`;
                 const metadata = extractMetadata(fullText);
@@ -101,12 +108,13 @@ export default {
                 // 1. Studies Table
                 try {
                     const { results } = await env.DB.prepare(`
-                INSERT INTO studies (title, abstract, pub_date, journal, authors, disease_subtype, has_complex_karyotype, transplant_context, source_id, source_type)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO studies (title, abstract, pub_date, journal, authors, affiliations, disease_subtype, has_complex_karyotype, transplant_context, source_id, source_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(source_id) DO UPDATE SET
                     title=excluded.title,
                     abstract=excluded.abstract,
-                    disease_subtype=excluded.disease_subtype
+                    disease_subtype=excluded.disease_subtype,
+                    affiliations=excluded.affiliations
                 RETURNING id
             `).bind(
                         title,
@@ -114,6 +122,7 @@ export default {
                         pubDate,
                         journal,
                         authors,
+                        affiliations,
                         metadata.diseaseSubtypes.join(','),
                         metadata.hasComplexKaryotype ? 1 : 0,
                         metadata.transplantContext ? 1 : 0,
