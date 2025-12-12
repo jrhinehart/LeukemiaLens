@@ -243,15 +243,28 @@ app.get('/api/stats', async (c) => {
             LIMIT 50
         `).all();
 
-        // Transform to format expected by frontend { mutations: { "FLT3": 10 }, tags: {} }
+        const topicStats = await c.env.DB.prepare(`
+            SELECT topic_name as name, COUNT(*) as count
+            FROM study_topics
+            GROUP BY topic_name
+            ORDER BY count DESC
+            LIMIT 50
+        `).all();
+
+        // Transform
         const mutations: Record<string, number> = {};
         mutationStats.results?.forEach((r: any) => {
             mutations[r.name] = r.count;
         });
 
+        const tags: Record<string, number> = {};
+        topicStats.results?.forEach((r: any) => {
+            tags[r.name] = r.count;
+        });
+
         return c.json({
             mutations,
-            tags: {} // Tags not yet implemented in D1
+            tags
         });
     } catch (e: any) {
         return c.json({ error: e.message }, 500);

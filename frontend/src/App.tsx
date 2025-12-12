@@ -267,8 +267,18 @@ function App() {
                 })
               ) : (
                 // Fallback to stats-only if ontology fails
-                Object.keys(stats.mutations).map((mut) => (
-                  <div key={mut} className="px-3 py-2 text-sm text-gray-500">Loading...</div>
+                Object.entries(stats.mutations).map(([mut, count]) => (
+                  <button
+                    key={mut}
+                    onClick={() => {
+                      if (selectedMutation.includes(mut)) setSelectedMutation(prev => prev.filter(x => x !== mut))
+                      else setSelectedMutation(prev => [...prev, mut])
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${selectedMutation.includes(mut) ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'}`}
+                  >
+                    <span>{mut}</span>
+                    <span className={`text-xs py-0.5 px-1.5 rounded-full ${selectedMutation.includes(mut) ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
+                  </button>
                 ))
               )}
             </div>

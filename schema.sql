@@ -59,6 +59,17 @@ CREATE TABLE mrd_methods (
 CREATE INDEX idx_mrd_method ON mrd_methods(method_name);
 CREATE INDEX idx_mrd_study ON mrd_methods(study_id);
 
+-- Junction Table: Study Topics
+-- Topics/Tags extracted from the text
+CREATE TABLE study_topics (
+  id INTEGER PRIMARY KEY,
+  study_id INTEGER NOT NULL,
+  topic_name TEXT NOT NULL,
+  FOREIGN KEY(study_id) REFERENCES studies(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_study_topics_name ON study_topics(topic_name);
+CREATE INDEX idx_study_topics_study ON study_topics(study_id);
+
 -- Links Table
 -- External links to the full text or source
 CREATE TABLE links (

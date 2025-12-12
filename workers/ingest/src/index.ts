@@ -9,11 +9,11 @@ const SEARCH_TERM = '(Leukemia[Title/Abstract]) AND ("2023/01/01"[Date - Publica
 const MAX_RESULTS = 20;
 const EMAIL = "antigravity@gemini.google.com";
 
-async function searchPubmed(termOverride: string | null = null): Promise<string[]> {
+async function searchPubmed(termOverride: string | null = null, limit: number = MAX_RESULTS): Promise<string[]> {
     const params = new URLSearchParams({
         db: "pubmed",
         term: termOverride || SEARCH_TERM,
-        retmax: MAX_RESULTS.toString(),
+        retmax: limit.toString(),
         usehistory: "y",
         email: EMAIL,
         retmode: 'json'
@@ -44,6 +44,8 @@ export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         const url = new URL(request.url);
         const year = url.searchParams.get("year");
+        const limitParam = url.searchParams.get("limit");
+        const limit = limitParam ? parseInt(limitParam) : MAX_RESULTS;
 
         let searchTermOverride = null;
         if (year) {
@@ -51,14 +53,14 @@ export default {
         }
 
         // Manual trigger for testing
-        ctx.waitUntil(this.processIngestion(env, searchTermOverride));
-        return new Response(`Ingestion triggered for ${year || "default range"}`);
+        ctx.waitUntil(this.processIngestion(env, searchTermOverride, limit));
+        return new Response(`Ingestion triggered for ${year || "default range"} with limit ${limit}`);
     },
 
-    async processIngestion(env: Env, searchTermOverride: string | null = null) {
-        console.log(`Starting ingestion... term=${searchTermOverride || "default"}`);
+    async processIngestion(env: Env, searchTermOverride: string | null = null, limit: number = MAX_RESULTS) {
+        console.log(`Starting ingestion... term=${searchTermOverride || "default"} limit=${limit}`);
         try {
-            const ids = await searchPubmed(searchTermOverride);
+            const ids = await searchPubmed(searchTermOverride, limit);
             console.log(`Found ${ids.length} articles.`);
             if (ids.length === 0) return;
 
@@ -143,6 +145,18 @@ export default {
                     // 3. Cytogenetics (Complex karyotype logic is simple bool in main table, but if we had specific abnormalities we'd insert here)
                     // For now, based on parser, we just check complex boolean. If we parse specific strings, we add them. 
                     // In the parser we didn't extract specific cytogenetic strings other than the detecting complex.
+
+                    // 3b. Study Topics
+                    await env.DB.prepare("DELETE FROM study_topics WHERE study_id = ?").bind(studyId).run();
+                    if (metadata.topics.length > 0) {
+                        const stmt = env.DB.prepare("INSERT INTO study_topics (study_id, topic_name) VALUES (?, ?)");
+                        // Allow duplicates in array? Parser might return unique, but let's be safe or just insert.
+                        // Metadata extractor usually returns lists. Using Set in parser or here is good.
+                        // For now assuming parser output is clean enough or DB handles it (no unique constraint on topic_name/study_id pair in schema yet, but simple is fine)
+                        // Ideally we use distinct topics.
+                        const distinctTopics = [...new Set(metadata.topics)];
+                        await env.DB.batch(distinctTopics.map(t => stmt.bind(studyId, t)));
+                    }
 
                     // 4. MRD (Not parsed yet)
 
