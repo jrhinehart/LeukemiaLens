@@ -1,0 +1,9 @@
+{
+    "name": "leukemia-lens-frontend",
+    "compatibility_date": "2024-09-23",
+    "assets": {
+        "directory": "./dist",
+        "binding": "ASSETS"
+    },
+    "main": "src/dummy-worker.js"
+}
