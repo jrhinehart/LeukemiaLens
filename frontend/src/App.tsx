@@ -141,24 +141,19 @@ function App() {
   return (
     <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-200">
       {/* Header */}
-      <header className="bg-white border-b border-gray-300 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src={bannerImage} alt="LeukemiaLens" className="h-12 object-contain" />
+      {/* Hero Section */}
+      <div className="bg-blue-900 text-white shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row items-center gap-8">
+          <div className="flex-shrink-0 bg-white p-4 rounded-xl shadow-lg">
+            <img src={bannerImage} alt="LeukemiaLens" className="h-20 md:h-24 object-contain" />
           </div>
-
-
-        </div>
-      </header>
-
-      {/* Intro Section */}
-      <div className="bg-blue-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <h2 className="text-3xl font-bold mb-3">Accelerating Leukemia Research</h2>
-          <p className="max-w-3xl text-blue-100 text-lg leading-relaxed">
-            LeukemiaLens empowers researchers and clinicians by aggregating the latest scientific findings from PubMed.
-            We automatically categorize articles by gene mutations, disease types, and emerging study topics to help you discover critical insights faster.
-          </p>
+          <div className="text-center md:text-left">
+            <h2 className="text-3xl font-bold mb-3 text-white">Accelerating Leukemia Research</h2>
+            <p className="max-w-3xl text-blue-100 text-lg leading-relaxed">
+              LeukemiaLens empowers researchers and clinicians by aggregating the latest scientific findings from PubMed.
+              We categorize articles by mutations, diseases, and topics to help you discover insights faster.
+            </p>
+          </div>
         </div>
       </div>
 
