@@ -5,5 +5,11 @@
         "directory": "./dist",
         "binding": "ASSETS"
     },
-    "main": "src/dummy-worker.js"
+    "main": "src/dummy-worker.js",
+    "routes": [
+        {
+            "pattern": "leukemialens.garlicsquash.com",
+            "custom_domain": true
+        }
+    ]
 }
