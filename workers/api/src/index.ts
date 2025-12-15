@@ -14,6 +14,7 @@ app.get('/api/search', async (c) => {
         q,
         mutation,
         disease,
+        tag,
         year_start,
         year_end,
         complex_karyotype,
@@ -36,6 +37,13 @@ app.get('/api/search', async (c) => {
         const mutations = mutation.split(',').map(m => m.trim());
         constraints.push(`m.gene_symbol IN (${mutations.map(() => '?').join(',')})`);
         params.push(...mutations);
+    }
+
+    if (tag) {
+        query += ` JOIN study_topics t ON s.id = t.study_id`;
+        const tags = tag.split(',').map(t => t.trim());
+        constraints.push(`t.topic_name IN (${tags.map(() => '?').join(',')})`);
+        params.push(...tags);
     }
 
     // Text Search
@@ -131,6 +139,7 @@ app.get('/api/export', async (c) => {
         q,
         mutation,
         disease,
+        tag,
         year_start,
         year_end,
         complex_karyotype,
@@ -150,6 +159,13 @@ app.get('/api/export', async (c) => {
         const mutations = mutation.split(',').map(m => m.trim());
         constraints.push(`m.gene_symbol IN (${mutations.map(() => '?').join(',')})`);
         params.push(...mutations);
+    }
+
+    if (tag) {
+        query += ` JOIN study_topics t ON s.id = t.study_id`;
+        const tags = tag.split(',').map(t => t.trim());
+        constraints.push(`t.topic_name IN (${tags.map(() => '?').join(',')})`);
+        params.push(...tags);
     }
 
     // Text Search
@@ -243,13 +259,19 @@ app.get('/api/stats', async (c) => {
             LIMIT 50
         `).all();
 
-        const topicStats = await c.env.DB.prepare(`
-            SELECT topic_name as name, COUNT(*) as count
-            FROM study_topics
-            GROUP BY topic_name
-            ORDER BY count DESC
-            LIMIT 50
-        `).all();
+        let topicStats = { results: [] };
+        try {
+            topicStats = await c.env.DB.prepare(`
+                SELECT topic_name as name, COUNT(*) as count
+                FROM study_topics
+                GROUP BY topic_name
+                ORDER BY count DESC
+                LIMIT 50
+            `).all();
+        } catch (e) {
+            // Table may not exist yet or be empty
+            console.warn('study_topics query failed:', e);
+        }
 
         // Transform
         const mutations: Record<string, number> = {};
@@ -265,6 +287,29 @@ app.get('/api/stats', async (c) => {
         return c.json({
             mutations,
             tags
+        });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+app.get('/api/ontology', async (c) => {
+    try {
+        const diseases = await c.env.DB.prepare(`
+            SELECT code, name 
+            FROM ref_diseases 
+            ORDER BY display_order
+        `).all();
+
+        const mutations = await c.env.DB.prepare(`
+            SELECT gene_symbol, category 
+            FROM ref_mutations 
+            ORDER BY gene_symbol
+        `).all();
+
+        return c.json({
+            diseases: diseases.results || [],
+            mutations: mutations.results || []
         });
     } catch (e: any) {
         return c.json({ error: e.message }, 500);

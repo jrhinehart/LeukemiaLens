@@ -29,10 +29,28 @@ const MUTATION_PATTERNS: Record<string, RegExp> = {
 };
 
 const TOPIC_PATTERNS: Record<string, RegExp> = {
-    "Data Science/AI": /\b(Artificial Intelligence|Machine Learning|Deep Learning|Bioinformatics|Neural Network|Big Data|Data Science|AI|ML)\b/i,
+    // Technology & Methods
+    "Data Science/AI": /\b(Artificial Intelligence|Machine Learning|Deep Learning|Bioinformatics|Neural Network|Big Data|Data Science|AI|ML|Computational)\b/i,
+    "Genomics": /\b(Next[- ]?Generation Sequencing|NGS|Whole[- ]?Genome Sequencing|WGS|RNA[- ]?Seq|Exome|Sequencing|Genomic)\b/i,
+    "Proteomics": /\b(Proteomics?|Mass Spectrometry|Protein Expression|Phosphoproteom)\b/i,
+
+    // Treatment Approaches
     "Cell Therapy": /\b(Cell Therapy|Stem Cell|HSCT|Bone Marrow Transplant|HSC|Hematopoietic)\b/i,
-    "CAR-T": /\b(CAR-T|Chimeric Antigen|CART)\b/i,
-    "Immunotherapy": /\b(Immunotherapy|Checkpoint Inhibitor|PD-1|PD-L1|CTLA-4)\b/i
+    "CAR-T": /\b(CAR-T|Chimeric Antigen|CART|CAR T[- ]?Cell)\b/i,
+    "Immunotherapy": /\b(Immunotherapy|Checkpoint Inhibitor|PD-1|PD-L1|CTLA-4|Immune)\b/i,
+    "Targeted Therapy": /\b(Targeted Therapy|Kinase Inhibitor|TKI|Small Molecule|Monoclonal Antibody)\b/i,
+    "Chemotherapy": /\b(Chemotherapy|Cytarabine|Daunorubicin|Anthracycline|Induction|Consolidation)\b/i,
+
+    // Clinical & Diagnostic
+    "Clinical Trial": /\b(Clinical Trial|Phase [I|II|III]|Randomized|Double[- ]?Blind|RCT|Multicenter)\b/i,
+    "MRD": /\b(Minimal Residual Disease|MRD|Flow Cytometry|PCR|Molecular Detection)\b/i,
+    "Prognosis": /\b(Prognosis|Prognostic|Survival|Risk Stratification|Outcome|Relapse)\b/i,
+    "Diagnosis": /\b(Diagnosis|Diagnostic|Biomarker|Detection|Screening)\b/i,
+
+    // Biology & Mechanisms
+    "Drug Resistance": /\b(Drug Resistance|Resistant|Refractory|Resistance Mechanism|Multi[- ]?Drug Resistance)\b/i,
+    "Epigenetics": /\b(Epigenetic|DNA Methylation|Histone|Chromatin|DNMT|TET)\b/i,
+    "Metabolism": /\b(Metabolism|Metabolic|Metabolomics|IDH|Glycolysis|Oxidative)\b/i,
 };
 
 export function extractMetadata(text: string): ExtractedMetadata {

@@ -2,6 +2,10 @@ name = "leukemialens-ingest"
 main = "src/index.ts"
 compatibility_date = "2024-02-08"
 
+# Environment Variables
+[vars]
+NCBI_EMAIL = "jr.rhinehart@gmail.com"
+
 # Trigger via CRON
 [triggers]
 crons = ["0 0 * * *"] # Run once a day at midnight

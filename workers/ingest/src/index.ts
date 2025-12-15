@@ -1,38 +1,69 @@
 import { extractMetadata } from './parsers';
+import { RateLimiter } from './rate-limiter';
 import * as cheerio from 'cheerio';
 
 export interface Env {
     DB: D1Database;
+    NCBI_API_KEY?: string; // Stored as Cloudflare secret
+    NCBI_EMAIL: string; // Stored as environment variable
 }
 
 const SEARCH_TERM = '(Leukemia[Title/Abstract]) AND ("2023/01/01"[Date - Publication] : "3000"[Date - Publication])';
 const MAX_RESULTS = 20;
-const EMAIL = "antigravity@gemini.google.com";
+const TOOL_NAME = "LeukemiaLens"; // Register tool name with NCBI
 
-async function searchPubmed(termOverride: string | null = null, limit: number = MAX_RESULTS): Promise<string[]> {
+// Global rate limiter instance
+let rateLimiter: RateLimiter;
+
+async function searchPubmed(env: Env, termOverride: string | null = null, limit: number = MAX_RESULTS): Promise<string[]> {
+    // Initialize rate limiter if not already done
+    if (!rateLimiter) {
+        const requestsPerSecond = env.NCBI_API_KEY ? 10 : 3;
+        rateLimiter = new RateLimiter(requestsPerSecond);
+        console.log(`Initialized with API key: ${env.NCBI_API_KEY ? 'YES (10 req/s)' : 'NO (3 req/s)'}`);
+    }
+
     const params = new URLSearchParams({
         db: "pubmed",
         term: termOverride || SEARCH_TERM,
         retmax: limit.toString(),
         usehistory: "y",
-        email: EMAIL,
+        email: env.NCBI_EMAIL,
+        tool: TOOL_NAME,
         retmode: 'json'
     });
 
-    const response = await fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?${params.toString()}`);
+    // Add API key if available
+    if (env.NCBI_API_KEY) {
+        params.append('api_key', env.NCBI_API_KEY);
+    }
+
+    const response = await rateLimiter.fetchWithRetry(
+        `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?${params.toString()}`
+    );
     const data: any = await response.json();
     return data.esearchresult.idlist || [];
 }
 
-async function fetchDetails(ids: string[]): Promise<string> {
+async function fetchDetails(env: Env, ids: string[]): Promise<string> {
     if (!ids.length) return "";
+
     const params = new URLSearchParams({
         db: "pubmed",
         id: ids.join(","),
         retmode: "xml",
-        email: EMAIL
+        email: env.NCBI_EMAIL,
+        tool: TOOL_NAME
     });
-    const response = await fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?${params.toString()}`);
+
+    // Add API key if available
+    if (env.NCBI_API_KEY) {
+        params.append('api_key', env.NCBI_API_KEY);
+    }
+
+    const response = await rateLimiter.fetchWithRetry(
+        `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?${params.toString()}`
+    );
     return await response.text();
 }
 
@@ -60,11 +91,11 @@ export default {
     async processIngestion(env: Env, searchTermOverride: string | null = null, limit: number = MAX_RESULTS) {
         console.log(`Starting ingestion... term=${searchTermOverride || "default"} limit=${limit}`);
         try {
-            const ids = await searchPubmed(searchTermOverride, limit);
+            const ids = await searchPubmed(env, searchTermOverride, limit);
             console.log(`Found ${ids.length} articles.`);
             if (ids.length === 0) return;
 
-            const xmlContent = await fetchDetails(ids);
+            const xmlContent = await fetchDetails(env, ids);
             const $ = cheerio.load(xmlContent, { xmlMode: true });
 
             const articles = $('PubmedArticle');
