@@ -223,18 +223,59 @@ app.get('/api/export', async (c) => {
     try {
         const { results } = await c.env.DB.prepare(query).bind(...params).run();
 
+        if (results.length === 0) {
+            return c.text('No results found', 200, {
+                'Content-Type': 'text/csv',
+                'Content-Disposition': `attachment; filename="leukemialens_export_${new Date().toISOString().split('T')[0]}.csv"`
+            });
+        }
+
+        // Fetch mutations and topics for the results
+        const studyIds = results.map((r: any) => r.id);
+        const idsPlaceholder = studyIds.map(() => '?').join(',');
+
+        const [mutationsRes, topicsRes] = await Promise.all([
+            c.env.DB.prepare(`
+                SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
+            `).bind(...studyIds).run(),
+            c.env.DB.prepare(`
+                SELECT study_id, topic_name FROM study_topics WHERE study_id IN (${idsPlaceholder})
+            `).bind(...studyIds).run()
+        ]);
+
+        // Build maps for mutations and topics
+        const mutationsMap: Record<number, string[]> = {};
+        const topicsMap: Record<number, string[]> = {};
+
+        mutationsRes.results?.forEach((m: any) => {
+            if (!mutationsMap[m.study_id]) mutationsMap[m.study_id] = [];
+            mutationsMap[m.study_id].push(m.gene_symbol);
+        });
+
+        topicsRes.results?.forEach((t: any) => {
+            if (!topicsMap[t.study_id]) topicsMap[t.study_id] = [];
+            topicsMap[t.study_id].push(t.topic_name);
+        });
+
         // Convert to CSV
-        const headers = ['ID', 'Title', 'Publication Date', 'Journal', 'Disease', 'Authors', 'Link'];
+        const headers = ['ID', 'Title', 'Abstract', 'Publication Date', 'Journal', 'Disease', 'Mutations', 'Topics', 'Authors', 'Affiliations', 'Link'];
         const csvRows = [headers.join(',')];
 
         results.forEach((r: any) => {
+            const mutations = mutationsMap[r.id]?.join(', ') || '';
+            const topics = topicsMap[r.id]?.join(', ') || '';
+
             const row = [
                 r.source_id || r.id,
                 `"${(r.title || '').replace(/"/g, '""')}"`, // Escape quotes
+                `"${(r.abstract || '').replace(/"/g, '""')}"`,
                 r.pub_date,
                 `"${(r.journal || '').replace(/"/g, '""')}"`,
                 `"${(r.disease_subtype || '').replace(/"/g, '""')}"`,
+                `"${mutations.replace(/"/g, '""')}"`,
+                `"${topics.replace(/"/g, '""')}"`,
                 `"${(r.authors || '').replace(/"/g, '""')}"`,
+                `"${(r.affiliations || '').replace(/"/g, '""')}"`,
                 `https://pubmed.ncbi.nlm.nih.gov/${(r.source_id || '').replace('PMID:', '')}/`
             ];
             csvRows.push(row.join(','));
