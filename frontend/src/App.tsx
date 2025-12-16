@@ -207,7 +207,9 @@ function App() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row items-center gap-8">
           <div className="flex-shrink-0">
-            <img src={bannerImage} alt="LeukemiaLens" className="h-20 md:h-24 object-contain" />
+            <a href="#" className="cursor-pointer" title="Back to Home">
+              <img src={bannerImage} alt="LeukemiaLens" className="h-20 md:h-24 object-contain hover:opacity-90 transition-opacity" />
+            </a>
           </div>
           <div className="text-center md:text-left">
             <h2 className="text-3xl font-bold mb-3 text-white">Accelerating Leukemia Research</h2>
@@ -406,12 +408,7 @@ function App() {
               </div>
             </div>
 
-            <button
-              onClick={resetAll}
-              className="w-full py-2 px-4 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              Reset All Filters
-            </button>
+
           </aside>
 
           {/* Main Content */}
@@ -466,10 +463,41 @@ function App() {
               </div>
             </div>
 
+            {/* Active Filters Display */}
+            {searchQuery && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Search:</span>
+                  <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium border border-blue-200">
+                    <span>"{searchQuery}"</span>
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="text-blue-600 hover:text-blue-800 transition-colors"
+                      aria-label="Clear search"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Latest Articles</h2>
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">{articles.length} results</span>
+                <button
+                  onClick={resetAll}
+                  className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
+                  title="Reset all filters"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                  </svg>
+                  Reset Filters
+                </button>
                 <button
                   onClick={handleExport}
                   className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
