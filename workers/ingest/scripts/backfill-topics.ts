@@ -11,6 +11,12 @@
 
 import { extractMetadata } from '../src/parsers';
 
+interface D1Response {
+    success: boolean;
+    result?: any[];
+    errors?: any[];
+}
+
 const DATABASE_ID = process.env.DATABASE_ID || '6f7d8bb5-1a41-428d-8692-4bc39384a08d';
 const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
@@ -32,9 +38,12 @@ async function queryD1(sql: string, params: any[] = []): Promise<any> {
         body: JSON.stringify({ sql, params })
     });
 
-    const data = await response.json();
+    const data = await response.json() as D1Response;
     if (!data.success) {
         throw new Error(`D1 Query failed: ${JSON.stringify(data.errors)}`);
+    }
+    if (!data.result || data.result.length === 0) {
+        throw new Error('D1 Query returned no results');
     }
     return data.result[0];
 }

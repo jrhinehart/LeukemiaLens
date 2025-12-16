@@ -154,6 +154,7 @@ function App() {
     if (searchQuery) params.append('q', searchQuery)
     if (selectedMutation.length) params.append('mutation', selectedMutation.join(','))
     if (selectedDisease.length) params.append('disease', selectedDisease.join(','))
+    if (selectedTag.length) params.append('tag', selectedTag.join(','))
     if (authorFilter) params.append('author', authorFilter)
     if (journalFilter) params.append('journal', journalFilter)
     if (institutionFilter) params.append('institution', institutionFilter)
@@ -208,12 +209,12 @@ function App() {
                       if (isSelected) setSelectedDisease(prev => prev.filter(x => x !== d.code))
                       else setSelectedDisease(prev => [...prev, d.code])
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex items-center gap-2 group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
                       }`}
                   >
-                    <span>{d.code}</span>
-                    {d.name !== d.code && <span className="text-xs text-gray-400 group-hover:text-gray-500 ml-2 truncate max-w-[100px]">{d.name}</span>}
-                    {isSelected && <span className="text-xs font-bold hover:text-blue-200 ml-auto">✕</span>}
+                    <span className="flex-shrink-0">{d.code}</span>
+                    {d.name !== d.code && <span className={`text-xs truncate flex-1 min-w-0 ${isSelected ? 'text-blue-100' : 'text-gray-400 group-hover:text-gray-500'}`}>{d.name}</span>}
+                    {isSelected && <span className="text-xs font-bold hover:text-blue-200 flex-shrink-0">✕</span>}
                   </button>
                 )
               })
@@ -318,7 +319,7 @@ function App() {
 
           {/* Advanced Filters */}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Advanced Search</h3>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Additional Filters</h3>
             <div className="space-y-3">
               <div>
                 <input
