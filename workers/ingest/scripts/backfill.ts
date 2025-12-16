@@ -2,6 +2,9 @@
 
 let WORKER_URL = "http://localhost:8787";
 
+// Convert to module to avoid global scope conflicts
+export { };
+
 async function runBackfill(startYear: number, endYear: number, workerUrl?: string) {
     if (workerUrl) WORKER_URL = workerUrl;
     console.log(`Starting backfill from ${startYear} to ${endYear} against ${WORKER_URL}...`);

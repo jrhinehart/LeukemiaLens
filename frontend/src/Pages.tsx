@@ -1,0 +1,302 @@
+interface PageProps {
+    onNavigateHome: () => void
+}
+
+export const AboutPage = ({ onNavigateHome }: PageProps) => {
+    return (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <button
+                onClick={onNavigateHome}
+                className="mb-6 text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2 transition-colors"
+            >
+                ← Back to Search
+            </button>
+
+            <h1 className="text-4xl font-bold text-gray-900 mb-8">About LeukemiaLens</h1>
+
+            {/* Mission Statement */}
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Mission</h2>
+                <div className="prose prose-lg max-w-none">
+                    <p className="text-gray-700 leading-relaxed mb-4">
+                        LeukemiaLens empowers researchers and clinicians by aggregating the latest scientific findings from PubMed.
+                        We categorize articles by mutations, diseases, and topics to help you discover insights faster.
+                    </p>
+                    <p className="text-gray-700 leading-relaxed">
+                        As a leukemia and bone marrow transplant survivor, I wanted to provide leukemia researchers and transplant teams
+                        with a tool that helps them focus in on complex karyotypes and cutting-edge research in their specific realm.
+                        There didn't seem to be a free tool out there, so this tool was born.
+                    </p>
+                </div>
+            </section>
+
+            {/* Usage & Licensing */}
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Usage & Licensing</h2>
+                <div className="prose prose-lg max-w-none">
+                    <p className="text-gray-700 leading-relaxed mb-4">
+                        LeukemiaLens is provided as a free service to the research and medical community. Our goal is to accelerate
+                        leukemia research and improve patient outcomes by making scientific literature more accessible and discoverable.
+                    </p>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mt-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Copyright Notice</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                            © {new Date().getFullYear()} LeukemiaLens. All rights reserved. This website and its content, including
+                            but not limited to text, graphics, user interface, and the selection and arrangement thereof, are protected
+                            by copyright and other intellectual property laws.
+                        </p>
+                        <p className="text-sm text-gray-600 leading-relaxed mt-3">
+                            <strong>Free to Use:</strong> LeukemiaLens is free to use for research, clinical, and educational purposes.
+                            No commercial use of this platform is permitted without prior written authorization.
+                        </p>
+                        <p className="text-sm text-gray-600 leading-relaxed mt-3">
+                            All PubMed article data is sourced from the National Library of Medicine and is subject to their respective
+                            copyright and usage terms.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    )
+}
+
+export const ContactPage = ({ onNavigateHome }: PageProps) => {
+    return (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <button
+                onClick={onNavigateHome}
+                className="mb-6 text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2 transition-colors"
+            >
+                ← Back to Search
+            </button>
+
+            <h1 className="text-4xl font-bold text-gray-900 mb-8">Contact Us</h1>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                <p className="text-gray-700 leading-relaxed mb-6">
+                    We welcome your feedback, feature requests, and bug reports. Your input helps us improve LeukemiaLens
+                    and better serve the research and medical community.
+                </p>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-3">Get in Touch</h2>
+                    <p className="text-gray-700 mb-2">
+                        For all inquiries, please email us at:
+                    </p>
+                    <p className="text-2xl font-bold text-blue-600">
+                        <a href="mailto:josh@garlicsquash.com" className="hover:underline">
+                            josh@garlicsquash.com
+                        </a>
+                    </p>
+                </div>
+
+                <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-900">What to Include:</h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-5">
+                            <div className="text-3xl mb-3">💡</div>
+                            <h4 className="font-semibold text-gray-900 mb-2">Feature Requests</h4>
+                            <p className="text-sm text-gray-700">
+                                Have an idea for a new feature or improvement? We'd love to hear it!
+                            </p>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-lg p-5">
+                            <div className="text-3xl mb-3">🐛</div>
+                            <h4 className="font-semibold text-gray-900 mb-2">Bug Reports</h4>
+                            <p className="text-sm text-gray-700">
+                                Found a bug? Please include steps to reproduce and any error messages.
+                            </p>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-5">
+                            <div className="text-3xl mb-3">📝</div>
+                            <h4 className="font-semibold text-gray-900 mb-2">General Feedback</h4>
+                            <p className="text-sm text-gray-700">
+                                Share your experience using LeukemiaLens and how we can improve.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+export const ResourcesPage = ({ onNavigateHome }: PageProps) => {
+    return (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <button
+                onClick={onNavigateHome}
+                className="mb-6 text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2 transition-colors"
+            >
+                ← Back to Search
+            </button>
+
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Resources</h1>
+            <p className="text-lg text-gray-600 mb-10">
+                A curated collection of databases, organizations, and tools for researchers, clinicians, and patients.
+            </p>
+
+            {/* Cancer Genomic Databases */}
+            <section className="mb-10">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                    <span className="text-3xl">🧬</span>
+                    Cancer Genomic Databases
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <a
+                        href="https://www.cbioportal.org/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">cBioPortal</h3>
+                        <p className="text-sm text-gray-600">
+                            Explore, visualize, and analyze multidimensional cancer genomics data from large-scale cancer studies.
+                        </p>
+                    </a>
+
+                    <a
+                        href="https://cancer.sanger.ac.uk/cosmic"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">COSMIC</h3>
+                        <p className="text-sm text-gray-600">
+                            Catalogue of Somatic Mutations in Cancer - the world's largest source of expert manually curated somatic mutation information.
+                        </p>
+                    </a>
+
+                    <a
+                        href="https://www.cancer.gov/ccg/research/genome-sequencing/tcga"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">The Cancer Genome Atlas (TCGA)</h3>
+                        <p className="text-sm text-gray-600">
+                            Comprehensive genomic characterization of more than 20,000 primary cancer samples across 33 cancer types.
+                        </p>
+                    </a>
+
+                    <a
+                        href="https://portal.gdc.cancer.gov/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">GDC Data Portal</h3>
+                        <p className="text-sm text-gray-600">
+                            NIH Genomic Data Commons - unified data repository enabling data sharing across cancer genomic studies.
+                        </p>
+                    </a>
+                </div>
+            </section>
+
+            {/* Patient Advocacy Groups */}
+            <section className="mb-10">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                    <span className="text-3xl">🤝</span>
+                    Patient Advocacy & Support Organizations
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <a
+                        href="https://www.lls.org/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">Leukemia & Lymphoma Society (LLS)</h3>
+                        <p className="text-sm text-gray-600">
+                            The world's largest voluntary health organization dedicated to funding blood cancer research and providing patient support.
+                        </p>
+                    </a>
+
+                    <a
+                        href="https://bethematch.org/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">Be The Match (NMDP)</h3>
+                        <p className="text-sm text-gray-600">
+                            National Marrow Donor Program - connecting patients with life-saving marrow and cord blood transplants.
+                        </p>
+                    </a>
+
+                    <a
+                        href="https://www.cancer.org/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">American Cancer Society</h3>
+                        <p className="text-sm text-gray-600">
+                            Nationwide organization providing cancer research, patient support, and educational resources for all cancer types.
+                        </p>
+                    </a>
+
+                    <a
+                        href="https://www.cancercare.org/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">CancerCare</h3>
+                        <p className="text-sm text-gray-600">
+                            Free, professional support services for anyone affected by cancer, including counseling, support groups, and financial assistance.
+                        </p>
+                    </a>
+                </div>
+            </section>
+
+            {/* Clinical Trials */}
+            <section>
+                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                    <span className="text-3xl">🔬</span>
+                    Clinical Trials
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <a
+                        href="https://clinicaltrials.gov/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">ClinicalTrials.gov</h3>
+                        <p className="text-sm text-gray-600">
+                            U.S. government database of clinical studies conducted around the world. Search for leukemia trials by location, phase, and type.
+                        </p>
+                    </a>
+
+                    <a
+                        href="https://www.cancer.gov/about-cancer/treatment/clinical-trials/search"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">NCI Clinical Trials Search</h3>
+                        <p className="text-sm text-gray-600">
+                            National Cancer Institute's comprehensive database of cancer clinical trials supported by NCI and other organizations.
+                        </p>
+                    </a>
+
+                    <a
+                        href="https://www.clinicaltrialsregister.eu/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">EU Clinical Trials Register</h3>
+                        <p className="text-sm text-gray-600">
+                            European Union's database of clinical trials conducted in the EU/EEA, providing information on trial protocols and results.
+                        </p>
+                    </a>
+                </div>
+            </section>
+        </div>
+    )
+}

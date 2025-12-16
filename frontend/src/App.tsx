@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import bannerImage from './assets/LL-logo-banner.jpg'
+import { AboutPage, ContactPage, ResourcesPage } from './Pages'
 
 // Helper to serialize arrays as repeat params: key=val1&key=val2
 const paramsSerializer = (params: any) => {
@@ -50,6 +51,20 @@ const HighlightText = ({ text, highlight }: { text: string, highlight: string })
 }
 
 function App() {
+  // Page routing
+  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources'>('home')
+
+  // Beta banner state (persist dismissal in localStorage)
+  const [showBetaBanner, setShowBetaBanner] = useState<boolean>(() => {
+    const dismissed = localStorage.getItem('betaBannerDismissed')
+    return dismissed !== 'true'
+  })
+
+  const dismissBetaBanner = () => {
+    setShowBetaBanner(false)
+    localStorage.setItem('betaBannerDismissed', 'true')
+  }
+
   const [articles, setArticles] = useState<Article[]>([])
 
   // Filters
@@ -79,6 +94,19 @@ function App() {
   useEffect(() => {
     fetchStats()
     fetchOntology()
+
+    // Handle hash navigation
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1)
+      if (hash === 'about' || hash === 'contact' || hash === 'resources') {
+        setCurrentPage(hash)
+      } else {
+        setCurrentPage('home')
+      }
+    }
+    handleHashChange()
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
   const fetchArticles = async () => {
@@ -173,7 +201,7 @@ function App() {
         {/* Top Navigation */}
         <nav className="absolute top-4 right-4 sm:right-8 flex gap-6 text-sm font-medium z-10">
           <a href="#about" className="text-blue-100 hover:text-white transition-colors">About</a>
-          <a href="#usage" className="text-blue-100 hover:text-white transition-colors">Usage</a>
+          <a href="#contact" className="text-blue-100 hover:text-white transition-colors">Contact</a>
           <a href="#resources" className="text-blue-100 hover:text-white transition-colors">Resources</a>
         </nav>
 
@@ -191,291 +219,326 @@ function App() {
         </div>
       </div>
 
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8">
+      {/* Conditional Page Rendering */}
+      {currentPage === 'about' && <AboutPage onNavigateHome={() => window.location.hash = ''} />}
+      {currentPage === 'contact' && <ContactPage onNavigateHome={() => window.location.hash = ''} />}
+      {currentPage === 'resources' && <ResourcesPage onNavigateHome={() => window.location.hash = ''} />}
 
-        {/* Sidebar Filters */}
-        <aside className="w-64 flex-shrink-0 space-y-6">
+      {/* Home/Search Page */}
+      {currentPage === 'home' && (
+        <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8">
 
-          {/* Diseases */}
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Diseases</h3>
-            {ontology.diseases.length > 0 ? (
-              ontology.diseases.map(d => {
-                const isSelected = selectedDisease.includes(d.code)
-                return (
-                  <button
-                    key={d.code}
-                    onClick={() => {
-                      if (isSelected) setSelectedDisease(prev => prev.filter(x => x !== d.code))
-                      else setSelectedDisease(prev => [...prev, d.code])
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex items-center gap-2 group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                      }`}
-                  >
-                    <span className="flex-shrink-0">{d.code}</span>
-                    {d.name !== d.code && <span className={`text-xs truncate flex-1 min-w-0 ${isSelected ? 'text-blue-100' : 'text-gray-400 group-hover:text-gray-500'}`}>{d.name}</span>}
-                    {isSelected && <span className="text-xs font-bold hover:text-blue-200 flex-shrink-0">✕</span>}
-                  </button>
-                )
-              })
-            ) : (
-              // Fallback if API fails or loading (or use skeletons)
-              ['AML', 'CML', 'ALL'].map(d => (
-                <button
-                  key={d}
-                  onClick={() => {
-                    if (selectedDisease.includes(d)) setSelectedDisease(prev => prev.filter(x => x !== d))
-                    else setSelectedDisease(prev => [...prev, d])
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex justify-between items-center ${selectedDisease.includes(d) ? 'bg-blue-600 text-white' : 'text-gray-700'}`}
-                >
-                  <span>{d}</span>
-                </button>
-              ))
-            )}
-          </div>
+          {/* Sidebar Filters */}
+          <aside className="w-64 flex-shrink-0 space-y-6">
 
-          <hr className="border-gray-300" />
-
-          {/* Common Mutations (Ontology Driven) */}
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Common Mutations</h3>
-            <div className="space-y-1 max-h-96 overflow-y-auto custom-scrollbar pr-1">
-              {ontology.mutations.length > 0 ? (
-                ontology.mutations.map(m => {
-                  const isSelected = selectedMutation.includes(m.gene_symbol)
-                  // Optional: Show count from stats if available, otherwise just list it
-                  const count = stats.mutations[m.gene_symbol] || 0
-
+            {/* Diseases */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Diseases</h3>
+              {ontology.diseases.length > 0 ? (
+                ontology.diseases.map(d => {
+                  const isSelected = selectedDisease.includes(d.code)
                   return (
                     <button
-                      key={m.gene_symbol}
+                      key={d.code}
                       onClick={() => {
-                        if (isSelected) setSelectedMutation(prev => prev.filter(x => x !== m.gene_symbol))
-                        else setSelectedMutation(prev => [...prev, m.gene_symbol])
+                        if (isSelected) setSelectedDisease(prev => prev.filter(x => x !== d.code))
+                        else setSelectedDisease(prev => [...prev, d.code])
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex items-center gap-2 group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
                         }`}
                     >
-                      <span>{m.gene_symbol}</span>
-                      <div className="flex items-center gap-2">
-                        {/* Show count only if > 0 to reduce clutter, or if selected */}
-                        {count > 0 && <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>}
-                        {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
-                      </div>
+                      <span className="flex-shrink-0">{d.code}</span>
+                      {d.name !== d.code && <span className={`text-xs truncate flex-1 min-w-0 ${isSelected ? 'text-blue-100' : 'text-gray-400 group-hover:text-gray-500'}`}>{d.name}</span>}
+                      {isSelected && <span className="text-xs font-bold hover:text-blue-200 flex-shrink-0">✕</span>}
                     </button>
                   )
                 })
               ) : (
-                // Fallback to stats-only if ontology fails
-                Object.entries(stats.mutations).map(([mut, count]) => (
+                // Fallback if API fails or loading (or use skeletons)
+                ['AML', 'CML', 'ALL'].map(d => (
                   <button
-                    key={mut}
+                    key={d}
                     onClick={() => {
-                      if (selectedMutation.includes(mut)) setSelectedMutation(prev => prev.filter(x => x !== mut))
-                      else setSelectedMutation(prev => [...prev, mut])
+                      if (selectedDisease.includes(d)) setSelectedDisease(prev => prev.filter(x => x !== d))
+                      else setSelectedDisease(prev => [...prev, d])
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${selectedMutation.includes(mut) ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'}`}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex justify-between items-center ${selectedDisease.includes(d) ? 'bg-blue-600 text-white' : 'text-gray-700'}`}
                   >
-                    <span>{mut}</span>
-                    <span className={`text-xs py-0.5 px-1.5 rounded-full ${selectedMutation.includes(mut) ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
+                    <span>{d}</span>
                   </button>
                 ))
               )}
             </div>
-          </div>
 
-          <hr className="border-gray-300" />
+            <hr className="border-gray-300" />
 
-          {/* Study Tags */}
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Study Topics</h3>
-            <div className="space-y-1">
-              {Object.entries(stats.tags).map(([tag, count]) => {
-                const isSelected = selectedTag.includes(tag)
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => {
-                      if (isSelected) setSelectedTag(prev => prev.filter(x => x !== tag))
-                      else setSelectedTag(prev => [...prev, tag])
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                      }`}
-                  >
-                    <span className="truncate">{tag}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
-                      {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
-                    </div>
-                  </button>
-                )
-              })}
-              {Object.keys(stats.tags).length === 0 && <p className="text-xs text-gray-400 px-3">No topics found.</p>}
+            {/* Common Mutations (Ontology Driven) */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Common Mutations</h3>
+              <div className="space-y-1 max-h-96 overflow-y-auto custom-scrollbar pr-1">
+                {ontology.mutations.length > 0 ? (
+                  ontology.mutations.map(m => {
+                    const isSelected = selectedMutation.includes(m.gene_symbol)
+                    // Optional: Show count from stats if available, otherwise just list it
+                    const count = stats.mutations[m.gene_symbol] || 0
+
+                    return (
+                      <button
+                        key={m.gene_symbol}
+                        onClick={() => {
+                          if (isSelected) setSelectedMutation(prev => prev.filter(x => x !== m.gene_symbol))
+                          else setSelectedMutation(prev => [...prev, m.gene_symbol])
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                          }`}
+                      >
+                        <span>{m.gene_symbol}</span>
+                        <div className="flex items-center gap-2">
+                          {/* Show count only if > 0 to reduce clutter, or if selected */}
+                          {count > 0 && <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>}
+                          {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
+                        </div>
+                      </button>
+                    )
+                  })
+                ) : (
+                  // Fallback to stats-only if ontology fails
+                  Object.entries(stats.mutations).map(([mut, count]) => (
+                    <button
+                      key={mut}
+                      onClick={() => {
+                        if (selectedMutation.includes(mut)) setSelectedMutation(prev => prev.filter(x => x !== mut))
+                        else setSelectedMutation(prev => [...prev, mut])
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${selectedMutation.includes(mut) ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'}`}
+                    >
+                      <span>{mut}</span>
+                      <span className={`text-xs py-0.5 px-1.5 rounded-full ${selectedMutation.includes(mut) ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
-          </div>
 
-          <hr className="border-gray-300" />
+            <hr className="border-gray-300" />
 
-          {/* Advanced Filters */}
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Additional Filters</h3>
-            <div className="space-y-3">
-              <div>
-                <input
-                  type="text"
-                  className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                  placeholder="Author (e.g. Smith)"
-                  value={authorFilter}
-                  onChange={e => setAuthorFilter(e.target.value)}
-                />
+            {/* Study Tags */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Study Topics</h3>
+              <div className="space-y-1">
+                {Object.entries(stats.tags).map(([tag, count]) => {
+                  const isSelected = selectedTag.includes(tag)
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => {
+                        if (isSelected) setSelectedTag(prev => prev.filter(x => x !== tag))
+                        else setSelectedTag(prev => [...prev, tag])
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                        }`}
+                    >
+                      <span className="truncate">{tag}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
+                        {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
+                      </div>
+                    </button>
+                  )
+                })}
+                {Object.keys(stats.tags).length === 0 && <p className="text-xs text-gray-400 px-3">No topics found.</p>}
               </div>
-              <div>
-                <input
-                  type="text"
-                  className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                  placeholder="Journal (e.g. Blood)"
-                  value={journalFilter}
-                  onChange={e => setJournalFilter(e.target.value)}
-                />
-              </div>
-              <div>
-                <input
-                  type="text"
-                  className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                  placeholder="Institution"
-                  value={institutionFilter}
-                  onChange={e => setInstitutionFilter(e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-2">
+            </div>
+
+            <hr className="border-gray-300" />
+
+            {/* Advanced Filters */}
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Additional Filters</h3>
+              <div className="space-y-3">
                 <div>
                   <input
                     type="text"
                     className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                    placeholder="Start Date (YYYY or YYYY-MM-DD)"
-                    value={startDate}
-                    onChange={e => setStartDate(e.target.value)}
+                    placeholder="Author (e.g. Smith)"
+                    value={authorFilter}
+                    onChange={e => setAuthorFilter(e.target.value)}
                   />
                 </div>
                 <div>
                   <input
                     type="text"
                     className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                    placeholder="End Date (YYYY or YYYY-MM-DD)"
-                    value={endDate}
-                    onChange={e => setEndDate(e.target.value)}
+                    placeholder="Journal (e.g. Blood)"
+                    value={journalFilter}
+                    onChange={e => setJournalFilter(e.target.value)}
                   />
                 </div>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={resetAll}
-            className="w-full py-2 px-4 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            Reset All Filters
-          </button>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 min-w-0">
-
-          <div className="mb-8">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search titles and abstracts..."
-                className="w-full pl-5 pr-12 py-3 border border-gray-300 rounded-xl text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && fetchArticles()}
-              />
-              <button
-                onClick={fetchArticles}
-                className="absolute right-2 top-2 p-1 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
-                title="Search"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Latest Articles</h2>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">{articles.length} results</span>
-              <button
-                onClick={handleExport}
-                className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
-                title="Export results to CSV"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                </svg>
-                Export CSV
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {articles.map((article) => (
-              <div key={article.pubmed_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {article.mutations.map(m => (
-                        <span key={m} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                          {m}
-                        </span>
-                      ))}
-                      {article.diseases.map(d => (
-                        <span key={d} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                          {d}
-                        </span>
-                      ))}
-                      {article.tags.map(t => (
-                        <span key={t} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                          {t}
-                        </span>
-                      ))}
-                      <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
-                        {article.journal}
-                      </span>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2 break-words">
-                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline">
-                        <HighlightText text={article.title} highlight={searchQuery} />
-                      </a>
-                    </h3>
-                    <div className="text-xs text-gray-500 mb-3 flex flex-col gap-1">
-                      <span className="font-semibold text-gray-800 break-words">{article.authors}</span>
-                      {article.affiliations && <span className="text-gray-400 italic truncate w-full" title={article.affiliations}>{article.affiliations}</span>}
-                    </div>
-                    <p className="text-sm text-gray-700 mb-4 line-clamp-3 leading-relaxed break-words">
-                      <HighlightText text={article.abstract} highlight={searchQuery} />
-                    </p>
-                    <div className="flex items-center text-xs font-medium text-gray-500 gap-4 border-t border-gray-100 pt-3">
-                      <span>PMID: {article.pubmed_id}</span>
-                      <span>Published: {article.pub_date}</span>
-                    </div>
+                <div>
+                  <input
+                    type="text"
+                    className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                    placeholder="Institution"
+                    value={institutionFilter}
+                    onChange={e => setInstitutionFilter(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  <div>
+                    <input
+                      type="text"
+                      className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                      placeholder="Start Date (YYYY or YYYY-MM-DD)"
+                      value={startDate}
+                      onChange={e => setStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                      placeholder="End Date (YYYY or YYYY-MM-DD)"
+                      value={endDate}
+                      onChange={e => setEndDate(e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
-            ))}
+            </div>
 
-            {articles.length === 0 && (
-              <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                <p className="text-gray-500 text-lg">No articles found matching filters.</p>
-                <button onClick={resetAll} className="mt-4 text-blue-600 hover:underline text-sm">Clear all filters</button>
+            <button
+              onClick={resetAll}
+              className="w-full py-2 px-4 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              Reset All Filters
+            </button>
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 min-w-0">
+
+            {/* Beta Testing Banner */}
+            {showBetaBanner && (
+              <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg p-5 shadow-sm relative">
+                <button
+                  onClick={dismissBetaBanner}
+                  className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Dismiss banner"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <div className="flex items-start gap-3 pr-8">
+                  <div className="flex-shrink-0 text-2xl">🧪</div>
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900 mb-2">Welcome to LeukemiaLens Beta!</h3>
+                    <p className="text-sm text-gray-700 leading-relaxed mb-2">
+                      You're testing an early version of LeukemiaLens. Currently, the database contains <strong>~50 records per year</strong> for recent years to validate functionality and gather feedback.
+                    </p>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      We'd love to hear your thoughts! Please share feedback, feature requests, or bug reports via the <a href="#contact" className="text-blue-600 hover:text-blue-800 font-medium underline">Contact</a> page.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
-          </div>
-        </main>
-      </div>
+
+            <div className="mb-8">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search titles and abstracts..."
+                  className="w-full pl-5 pr-12 py-3 border border-gray-300 rounded-xl text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && fetchArticles()}
+                />
+                <button
+                  onClick={fetchArticles}
+                  className="absolute right-2 top-2 p-1 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Search"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Latest Articles</h2>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">{articles.length} results</span>
+                <button
+                  onClick={handleExport}
+                  className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
+                  title="Export results to CSV"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                  </svg>
+                  Export CSV
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {articles.map((article) => (
+                <div key={article.pubmed_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {article.mutations.map(m => (
+                          <span key={m} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                            {m}
+                          </span>
+                        ))}
+                        {article.diseases.map(d => (
+                          <span key={d} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                            {d}
+                          </span>
+                        ))}
+                        {article.tags.map(t => (
+                          <span key={t} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                            {t}
+                          </span>
+                        ))}
+                        <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                          {article.journal}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2 break-words">
+                        <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline">
+                          <HighlightText text={article.title} highlight={searchQuery} />
+                        </a>
+                      </h3>
+                      <div className="text-xs text-gray-500 mb-3 flex flex-col gap-1">
+                        <span className="font-semibold text-gray-800 break-words">{article.authors}</span>
+                        {article.affiliations && <span className="text-gray-400 italic truncate w-full" title={article.affiliations}>{article.affiliations}</span>}
+                      </div>
+                      <p className="text-sm text-gray-700 mb-4 line-clamp-3 leading-relaxed break-words">
+                        <HighlightText text={article.abstract} highlight={searchQuery} />
+                      </p>
+                      <div className="flex items-center text-xs font-medium text-gray-500 gap-4 border-t border-gray-100 pt-3">
+                        <span>PMID: {article.pubmed_id}</span>
+                        <span>Published: {article.pub_date}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {articles.length === 0 && (
+                <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+                  <p className="text-gray-500 text-lg">No articles found matching filters.</p>
+                  <button onClick={resetAll} className="mt-4 text-blue-600 hover:underline text-sm">Clear all filters</button>
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
+      )}
     </div>
   )
 }
