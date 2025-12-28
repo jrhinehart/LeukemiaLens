@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import bannerImage from './assets/LL-logo-banner.jpg'
 import { AboutPage, ContactPage, ResourcesPage } from './Pages'
+import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter } from './components'
 
 // Helper to serialize arrays as repeat params: key=val1&key=val2
 const paramsSerializer = (params: any) => {
@@ -82,6 +83,13 @@ function App() {
   const [stats, setStats] = useState<{ mutations: { [key: string]: number }, tags: { [key: string]: number } }>({ mutations: {}, tags: {} })
   const [ontology, setOntology] = useState<{ diseases: any[], mutations: any[] }>({ diseases: [], mutations: [] })
 
+  // Pagination state
+  const [resultsPage, setResultsPage] = useState(1)
+  const itemsPerPage = 25
+
+  // Scroll tracking for return-to-top button
+  const [showScrollTop, setShowScrollTop] = useState(false)
+
   useEffect(() => {
     // Debounce text inputs if needed, but for now just fetch on effect
     const timeoutId = setTimeout(() => {
@@ -108,6 +116,22 @@ function App() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  // Scroll listener for return-to-top button
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollPercent = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100
+      setShowScrollTop(scrollPercent > 25)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setResultsPage(1)
+  }, [selectedMutation, selectedDisease, selectedTag, searchQuery, authorFilter, journalFilter, institutionFilter, startDate, endDate])
 
   const fetchArticles = async () => {
     try {
@@ -188,13 +212,38 @@ function App() {
     if (institutionFilter) params.append('institution', institutionFilter)
     if (startDate) params.append('year_start', startDate)
     if (endDate) params.append('year_end', endDate)
+    params.append('limit', '500') // Limit exports to 500 rows
 
     // Trigger download
     window.location.href = `https://leukemialens-api.jr-rhinehart.workers.dev/api/export?${params.toString()}`
   }
 
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Calculate pagination
+  const totalPages = Math.ceil(articles.length / itemsPerPage)
+  const startIndex = (resultsPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedArticles = articles.slice(startIndex, endIndex)
+
   return (
     <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-200">
+      {/* Return to Top Button */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-all z-50 group"
+          aria-label="Return to top"
+          title="Return to top"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+          </svg>
+        </button>
+      )}
+
       {/* Header */}
       {/* Hero Section */}
       <div className="relative bg-gradient-to-r from-blue-950 via-blue-700 to-blue-500 text-white shadow-md">
@@ -231,184 +280,125 @@ function App() {
         <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8">
 
           {/* Sidebar Filters */}
-          <aside className="w-64 flex-shrink-0 space-y-6">
+          <aside className="w-64 flex-shrink-0">
+            <div className="sticky top-8 space-y-6 max-h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar pr-2">
 
-            {/* Diseases */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Diseases</h3>
-              {ontology.diseases.length > 0 ? (
-                ontology.diseases.map(d => {
-                  const isSelected = selectedDisease.includes(d.code)
-                  return (
-                    <button
-                      key={d.code}
-                      onClick={() => {
-                        if (isSelected) setSelectedDisease(prev => prev.filter(x => x !== d.code))
-                        else setSelectedDisease(prev => [...prev, d.code])
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex items-center gap-2 group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                        }`}
-                    >
-                      <span className="flex-shrink-0">{d.code}</span>
-                      {d.name !== d.code && <span className={`text-xs truncate flex-1 min-w-0 ${isSelected ? 'text-blue-100' : 'text-gray-400 group-hover:text-gray-500'}`}>{d.name}</span>}
-                      {isSelected && <span className="text-xs font-bold hover:text-blue-200 flex-shrink-0">✕</span>}
-                    </button>
-                  )
-                })
-              ) : (
-                // Fallback if API fails or loading (or use skeletons)
-                ['AML', 'CML', 'ALL'].map(d => (
-                  <button
-                    key={d}
-                    onClick={() => {
-                      if (selectedDisease.includes(d)) setSelectedDisease(prev => prev.filter(x => x !== d))
-                      else setSelectedDisease(prev => [...prev, d])
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors mb-1 flex justify-between items-center ${selectedDisease.includes(d) ? 'bg-blue-600 text-white' : 'text-gray-700'}`}
-                  >
-                    <span>{d}</span>
-                  </button>
-                ))
-              )}
-            </div>
-
-            <hr className="border-gray-300" />
-
-            {/* Common Mutations (Ontology Driven) */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Common Mutations</h3>
-              <div className="space-y-1 max-h-96 overflow-y-auto custom-scrollbar pr-1">
-                {ontology.mutations.length > 0 ? (
-                  ontology.mutations.map(m => {
-                    const isSelected = selectedMutation.includes(m.gene_symbol)
-                    // Optional: Show count from stats if available, otherwise just list it
-                    const count = stats.mutations[m.gene_symbol] || 0
-
-                    return (
-                      <button
-                        key={m.gene_symbol}
-                        onClick={() => {
-                          if (isSelected) setSelectedMutation(prev => prev.filter(x => x !== m.gene_symbol))
-                          else setSelectedMutation(prev => [...prev, m.gene_symbol])
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                          }`}
-                      >
-                        <span>{m.gene_symbol}</span>
-                        <div className="flex items-center gap-2">
-                          {/* Show count only if > 0 to reduce clutter, or if selected */}
-                          {count > 0 && <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>}
-                          {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
-                        </div>
-                      </button>
-                    )
-                  })
-                ) : (
-                  // Fallback to stats-only if ontology fails
-                  Object.entries(stats.mutations).map(([mut, count]) => (
-                    <button
-                      key={mut}
-                      onClick={() => {
-                        if (selectedMutation.includes(mut)) setSelectedMutation(prev => prev.filter(x => x !== mut))
-                        else setSelectedMutation(prev => [...prev, mut])
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${selectedMutation.includes(mut) ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'}`}
-                    >
-                      <span>{mut}</span>
-                      <span className={`text-xs py-0.5 px-1.5 rounded-full ${selectedMutation.includes(mut) ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
-                    </button>
-                  ))
-                )}
+              {/* Main Search - Moved to top of filters */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Search</h3>
+                <TextSearchFilter
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  onSearch={fetchArticles}
+                  placeholder="Search articles..."
+                />
               </div>
-            </div>
 
-            <hr className="border-gray-300" />
+              <hr className="border-gray-300" />
 
-            {/* Study Tags */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Study Topics</h3>
-              <div className="space-y-1">
-                {Object.entries(stats.tags).map(([tag, count]) => {
-                  const isSelected = selectedTag.includes(tag)
-                  return (
-                    <button
-                      key={tag}
-                      onClick={() => {
-                        if (isSelected) setSelectedTag(prev => prev.filter(x => x !== tag))
-                        else setSelectedTag(prev => [...prev, tag])
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex justify-between items-center group ${isSelected ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                        }`}
-                    >
-                      <span className="truncate">{tag}</span>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs py-0.5 px-1.5 rounded-full ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>{count}</span>
-                        {isSelected && <span className="text-xs font-bold hover:text-blue-200">✕</span>}
-                      </div>
-                    </button>
-                  )
-                })}
-                {Object.keys(stats.tags).length === 0 && <p className="text-xs text-gray-400 px-3">No topics found.</p>}
-              </div>
-            </div>
+              {/* Diseases */}
+              <SimpleListFilter
+                title="Diseases"
+                items={ontology.diseases.length > 0
+                  ? ontology.diseases.map(d => ({
+                    id: d.code,
+                    label: d.code,
+                    description: d.name !== d.code ? d.name : undefined
+                  }))
+                  : ['AML', 'CML', 'ALL'].map(d => ({ id: d, label: d }))
+                }
+                selectedIds={selectedDisease}
+                onChange={setSelectedDisease}
+                defaultCollapsed={true}
+              />
 
-            <hr className="border-gray-300" />
+              <hr className="border-gray-300" />
 
-            {/* Advanced Filters */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Additional Filters</h3>
-              <div className="space-y-3">
-                <div>
-                  <input
-                    type="text"
-                    className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                    placeholder="Author (e.g. Smith)"
-                    value={authorFilter}
-                    onChange={e => setAuthorFilter(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                    placeholder="Journal (e.g. Blood)"
-                    value={journalFilter}
-                    onChange={e => setJournalFilter(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                    placeholder="Institution"
-                    value={institutionFilter}
-                    onChange={e => setInstitutionFilter(e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-2">
+              {/* Common Mutations (Ontology Driven) */}
+              <SearchableListFilter
+                title="Common Mutations"
+                items={ontology.mutations.length > 0
+                  ? ontology.mutations.map(m => ({
+                    id: m.gene_symbol,
+                    label: m.gene_symbol,
+                    count: stats.mutations[m.gene_symbol] || 0
+                  }))
+                  : Object.entries(stats.mutations).map(([mut, count]) => ({
+                    id: mut,
+                    label: mut,
+                    count: count as number
+                  }))
+                }
+                selectedIds={selectedMutation}
+                onChange={setSelectedMutation}
+                searchPlaceholder="Search mutations..."
+                maxHeight="24rem"
+                defaultCollapsed={true}
+              />
+
+              <hr className="border-gray-300" />
+
+              {/* Study Tags */}
+              <SimpleListFilter
+                title="Study Topics"
+                items={Object.entries(stats.tags).map(([tag, count]) => ({
+                  id: tag,
+                  label: tag,
+                  count: count as number
+                }))}
+                selectedIds={selectedTag}
+                onChange={setSelectedTag}
+                defaultCollapsed={true}
+              />
+
+              <hr className="border-gray-300" />
+
+              {/* Advanced Filters */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">Additional Filters</h3>
+
+                <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-3">
                   <div>
                     <input
                       type="text"
                       className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                      placeholder="Start Date (YYYY or YYYY-MM-DD)"
-                      value={startDate}
-                      onChange={e => setStartDate(e.target.value)}
+                      placeholder="Author (e.g. Smith)"
+                      value={authorFilter}
+                      onChange={e => setAuthorFilter(e.target.value)}
                     />
                   </div>
                   <div>
                     <input
                       type="text"
                       className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                      placeholder="End Date (YYYY or YYYY-MM-DD)"
-                      value={endDate}
-                      onChange={e => setEndDate(e.target.value)}
+                      placeholder="Journal (e.g. Blood)"
+                      value={journalFilter}
+                      onChange={e => setJournalFilter(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                      placeholder="Institution"
+                      value={institutionFilter}
+                      onChange={e => setInstitutionFilter(e.target.value)}
                     />
                   </div>
                 </div>
+
+                <DateRangeFilter
+                  title="Publication Date"
+                  startDate={startDate}
+                  endDate={endDate}
+                  onStartDateChange={setStartDate}
+                  onEndDateChange={setEndDate}
+                  defaultCollapsed={false}
+                />
               </div>
+
+
             </div>
-
-
           </aside>
 
           {/* Main Content */}
@@ -441,27 +431,7 @@ function App() {
               </div>
             )}
 
-            <div className="mb-8">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search titles and abstracts..."
-                  className="w-full pl-5 pr-12 py-3 border border-gray-300 rounded-xl text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && fetchArticles()}
-                />
-                <button
-                  onClick={fetchArticles}
-                  className="absolute right-2 top-2 p-1 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Search"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+
 
             {/* Active Filters Display */}
             {searchQuery && (
@@ -512,7 +482,7 @@ function App() {
             </div>
 
             <div className="space-y-4">
-              {articles.map((article) => (
+              {paginatedArticles.map((article) => (
                 <div key={article.pubmed_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -557,13 +527,64 @@ function App() {
                 </div>
               ))}
 
-              {articles.length === 0 && (
+              {paginatedArticles.length === 0 && (
                 <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
                   <p className="text-gray-500 text-lg">No articles found matching filters.</p>
                   <button onClick={resetAll} className="mt-4 text-blue-600 hover:underline text-sm">Clear all filters</button>
                 </div>
               )}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setResultsPage(p => Math.max(1, p - 1))}
+                  disabled={resultsPage === 1}
+                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      // Show first page, last page, current page, and pages around current
+                      if (page === 1 || page === totalPages) return true
+                      if (Math.abs(page - resultsPage) <= 1) return true
+                      return false
+                    })
+                    .map((page, index, array) => {
+                      // Add ellipsis when there's a gap
+                      const prevPage = array[index - 1]
+                      const showEllipsis = prevPage && page - prevPage > 1
+
+                      return (
+                        <div key={page} className="flex items-center gap-1">
+                          {showEllipsis && <span className="px-2 text-gray-400">...</span>}
+                          <button
+                            onClick={() => setResultsPage(page)}
+                            className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                              }`}
+                          >
+                            {page}
+                          </button>
+                        </div>
+                      )
+                    })}
+                </div>
+
+                <button
+                  onClick={() => setResultsPage(p => Math.min(totalPages, p + 1))}
+                  disabled={resultsPage === totalPages}
+                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </main>
         </div>
       )}
