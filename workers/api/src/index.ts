@@ -15,6 +15,7 @@ app.get('/api/search', async (c) => {
         mutation,
         disease,
         tag,
+        treatment,
         year_start,
         year_end,
         complex_karyotype,
@@ -44,6 +45,13 @@ app.get('/api/search', async (c) => {
         const tags = tag.split(',').map(t => t.trim());
         constraints.push(`t.topic_name IN (${tags.map(() => '?').join(',')})`);
         params.push(...tags);
+    }
+
+    if (treatment) {
+        query += ` JOIN treatments tr ON s.id = tr.study_id JOIN ref_treatments rt ON tr.treatment_id = rt.id`;
+        const treatments = treatment.split(',').map(t => t.trim());
+        constraints.push(`rt.code IN (${treatments.map(() => '?').join(',')})`);
+        params.push(...treatments);
     }
 
     // Text Search
@@ -109,11 +117,19 @@ app.get('/api/search', async (c) => {
         if (results.length === 0) return c.json([]);
 
         const studyIds = results.map((r: any) => r.id);
-        // Fetch mutations for these studies to hydrate the response
+        // Fetch mutations and treatments for these studies to hydrate the response
         const idsPlaceholder = studyIds.map(() => '?').join(',');
-        const mutationsRes = await c.env.DB.prepare(`
-        SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
-    `).bind(...studyIds).run();
+        const [mutationsRes, treatmentsRes] = await Promise.all([
+            c.env.DB.prepare(`
+                SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
+            `).bind(...studyIds).run(),
+            c.env.DB.prepare(`
+                SELECT tr.study_id, rt.code, rt.name, rt.type 
+                FROM treatments tr 
+                JOIN ref_treatments rt ON tr.treatment_id = rt.id 
+                WHERE tr.study_id IN (${idsPlaceholder})
+            `).bind(...studyIds).run()
+        ]);
 
         const mutationsMap: Record<number, string[]> = {};
         if (mutationsRes.results) {
@@ -123,9 +139,18 @@ app.get('/api/search', async (c) => {
             });
         }
 
+        const treatmentsMap: Record<number, any[]> = {};
+        if (treatmentsRes.results) {
+            treatmentsRes.results.forEach((t: any) => {
+                if (!treatmentsMap[t.study_id]) treatmentsMap[t.study_id] = [];
+                treatmentsMap[t.study_id].push({ code: t.code, name: t.name, type: t.type });
+            });
+        }
+
         const enhancedResults = results.map((r: any) => ({
             ...r,
-            mutations: mutationsMap[r.id] || []
+            mutations: mutationsMap[r.id] || [],
+            treatments: treatmentsMap[r.id] || []
         }));
 
         return c.json(enhancedResults);
@@ -140,6 +165,7 @@ app.get('/api/export', async (c) => {
         mutation,
         disease,
         tag,
+        treatment,
         year_start,
         year_end,
         complex_karyotype,
@@ -166,6 +192,13 @@ app.get('/api/export', async (c) => {
         const tags = tag.split(',').map(t => t.trim());
         constraints.push(`t.topic_name IN (${tags.map(() => '?').join(',')})`);
         params.push(...tags);
+    }
+
+    if (treatment) {
+        query += ` JOIN treatments tr ON s.id = tr.study_id JOIN ref_treatments rt ON tr.treatment_id = rt.id`;
+        const treatments = treatment.split(',').map(t => t.trim());
+        constraints.push(`rt.code IN (${treatments.map(() => '?').join(',')})`);
+        params.push(...treatments);
     }
 
     // Text Search
@@ -230,22 +263,29 @@ app.get('/api/export', async (c) => {
             });
         }
 
-        // Fetch mutations and topics for the results
+        // Fetch mutations, topics, and treatments for the results
         const studyIds = results.map((r: any) => r.id);
         const idsPlaceholder = studyIds.map(() => '?').join(',');
 
-        const [mutationsRes, topicsRes] = await Promise.all([
+        const [mutationsRes, topicsRes, treatmentsRes] = await Promise.all([
             c.env.DB.prepare(`
                 SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
             `).bind(...studyIds).run(),
             c.env.DB.prepare(`
                 SELECT study_id, topic_name FROM study_topics WHERE study_id IN (${idsPlaceholder})
+            `).bind(...studyIds).run(),
+            c.env.DB.prepare(`
+                SELECT tr.study_id, rt.name
+                FROM treatments tr
+                JOIN ref_treatments rt ON tr.treatment_id = rt.id
+                WHERE tr.study_id IN (${idsPlaceholder})
             `).bind(...studyIds).run()
         ]);
 
-        // Build maps for mutations and topics
+        // Build maps for mutations, topics, and treatments
         const mutationsMap: Record<number, string[]> = {};
         const topicsMap: Record<number, string[]> = {};
+        const treatmentsMap: Record<number, string[]> = {};
 
         mutationsRes.results?.forEach((m: any) => {
             if (!mutationsMap[m.study_id]) mutationsMap[m.study_id] = [];
@@ -257,13 +297,19 @@ app.get('/api/export', async (c) => {
             topicsMap[t.study_id].push(t.topic_name);
         });
 
+        treatmentsRes.results?.forEach((t: any) => {
+            if (!treatmentsMap[t.study_id]) treatmentsMap[t.study_id] = [];
+            treatmentsMap[t.study_id].push(t.name);
+        });
+
         // Convert to CSV
-        const headers = ['ID', 'Title', 'Abstract', 'Publication Date', 'Journal', 'Disease', 'Mutations', 'Topics', 'Authors', 'Affiliations', 'Link'];
+        const headers = ['ID', 'Title', 'Abstract', 'Publication Date', 'Journal', 'Disease', 'Mutations', 'Treatments', 'Topics', 'Authors', 'Affiliations', 'Link'];
         const csvRows = [headers.join(',')];
 
         results.forEach((r: any) => {
             const mutations = mutationsMap[r.id]?.join(', ') || '';
             const topics = topicsMap[r.id]?.join(', ') || '';
+            const treatments = treatmentsMap[r.id]?.join(', ') || '';
 
             const row = [
                 r.source_id || r.id,
@@ -273,6 +319,7 @@ app.get('/api/export', async (c) => {
                 `"${(r.journal || '').replace(/"/g, '""')}"`,
                 `"${(r.disease_subtype || '').replace(/"/g, '""')}"`,
                 `"${mutations.replace(/"/g, '""')}"`,
+                `"${treatments.replace(/"/g, '""')}"`,
                 `"${topics.replace(/"/g, '""')}"`,
                 `"${(r.authors || '').replace(/"/g, '""')}"`,
                 `"${(r.affiliations || '').replace(/"/g, '""')}"`,
@@ -314,6 +361,21 @@ app.get('/api/stats', async (c) => {
             console.warn('study_topics query failed:', e);
         }
 
+        let treatmentStats = { results: [] };
+        try {
+            treatmentStats = await c.env.DB.prepare(`
+                SELECT rt.code as name, rt.name as full_name, COUNT(*) as count
+                FROM treatments tr
+                JOIN ref_treatments rt ON tr.treatment_id = rt.id
+                GROUP BY rt.code, rt.name
+                ORDER BY count DESC
+                LIMIT 50
+            `).all();
+        } catch (e) {
+            // Table may not exist yet or be empty
+            console.warn('treatments query failed:', e);
+        }
+
         // Transform
         const mutations: Record<string, number> = {};
         mutationStats.results?.forEach((r: any) => {
@@ -325,9 +387,15 @@ app.get('/api/stats', async (c) => {
             tags[r.name] = r.count;
         });
 
+        const treatments: Record<string, number> = {};
+        treatmentStats.results?.forEach((r: any) => {
+            treatments[r.name] = r.count;
+        });
+
         return c.json({
             mutations,
-            tags
+            tags,
+            treatments
         });
     } catch (e: any) {
         return c.json({ error: e.message }, 500);
@@ -348,9 +416,26 @@ app.get('/api/ontology', async (c) => {
             ORDER BY gene_symbol
         `).all();
 
+        const treatments = await c.env.DB.prepare(`
+            SELECT id, code, name, type, description, display_order
+            FROM ref_treatments
+            ORDER BY display_order, name
+        `).all();
+
+        const treatmentComponents = await c.env.DB.prepare(`
+            SELECT tc.protocol_id, tc.drug_id, 
+                   p.code as protocol_code, 
+                   d.code as drug_code
+            FROM ref_treatment_components tc
+            JOIN ref_treatments p ON tc.protocol_id = p.id
+            JOIN ref_treatments d ON tc.drug_id = d.id
+        `).all();
+
         return c.json({
             diseases: diseases.results || [],
-            mutations: mutations.results || []
+            mutations: mutations.results || [],
+            treatments: treatments.results || [],
+            treatment_components: treatmentComponents.results || []
         });
     } catch (e: any) {
         return c.json({ error: e.message }, 500);

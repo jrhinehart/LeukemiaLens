@@ -30,6 +30,7 @@ interface Article {
   journal: string
   affiliations: string
   tags: string[]
+  treatments?: { code: string, name: string, type: string }[]
 }
 
 // Helper component for highlighting text
@@ -72,6 +73,7 @@ function App() {
   const [selectedMutation, setSelectedMutation] = useState<string[]>([])
   const [selectedDisease, setSelectedDisease] = useState<string[]>([])
   const [selectedTag, setSelectedTag] = useState<string[]>([])
+  const [selectedTreatment, setSelectedTreatment] = useState<string[]>([])
 
   const [searchQuery, setSearchQuery] = useState("")
   const [authorFilter, setAuthorFilter] = useState("")
@@ -80,8 +82,8 @@ function App() {
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
 
-  const [stats, setStats] = useState<{ mutations: { [key: string]: number }, tags: { [key: string]: number } }>({ mutations: {}, tags: {} })
-  const [ontology, setOntology] = useState<{ diseases: any[], mutations: any[] }>({ diseases: [], mutations: [] })
+  const [stats, setStats] = useState<{ mutations: { [key: string]: number }, tags: { [key: string]: number }, treatments: { [key: string]: number } }>({ mutations: {}, tags: {}, treatments: {} })
+  const [ontology, setOntology] = useState<{ diseases: any[], mutations: any[], treatments: any[], treatment_components: any[] }>({ diseases: [], mutations: [], treatments: [], treatment_components: [] })
 
   // Pagination state
   const [resultsPage, setResultsPage] = useState(1)
@@ -97,7 +99,7 @@ function App() {
     }, 500)
     return () => clearTimeout(timeoutId)
     // Removed searchQuery from dependencies to make search manual (Enter/Click)
-  }, [selectedMutation, selectedDisease, selectedTag, authorFilter, journalFilter, institutionFilter, startDate, endDate])
+  }, [selectedMutation, selectedDisease, selectedTag, selectedTreatment, authorFilter, journalFilter, institutionFilter, startDate, endDate])
 
   useEffect(() => {
     fetchStats()
@@ -131,7 +133,7 @@ function App() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setResultsPage(1)
-  }, [selectedMutation, selectedDisease, selectedTag, searchQuery, authorFilter, journalFilter, institutionFilter, startDate, endDate])
+  }, [selectedMutation, selectedDisease, selectedTag, selectedTreatment, searchQuery, authorFilter, journalFilter, institutionFilter, startDate, endDate])
 
   const fetchArticles = async () => {
     try {
@@ -140,6 +142,7 @@ function App() {
       if (selectedMutation.length > 0) params.mutation = selectedMutation
       if (selectedDisease.length > 0) params.disease = selectedDisease
       if (selectedTag.length > 0) params.tag = selectedTag
+      if (selectedTreatment.length > 0) params.treatment = selectedTreatment
 
       if (authorFilter) params.author = authorFilter // API: not impl in filtering but ignored safely
       if (journalFilter) params.journal = journalFilter // API: not impl
@@ -193,6 +196,7 @@ function App() {
     setSelectedMutation([])
     setSelectedDisease([])
     setSelectedTag([])
+    setSelectedTreatment([])
     setSearchQuery("")
     setAuthorFilter("")
     setJournalFilter("")
@@ -207,6 +211,7 @@ function App() {
     if (selectedMutation.length) params.append('mutation', selectedMutation.join(','))
     if (selectedDisease.length) params.append('disease', selectedDisease.join(','))
     if (selectedTag.length) params.append('tag', selectedTag.join(','))
+    if (selectedTreatment.length) params.append('treatment', selectedTreatment.join(','))
     if (authorFilter) params.append('author', authorFilter)
     if (journalFilter) params.append('journal', journalFilter)
     if (institutionFilter) params.append('institution', institutionFilter)
@@ -332,6 +337,70 @@ function App() {
                 selectedIds={selectedMutation}
                 onChange={setSelectedMutation}
                 searchPlaceholder="Search mutations..."
+                maxHeight="24rem"
+                defaultCollapsed={true}
+              />
+
+              <hr className="border-gray-300" />
+
+              {/* Treatments */}
+              <SearchableListFilter
+                title="Treatments"
+                items={ontology.treatments.length > 0
+                  ? ontology.treatments.map(t => ({
+                    id: t.code,
+                    label: t.type === 'protocol' ? `⚕️ ${t.name}` : `💊 ${t.name}`,
+                    count: stats.treatments[t.code] || 0
+                  }))
+                  : Object.entries(stats.treatments || {}).map(([code, count]) => ({
+                    id: code,
+                    label: code,
+                    count: count as number
+                  }))
+                }
+                selectedIds={selectedTreatment}
+                onChange={(newSelection) => {
+                  // Auto-select component drugs when a protocol is selected
+                  const addedTreatments = newSelection.filter(id => !selectedTreatment.includes(id));
+                  const removedTreatments = selectedTreatment.filter(id => !newSelection.includes(id));
+
+                  let finalSelection = [...newSelection];
+
+                  // If a protocol was added, also add its component drugs
+                  addedTreatments.forEach(treatmentCode => {
+                    const treatment = ontology.treatments?.find(t => t.code === treatmentCode);
+                    if (treatment && treatment.type === 'protocol') {
+                      // Find component drugs for this protocol
+                      const components = (ontology.treatment_components || [])
+                        .filter(tc => tc.protocol_code === treatmentCode)
+                        .map(tc => tc.drug_code);
+
+                      // Add components if not already selected
+                      components.forEach(drugCode => {
+                        if (!finalSelection.includes(drugCode)) {
+                          finalSelection.push(drugCode);
+                        }
+                      });
+                    }
+                  });
+
+                  // If a drug was removed that is part of a selected protocol, remove the protocol too
+                  removedTreatments.forEach(treatmentCode => {
+                    const treatment = ontology.treatments?.find(t => t.code === treatmentCode);
+                    if (treatment && treatment.type === 'drug') {
+                      // Find protocols that include this drug
+                      const relatedProtocols = (ontology.treatment_components || [])
+                        .filter(tc => tc.drug_code === treatmentCode)
+                        .map(tc => tc.protocol_code);
+
+                      // Remove related protocols from selection
+                      finalSelection = finalSelection.filter(code => !relatedProtocols.includes(code));
+                    }
+                  });
+
+                  setSelectedTreatment(finalSelection);
+                }}
+                searchPlaceholder="Search treatments..."
                 maxHeight="24rem"
                 defaultCollapsed={true}
               />
@@ -497,6 +566,15 @@ function App() {
                             {d}
                           </span>
                         ))}
+                        {article.treatments?.map((t, idx) => (
+                          <span
+                            key={`${t.code}-${idx}`}
+                            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
+                            title={t.type === 'protocol' ? 'Protocol' : 'Drug'}
+                          >
+                            {t.type === 'protocol' ? '⚕️' : '💊'} {t.name}
+                          </span>
+                        ))}
                         {article.tags.map(t => (
                           <span key={t} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
                             {t}
@@ -565,8 +643,8 @@ function App() {
                           <button
                             onClick={() => setResultsPage(page)}
                             className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                               }`}
                           >
                             {page}

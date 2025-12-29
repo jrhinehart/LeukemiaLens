@@ -3,6 +3,7 @@ export interface ExtractedMetadata {
     mutations: string[];
     topics: string[];
     diseaseSubtypes: string[];
+    treatments: string[]; // Treatment codes from ref_treatments
     hasComplexKaryotype: boolean;
     transplantContext: boolean;
 }
@@ -53,10 +54,56 @@ const TOPIC_PATTERNS: Record<string, RegExp> = {
     "Metabolism": /\b(Metabolism|Metabolic|Metabolomics|IDH|Glycolysis|Oxidative)\b/i,
 };
 
+// Treatment Patterns - Protocols and Individual Drugs
+const TREATMENT_PATTERNS: Record<string, RegExp> = {
+    // Protocol Patterns (more specific patterns to avoid false positives)
+    "7+3": /\b(7\+3|seven plus three|7 \+ 3)\b/i,
+    "FLAG-IDA": /\bFLAG[- ]?IDA\b/i,
+    "CLAG": /\bCLAG\b(?![- ]?M)/i, // Match CLAG but not CLAG-M
+    "CLAG-M": /\bCLAG[- ]?M\b/i,
+    "MEC": /\b(MEC|mitoxantrone[- ]?etoposide[- ]?cytarabine)\b/i,
+    "HiDAC": /\b(HiDAC|high[- ]?dose (ara[- ]?c|cytarabine))\b/i,
+    "VEN-AZA": /\b(venetoclax[- ]?(azacitidine|aza)|VEN[- ]?AZA)\b/i,
+    "VEN-LDAC": /\b(venetoclax[- ]?(LDAC|low[- ]?dose (ara[- ]?c|cytarabine))|VEN[- ]?LDAC)\b/i,
+    "HYPERCVAD": /\b(hyper[- ]?CVAD|hyperCVAD)\b/i,
+    "CPX-351": /\b(CPX[- ]?351|Vyxeos)\b/i,
+
+    // Individual Drug Patterns
+    "ASPARAGINASE": /\b(asparaginase|L[- ]?asparaginase)\b/i,
+    "AZACITIDINE": /\b(azacitidine|vidaza|5[- ]?azacitidine)\b/i,
+    "BLINATUMOMAB": /\bblinatumomab\b/i,
+    "CYCLOPHOSPHAMIDE": /\bcyclophosphamide\b/i,
+    "CYTARABINE": /\b(cytarabine|ara[- ]?c|cytosine arabinoside)\b/i,
+    "DAUNORUBICIN": /\bdaunorubicin\b/i,
+    "DECITABINE": /\b(decitabine|dacogen)\b/i,
+    "DEXAMETHASONE": /\bdexamethasone\b/i,
+    "DOXORUBICIN": /\b(doxorubicin|adriamycin)\b/i,
+    "ENASIDENIB": /\b(enasidenib|idhifa)\b/i,
+    "FLUDARABINE": /\b(fludarabine|fludara)\b/i,
+    "G-CSF": /\b(G[- ]?CSF|filgrastim|neupogen|granulocyte[- ]?colony[- ]?stimulating[- ]?factor)\b/i,
+    "GEMTUZUMAB": /\b(gemtuzumab( ozogamicin)?|mylotarg|GO)\b/i,
+    "GILTERITINIB": /\b(gilteritinib|xospata)\b/i,
+    "GLASDEGIB": /\b(glasdegib|daurismo)\b/i,
+    "IDARUBICIN": /\bidarubicin\b/i,
+    "IMATINIB": /\b(imatinib|gleevec)\b/i,
+    "INOTUZUMAB": /\b(inotuzumab( ozogamicin)?|besponsa)\b/i,
+    "IVOSIDENIB": /\b(ivosidenib|tibsovo)\b/i,
+    "MERCAPTOPURINE": /\b(mercaptopurine|6[- ]?MP|purinethol)\b/i,
+    "METHOTREXATE": /\b(methotrexate|MTX)\b/i,
+    "MIDOSTAURIN": /\b(midostaurin|rydapt)\b/i,
+    "MITOXANTRONE": /\bmitoxantrone\b/i,
+    "PREDNISONE": /\bprednisone\b/i,
+    "QUIZARTINIB": /\b(quizartinib|vanflyta)\b/i,
+    "VENETOCLAX": /\b(venetoclax|venclexta)\b/i,
+    "VINCRISTINE": /\bvincristine\b/i,
+    "VORINOSTAT": /\b(vorinostat|zolinza)\b/i,
+};
+
 export function extractMetadata(text: string): ExtractedMetadata {
     const mutations: string[] = [];
     const topics: string[] = [];
     const diseaseSubtypes: string[] = [];
+    const treatments: string[] = [];
 
     // Extract Mutations
     for (const [gene, pattern] of Object.entries(MUTATION_PATTERNS)) {
@@ -69,6 +116,13 @@ export function extractMetadata(text: string): ExtractedMetadata {
     for (const [topic, pattern] of Object.entries(TOPIC_PATTERNS)) {
         if (pattern.test(text)) {
             topics.push(topic);
+        }
+    }
+
+    // Extract Treatments (protocols and drugs)
+    for (const [treatmentCode, pattern] of Object.entries(TREATMENT_PATTERNS)) {
+        if (pattern.test(text)) {
+            treatments.push(treatmentCode);
         }
     }
 
@@ -100,6 +154,7 @@ export function extractMetadata(text: string): ExtractedMetadata {
         mutations,
         topics,
         diseaseSubtypes,
+        treatments,
         hasComplexKaryotype,
         transplantContext
     };

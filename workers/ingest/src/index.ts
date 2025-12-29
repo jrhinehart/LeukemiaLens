@@ -189,6 +189,37 @@ export default {
                         await env.DB.batch(distinctTopics.map(t => stmt.bind(studyId, t)));
                     }
 
+                    // 3c. Treatments
+                    // Clear existing treatments for this study
+                    await env.DB.prepare("DELETE FROM treatments WHERE study_id = ?").bind(studyId).run();
+                    if (metadata.treatments.length > 0) {
+                        // Look up treatment IDs from ref_treatments table
+                        const distinctTreatments = [...new Set(metadata.treatments)];
+                        const treatmentIds: number[] = [];
+
+                        for (const treatmentCode of distinctTreatments) {
+                            try {
+                                const result = await env.DB.prepare(
+                                    "SELECT id FROM ref_treatments WHERE code = ?"
+                                ).bind(treatmentCode).first();
+
+                                if (result && result.id) {
+                                    treatmentIds.push(result.id as number);
+                                } else {
+                                    console.warn(`Treatment code '${treatmentCode}' not found in ref_treatments for PMID:${pmid}`);
+                                }
+                            } catch (lookupError: any) {
+                                console.warn(`Error looking up treatment '${treatmentCode}':`, lookupError.message);
+                            }
+                        }
+
+                        // Insert treatment associations
+                        if (treatmentIds.length > 0) {
+                            const stmt = env.DB.prepare("INSERT INTO treatments (study_id, treatment_id) VALUES (?, ?)");
+                            await env.DB.batch(treatmentIds.map(tid => stmt.bind(studyId, tid)));
+                        }
+                    }
+
                     // 4. MRD (Not parsed yet)
 
                     // 5. Links
