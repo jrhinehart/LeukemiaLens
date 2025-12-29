@@ -319,9 +319,9 @@ function App() {
 
               <hr className="border-gray-300" />
 
-              {/* Common Mutations (Ontology Driven) */}
+              {/* Mutations */}
               <SearchableListFilter
-                title="Common Mutations"
+                title="Mutations"
                 items={ontology.mutations.length > 0
                   ? ontology.mutations.map(m => ({
                     id: m.gene_symbol,
