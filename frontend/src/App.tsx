@@ -163,6 +163,7 @@ function App() {
         url: r.source_id ? `https://pubmed.ncbi.nlm.nih.gov/${r.source_id.replace('PMID:', '')}/` : '#',
         mutations: r.mutations || [],
         diseases: r.disease_subtype ? r.disease_subtype.split(',') : [],
+        treatments: r.treatments || [],
         authors: r.authors,
         journal: r.journal,
         affiliations: '',

@@ -9,6 +9,7 @@
  *   npx tsx scripts/backfill-treatments.ts
  */
 
+import 'dotenv/config';
 import { extractMetadata } from '../src/parsers';
 
 interface D1Response {
