@@ -8,8 +8,6 @@ export interface DateRangeFilterProps {
     onEndDateChange: (date: string) => void
     defaultCollapsed?: boolean
     yearOnly?: boolean
-    startPlaceholder?: string
-    endPlaceholder?: string
 }
 
 export const DateRangeFilter = ({
@@ -18,9 +16,7 @@ export const DateRangeFilter = ({
     endDate,
     onStartDateChange,
     onEndDateChange,
-    defaultCollapsed = false,
-    startPlaceholder = 'Start Date (YYYY or YYYY-MM-DD)',
-    endPlaceholder = 'End Date (YYYY or YYYY-MM-DD)'
+    defaultCollapsed = false
 }: DateRangeFilterProps) => {
     const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed)
 
@@ -61,11 +57,19 @@ export const DateRangeFilter = ({
                         </label>
                         <div className="flex gap-2">
                             <input
-                                type="text"
+                                type="date"
                                 value={startDate}
                                 onChange={(e) => onStartDateChange(e.target.value)}
-                                placeholder={startPlaceholder}
+                                placeholder="2015-01-01"
+                                min="2000-01-01"
+                                max={new Date().toISOString().split('T')[0]}
                                 className="flex-1 text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                                onFocus={(e) => {
+                                    // Set default date when picker opens if no value is set
+                                    if (!startDate) {
+                                        e.target.defaultValue = '2015-01-01';
+                                    }
+                                }}
                             />
                             {startDate && (
                                 <button
@@ -87,11 +91,18 @@ export const DateRangeFilter = ({
                         </label>
                         <div className="flex gap-2">
                             <input
-                                type="text"
+                                type="date"
                                 value={endDate}
                                 onChange={(e) => onEndDateChange(e.target.value)}
-                                placeholder={endPlaceholder}
+                                min="2000-01-01"
+                                max={new Date().toISOString().split('T')[0]}
                                 className="flex-1 text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                                onFocus={(e) => {
+                                    // Set default date when picker opens if no value is set
+                                    if (!endDate) {
+                                        e.target.defaultValue = new Date().toISOString().split('T')[0];
+                                    }
+                                }}
                             />
                             {endDate && (
                                 <button
