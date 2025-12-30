@@ -129,31 +129,36 @@ app.get('/api/search', async (c) => {
             const batchIds = studyIds.slice(i, i + batchSize);
             const idsPlaceholder = batchIds.map(() => '?').join(',');
 
-            const [mutationsRes, treatmentsRes] = await Promise.all([
-                c.env.DB.prepare(`
-                    SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
-                `).bind(...batchIds).run(),
-                c.env.DB.prepare(`
-                    SELECT tr.study_id, rt.code, rt.name, rt.type 
-                    FROM treatments tr 
-                    JOIN ref_treatments rt ON tr.treatment_id = rt.id 
-                    WHERE tr.study_id IN (${idsPlaceholder})
-                `).bind(...batchIds).run()
-            ]);
+            try {
+                const [mutationsRes, treatmentsRes] = await Promise.all([
+                    c.env.DB.prepare(`
+                        SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
+                    `).bind(...batchIds).run(),
+                    c.env.DB.prepare(`
+                        SELECT tr.study_id, rt.code, rt.name, rt.type 
+                        FROM treatments tr 
+                        JOIN ref_treatments rt ON tr.treatment_id = rt.id 
+                        WHERE tr.study_id IN (${idsPlaceholder})
+                    `).bind(...batchIds).run()
+                ]);
 
-            // Merge batch results into maps
-            if (mutationsRes.results) {
-                mutationsRes.results.forEach((m: any) => {
-                    if (!mutationsMap[m.study_id]) mutationsMap[m.study_id] = [];
-                    mutationsMap[m.study_id].push(m.gene_symbol);
-                });
-            }
+                // Merge batch results into maps
+                if (mutationsRes.results) {
+                    mutationsRes.results.forEach((m: any) => {
+                        if (!mutationsMap[m.study_id]) mutationsMap[m.study_id] = [];
+                        mutationsMap[m.study_id].push(m.gene_symbol);
+                    });
+                }
 
-            if (treatmentsRes.results) {
-                treatmentsRes.results.forEach((t: any) => {
-                    if (!treatmentsMap[t.study_id]) treatmentsMap[t.study_id] = [];
-                    treatmentsMap[t.study_id].push({ code: t.code, name: t.name, type: t.type });
-                });
+                if (treatmentsRes.results) {
+                    treatmentsRes.results.forEach((t: any) => {
+                        if (!treatmentsMap[t.study_id]) treatmentsMap[t.study_id] = [];
+                        treatmentsMap[t.study_id].push({ code: t.code, name: t.name, type: t.type });
+                    });
+                }
+            } catch (batchError: any) {
+                console.error(`Batch query error for batch starting at ${i}, batchSize: ${batchIds.length}`, batchError);
+                throw new Error(`Batch query failed: ${batchError.message} (batch size: ${batchIds.length})`);
             }
         }
 
