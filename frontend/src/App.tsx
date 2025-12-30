@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import bannerImage from './assets/LL-logo-banner.jpg'
 import { AboutPage, ContactPage, ResourcesPage } from './Pages'
+import { StatsPage } from './StatsPage'
 import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal } from './components'
 
 // Helper to serialize arrays as repeat params: key=val1&key=val2
@@ -54,7 +55,7 @@ const HighlightText = ({ text, highlight }: { text: string, highlight: string })
 
 function App() {
   // Page routing
-  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources'>('home')
+  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats'>('home')
 
   // Beta banner state (persist dismissal in localStorage)
   const [showBetaBanner, setShowBetaBanner] = useState<boolean>(() => {
@@ -251,6 +252,11 @@ function App() {
   const startIndex = (resultsPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedArticles = articles.slice(startIndex, endIndex)
+
+  // Check URL path for stats page
+  if (window.location.pathname === '/stats') {
+    return <StatsPage />
+  }
 
   return (
     <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-200">

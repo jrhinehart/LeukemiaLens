@@ -467,6 +467,65 @@ app.get('/api/ontology', async (c) => {
     }
 });
 
+app.get('/api/database-stats', async (c) => {
+    try {
+        // Run all stats queries in parallel
+        const [
+            studiesCount,
+            mutationsCount,
+            topicsCount,
+            treatmentsCount,
+            refDiseases,
+            refMutations,
+            refTreatments,
+            uniqueMutations,
+            uniqueTopics,
+            dateRange
+        ] = await Promise.all([
+            c.env.DB.prepare('SELECT COUNT(*) as count FROM studies').all(),
+            c.env.DB.prepare('SELECT COUNT(*) as count FROM mutations').all(),
+            c.env.DB.prepare('SELECT COUNT(*) as count FROM study_topics').all(),
+            c.env.DB.prepare('SELECT COUNT(*) as count FROM treatments').all(),
+            c.env.DB.prepare('SELECT COUNT(*) as count FROM ref_diseases').all(),
+            c.env.DB.prepare('SELECT COUNT(*) as count FROM ref_mutations').all(),
+            c.env.DB.prepare('SELECT COUNT(*) as count FROM ref_treatments').all(),
+            c.env.DB.prepare('SELECT COUNT(DISTINCT gene_symbol) as count FROM mutations').all(),
+            c.env.DB.prepare('SELECT COUNT(DISTINCT topic_name) as count FROM study_topics').all(),
+            c.env.DB.prepare('SELECT MIN(pub_date) as min_date, MAX(pub_date) as max_date FROM studies WHERE pub_date IS NOT NULL').all()
+        ]);
+
+        const stats = {
+            main_tables: {
+                studies: studiesCount.results?.[0]?.count || 0,
+                mutation_records: mutationsCount.results?.[0]?.count || 0,
+                topic_records: topicsCount.results?.[0]?.count || 0,
+                treatment_records: treatmentsCount.results?.[0]?.count || 0
+            },
+            ontology_tables: {
+                reference_diseases: refDiseases.results?.[0]?.count || 0,
+                reference_mutations: refMutations.results?.[0]?.count || 0,
+                reference_treatments: refTreatments.results?.[0]?.count || 0
+            },
+            unique_values: {
+                unique_mutations: uniqueMutations.results?.[0]?.count || 0,
+                unique_topics: uniqueTopics.results?.[0]?.count || 0
+            },
+            date_range: {
+                oldest_article: dateRange.results?.[0]?.min_date || null,
+                newest_article: dateRange.results?.[0]?.max_date || null
+            },
+            generated_at: new Date().toISOString()
+        };
+
+        // Cache for 1 hour
+        return c.json(stats, 200, {
+            'Cache-Control': 'public, max-age=3600'
+        });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
 app.get('/api/study/:id', async (c) => {
     const id = c.req.param('id');
 
