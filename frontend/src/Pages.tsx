@@ -77,8 +77,8 @@ export const ContactPage = ({ onNavigateHome }: PageProps) => {
                             For all inquiries, please email us at:
                         </p>
                         <p className="text-2xl font-bold text-blue-600">
-                            <a href="mailto:josh@garlicsquash.com" className="hover:underline">
-                                josh@garlicsquash.com
+                            <a href="mailto:admin@leukemialens.com" className="hover:underline">
+                                admin@leukemialens.com
                             </a>
                         </p>
                     </div>

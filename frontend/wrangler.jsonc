@@ -10,6 +10,14 @@
         {
             "pattern": "leukemialens.garlicsquash.com",
             "custom_domain": true
+        },
+        {
+            "pattern": "leukemialens.com",
+            "custom_domain": true
+        },
+        {
+            "pattern": "www.leukemialens.com",
+            "custom_domain": true
         }
     ]
 }
