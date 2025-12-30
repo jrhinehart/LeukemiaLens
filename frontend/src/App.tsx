@@ -275,9 +275,18 @@ function App() {
   const endIndex = startIndex + itemsPerPage
   const paginatedArticles = articles.slice(startIndex, endIndex)
 
-  // Check current page state
+  // Check current page state and render appropriate component
   if (currentPage === 'stats') {
     return <StatsPage />
+  }
+  if (currentPage === 'about') {
+    return <AboutPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
+  }
+  if (currentPage === 'contact') {
+    return <ContactPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
+  }
+  if (currentPage === 'resources') {
+    return <ResourcesPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
   }
 
   return (
@@ -308,9 +317,9 @@ function App() {
       <div className="relative bg-gradient-to-r from-blue-950 via-blue-700 to-blue-500 text-white shadow-md">
         {/* Top Navigation */}
         <nav className="absolute top-4 right-4 sm:right-8 flex gap-6 text-sm font-medium z-10">
-          <a href="#about" className="text-blue-100 hover:text-white transition-colors">About</a>
-          <a href="#contact" className="text-blue-100 hover:text-white transition-colors">Contact</a>
-          <a href="#resources" className="text-blue-100 hover:text-white transition-colors">Resources</a>
+          <a href="/about" onClick={(e) => { e.preventDefault(); setCurrentPage('about'); window.history.pushState({}, '', '/about') }} className="text-blue-100 hover:text-white transition-colors cursor-pointer">About</a>
+          <a href="/contact" onClick={(e) => { e.preventDefault(); setCurrentPage('contact'); window.history.pushState({}, '', '/contact') }} className="text-blue-100 hover:text-white transition-colors cursor-pointer">Contact</a>
+          <a href="/resources" onClick={(e) => { e.preventDefault(); setCurrentPage('resources'); window.history.pushState({}, '', '/resources') }} className="text-blue-100 hover:text-white transition-colors cursor-pointer">Resources</a>
         </nav>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row items-center gap-8">
@@ -329,457 +338,450 @@ function App() {
         </div>
       </div>
 
-      {/* Conditional Page Rendering */}
-      {currentPage === 'about' && <AboutPage onNavigateHome={() => window.location.hash = ''} />}
-      {currentPage === 'contact' && <ContactPage onNavigateHome={() => window.location.hash = ''} />}
-      {currentPage === 'resources' && <ResourcesPage onNavigateHome={() => window.location.hash = ''} />}
-
       {/* Home/Search Page */}
-      {currentPage === 'home' && (
-        <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8">
 
-          {/* Sidebar Filters */}
-          <aside className="w-64 flex-shrink-0">
-            <div className="sticky top-8 space-y-6 max-h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar pr-2">
+        {/* Sidebar Filters */}
+        <aside className="w-64 flex-shrink-0">
+          <div className="sticky top-8 space-y-6 max-h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar pr-2">
 
-              {/* Main Search - Moved to top of filters */}
-              <div>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Search</h3>
-                <TextSearchFilter
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  onSearch={fetchArticles}
-                  placeholder="Search articles..."
-                />
-              </div>
-
-              <hr className="border-gray-300" />
-
-              {/* Diseases */}
-              <SimpleListFilter
-                title="Diseases"
-                items={ontology.diseases.length > 0
-                  ? ontology.diseases.map(d => ({
-                    id: d.code,
-                    label: d.code,
-                    description: d.name !== d.code ? d.name : undefined
-                  }))
-                  : ['AML', 'CML', 'ALL'].map(d => ({ id: d, label: d }))
-                }
-                selectedIds={selectedDisease}
-                onChange={setSelectedDisease}
-                defaultCollapsed={true}
+            {/* Main Search - Moved to top of filters */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Search</h3>
+              <TextSearchFilter
+                value={searchQuery}
+                onChange={setSearchQuery}
+                onSearch={fetchArticles}
+                placeholder="Search articles..."
               />
+            </div>
 
-              <hr className="border-gray-300" />
+            <hr className="border-gray-300" />
 
-              {/* Mutations */}
-              <SearchableListFilter
-                title="Mutations"
-                items={ontology.mutations.length > 0
-                  ? ontology.mutations.map(m => ({
-                    id: m.gene_symbol,
-                    label: m.gene_symbol,
-                    count: stats.mutations[m.gene_symbol] || 0
-                  }))
-                  : Object.entries(stats.mutations).map(([mut, count]) => ({
-                    id: mut,
-                    label: mut,
-                    count: count as number
-                  }))
-                }
-                selectedIds={selectedMutation}
-                onChange={setSelectedMutation}
-                searchPlaceholder="Search mutations..."
-                maxHeight="24rem"
-                defaultCollapsed={true}
-              />
+            {/* Diseases */}
+            <SimpleListFilter
+              title="Diseases"
+              items={ontology.diseases.length > 0
+                ? ontology.diseases.map(d => ({
+                  id: d.code,
+                  label: d.code,
+                  description: d.name !== d.code ? d.name : undefined
+                }))
+                : ['AML', 'CML', 'ALL'].map(d => ({ id: d, label: d }))
+              }
+              selectedIds={selectedDisease}
+              onChange={setSelectedDisease}
+              defaultCollapsed={true}
+            />
 
-              <hr className="border-gray-300" />
+            <hr className="border-gray-300" />
 
-              {/* Treatments */}
-              <SearchableListFilter
-                title="Treatments"
-                items={ontology.treatments.length > 0
-                  ? ontology.treatments.map(t => ({
-                    id: t.code,
-                    label: t.type === 'protocol' ? `⚕️ ${t.name}` : `💊 ${t.name}`,
-                    count: stats.treatments[t.code] || 0
-                  }))
-                  : Object.entries(stats.treatments || {}).map(([code, count]) => ({
-                    id: code,
-                    label: code,
-                    count: count as number
-                  }))
-                }
-                selectedIds={selectedTreatment}
-                onChange={(newSelection) => {
-                  // Auto-select component drugs when a protocol is selected
-                  const addedTreatments = newSelection.filter(id => !selectedTreatment.includes(id));
-                  const removedTreatments = selectedTreatment.filter(id => !newSelection.includes(id));
-
-                  let finalSelection = [...newSelection];
-
-                  // If a protocol was added, also add its component drugs
-                  addedTreatments.forEach(treatmentCode => {
-                    const treatment = ontology.treatments?.find(t => t.code === treatmentCode);
-                    if (treatment && treatment.type === 'protocol') {
-                      // Find component drugs for this protocol
-                      const components = (ontology.treatment_components || [])
-                        .filter(tc => tc.protocol_code === treatmentCode)
-                        .map(tc => tc.drug_code);
-
-                      // Add components if not already selected
-                      components.forEach(drugCode => {
-                        if (!finalSelection.includes(drugCode)) {
-                          finalSelection.push(drugCode);
-                        }
-                      });
-                    }
-                  });
-
-                  // If a drug was removed that is part of a selected protocol, remove the protocol too
-                  removedTreatments.forEach(treatmentCode => {
-                    const treatment = ontology.treatments?.find(t => t.code === treatmentCode);
-                    if (treatment && treatment.type === 'drug') {
-                      // Find protocols that include this drug
-                      const relatedProtocols = (ontology.treatment_components || [])
-                        .filter(tc => tc.drug_code === treatmentCode)
-                        .map(tc => tc.protocol_code);
-
-                      // Remove related protocols from selection
-                      finalSelection = finalSelection.filter(code => !relatedProtocols.includes(code));
-                    }
-                  });
-
-                  setSelectedTreatment(finalSelection);
-                }}
-                searchPlaceholder="Search treatments..."
-                maxHeight="24rem"
-                defaultCollapsed={true}
-              />
-
-              <hr className="border-gray-300" />
-
-              {/* Study Tags */}
-              <SimpleListFilter
-                title="Study Topics"
-                items={Object.entries(stats.tags).map(([tag, count]) => ({
-                  id: tag,
-                  label: tag,
+            {/* Mutations */}
+            <SearchableListFilter
+              title="Mutations"
+              items={ontology.mutations.length > 0
+                ? ontology.mutations.map(m => ({
+                  id: m.gene_symbol,
+                  label: m.gene_symbol,
+                  count: stats.mutations[m.gene_symbol] || 0
+                }))
+                : Object.entries(stats.mutations).map(([mut, count]) => ({
+                  id: mut,
+                  label: mut,
                   count: count as number
-                }))}
-                selectedIds={selectedTag}
-                onChange={setSelectedTag}
-                defaultCollapsed={true}
-              />
+                }))
+              }
+              selectedIds={selectedMutation}
+              onChange={setSelectedMutation}
+              searchPlaceholder="Search mutations..."
+              maxHeight="24rem"
+              defaultCollapsed={true}
+            />
 
-              <hr className="border-gray-300" />
+            <hr className="border-gray-300" />
 
-              {/* Advanced Filters */}
-              <div className="space-y-4">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">Additional Filters</h3>
+            {/* Treatments */}
+            <SearchableListFilter
+              title="Treatments"
+              items={ontology.treatments.length > 0
+                ? ontology.treatments.map(t => ({
+                  id: t.code,
+                  label: t.type === 'protocol' ? `⚕️ ${t.name}` : `💊 ${t.name}`,
+                  count: stats.treatments[t.code] || 0
+                }))
+                : Object.entries(stats.treatments || {}).map(([code, count]) => ({
+                  id: code,
+                  label: code,
+                  count: count as number
+                }))
+              }
+              selectedIds={selectedTreatment}
+              onChange={(newSelection) => {
+                // Auto-select component drugs when a protocol is selected
+                const addedTreatments = newSelection.filter(id => !selectedTreatment.includes(id));
+                const removedTreatments = selectedTreatment.filter(id => !newSelection.includes(id));
 
-                <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-3">
-                  <div>
-                    <input
-                      type="text"
-                      className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                      placeholder="Author (e.g. Smith)"
-                      value={authorFilter}
-                      onChange={e => setAuthorFilter(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                      placeholder="Journal (e.g. Blood)"
-                      value={journalFilter}
-                      onChange={e => setJournalFilter(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                      placeholder="Institution"
-                      value={institutionFilter}
-                      onChange={e => setInstitutionFilter(e.target.value)}
-                    />
-                  </div>
-                </div>
+                let finalSelection = [...newSelection];
 
-                <DateRangeFilter
-                  title="Publication Date"
-                  startDate={startDate}
-                  endDate={endDate}
-                  onStartDateChange={setStartDate}
-                  onEndDateChange={setEndDate}
-                  defaultCollapsed={false}
-                />
-              </div>
+                // If a protocol was added, also add its component drugs
+                addedTreatments.forEach(treatmentCode => {
+                  const treatment = ontology.treatments?.find(t => t.code === treatmentCode);
+                  if (treatment && treatment.type === 'protocol') {
+                    // Find component drugs for this protocol
+                    const components = (ontology.treatment_components || [])
+                      .filter(tc => tc.protocol_code === treatmentCode)
+                      .map(tc => tc.drug_code);
 
+                    // Add components if not already selected
+                    components.forEach(drugCode => {
+                      if (!finalSelection.includes(drugCode)) {
+                        finalSelection.push(drugCode);
+                      }
+                    });
+                  }
+                });
 
-            </div>
-          </aside>
+                // If a drug was removed that is part of a selected protocol, remove the protocol too
+                removedTreatments.forEach(treatmentCode => {
+                  const treatment = ontology.treatments?.find(t => t.code === treatmentCode);
+                  if (treatment && treatment.type === 'drug') {
+                    // Find protocols that include this drug
+                    const relatedProtocols = (ontology.treatment_components || [])
+                      .filter(tc => tc.drug_code === treatmentCode)
+                      .map(tc => tc.protocol_code);
 
-          {/* Main Content */}
-          <main className="flex-1 min-w-0">
+                    // Remove related protocols from selection
+                    finalSelection = finalSelection.filter(code => !relatedProtocols.includes(code));
+                  }
+                });
 
-            {/* Beta Testing Banner */}
-            {showBetaBanner && (
-              <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg p-5 shadow-sm relative">
-                <button
-                  onClick={dismissBetaBanner}
-                  className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
-                  aria-label="Dismiss banner"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                  </svg>
-                </button>
-                <div className="flex items-start gap-3 pr-8">
-                  <div className="flex-shrink-0 text-2xl">🧪</div>
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900 mb-2">Welcome to LeukemiaLens Beta!</h3>
-                    <p className="text-sm text-gray-700 leading-relaxed mb-2">
-                      You're testing an early version of LeukemiaLens. Currently, the database contains <strong>~50 records per year</strong> for recent years to validate functionality and gather feedback.
-                    </p>
-                    <p className="text-sm text-gray-700 leading-relaxed">
-                      We'd love to hear your thoughts! Please share feedback, feature requests, or bug reports via the <a href="#contact" className="text-blue-600 hover:text-blue-800 font-medium underline">Contact</a> page.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+                setSelectedTreatment(finalSelection);
+              }}
+              searchPlaceholder="Search treatments..."
+              maxHeight="24rem"
+              defaultCollapsed={true}
+            />
 
+            <hr className="border-gray-300" />
 
+            {/* Study Tags */}
+            <SimpleListFilter
+              title="Study Topics"
+              items={Object.entries(stats.tags).map(([tag, count]) => ({
+                id: tag,
+                label: tag,
+                count: count as number
+              }))}
+              selectedIds={selectedTag}
+              onChange={setSelectedTag}
+              defaultCollapsed={true}
+            />
 
-            {/* Active Filters Display */}
-            {searchQuery && (
-              <div className="mb-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Search:</span>
-                  <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium border border-blue-200">
-                    <span>"{searchQuery}"</span>
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="text-blue-600 hover:text-blue-800 transition-colors"
-                      aria-label="Clear search"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <hr className="border-gray-300" />
 
-            {/* Pagination Controls - Top */}
-            {totalPages > 1 && (
-              <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
-                    {articles.length} total results (showing {startIndex + 1}-{Math.min(endIndex, articles.length)})
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setResultsPage(p => Math.max(1, p - 1))}
-                    disabled={resultsPage === 1}
-                    className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Previous
-                  </button>
-
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(page => {
-                        if (page === 1 || page === totalPages) return true
-                        if (Math.abs(page - resultsPage) <= 1) return true
-                        return false
-                      })
-                      .map((page, index, array) => {
-                        const prevPage = array[index - 1]
-                        const showEllipsis = prevPage && page - prevPage > 1
-
-                        return (
-                          <div key={page} className="flex items-center gap-1">
-                            {showEllipsis && <span className="px-2 text-gray-400">...</span>}
-                            <button
-                              onClick={() => setResultsPage(page)}
-                              className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                                }`}
-                            >
-                              {page}
-                            </button>
-                          </div>
-                        )
-                      })}
-                  </div>
-
-                  <button
-                    onClick={() => setResultsPage(p => Math.min(totalPages, p + 1))}
-                    disabled={resultsPage === totalPages}
-                    className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Articles</h2>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={resetAll}
-                  className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
-                  title="Reset all filters"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                  </svg>
-                  Reset Filters
-                </button>
-                <button
-                  onClick={handleExport}
-                  className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
-                  title="Export results to CSV"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                  </svg>
-                  Export CSV
-                </button>
-              </div>
-            </div>
-
+            {/* Advanced Filters */}
             <div className="space-y-4">
-              {paginatedArticles.map((article) => (
-                <div key={article.pubmed_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {article.mutations.map(m => (
-                          <span key={m} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                            {m}
-                          </span>
-                        ))}
-                        {article.diseases.map(d => (
-                          <span key={d} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                            {d}
-                          </span>
-                        ))}
-                        {article.treatments?.map((t, idx) => (
-                          <span
-                            key={`${t.code}-${idx}`}
-                            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
-                            title={t.type === 'protocol' ? 'Protocol' : 'Drug'}
-                          >
-                            {t.type === 'protocol' ? '⚕️' : '💊'} {t.name}
-                          </span>
-                        ))}
-                        {article.tags.map(t => (
-                          <span key={t} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                            {t}
-                          </span>
-                        ))}
-                        <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
-                          {article.journal}
-                        </span>
-                      </div>
-                      <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2 break-words">
-                        <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline">
-                          <HighlightText text={article.title} highlight={searchQuery} />
-                        </a>
-                      </h3>
-                      <div className="text-xs text-gray-500 mb-3 flex flex-col gap-1">
-                        <span className="font-semibold text-gray-800 break-words">{article.authors}</span>
-                        {article.affiliations && <span className="text-gray-400 italic truncate w-full" title={article.affiliations}>{article.affiliations}</span>}
-                      </div>
-                      <p className="text-sm text-gray-700 mb-4 line-clamp-3 leading-relaxed break-words">
-                        <HighlightText text={article.abstract} highlight={searchQuery} />
-                      </p>
-                      <div className="flex items-center text-xs font-medium text-gray-500 gap-4 border-t border-gray-100 pt-3">
-                        <span>PMID: {article.pubmed_id}</span>
-                        <span>Published: {article.pub_date}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">Additional Filters</h3>
 
-              {paginatedArticles.length === 0 && (
-                <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                  <p className="text-gray-500 text-lg">No articles found matching filters.</p>
-                  <button onClick={resetAll} className="mt-4 text-blue-600 hover:underline text-sm">Clear all filters</button>
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-3">
+                <div>
+                  <input
+                    type="text"
+                    className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                    placeholder="Author (e.g. Smith)"
+                    value={authorFilter}
+                    onChange={e => setAuthorFilter(e.target.value)}
+                  />
                 </div>
-              )}
+                <div>
+                  <input
+                    type="text"
+                    className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                    placeholder="Journal (e.g. Blood)"
+                    value={journalFilter}
+                    onChange={e => setJournalFilter(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                    placeholder="Institution"
+                    value={institutionFilter}
+                    onChange={e => setInstitutionFilter(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <DateRangeFilter
+                title="Publication Date"
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
+                defaultCollapsed={false}
+              />
             </div>
 
-            {/* Pagination Controls - Bottom */}
-            {totalPages > 1 && (
-              <div className="mt-8 flex items-center justify-between flex-wrap gap-4">
+
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 min-w-0">
+
+          {/* Beta Testing Banner */}
+          {showBetaBanner && (
+            <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg p-5 shadow-sm relative">
+              <button
+                onClick={dismissBetaBanner}
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Dismiss banner"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <div className="flex items-start gap-3 pr-8">
+                <div className="flex-shrink-0 text-2xl">🧪</div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 mb-2">Welcome to LeukemiaLens Beta!</h3>
+                  <p className="text-sm text-gray-700 leading-relaxed mb-2">
+                    You're testing an early version of LeukemiaLens. Currently, the database contains <strong>~50 records per year</strong> for recent years to validate functionality and gather feedback.
+                  </p>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    We'd love to hear your thoughts! Please share feedback, feature requests, or bug reports via the <a href="#contact" className="text-blue-600 hover:text-blue-800 font-medium underline">Contact</a> page.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+
+
+          {/* Active Filters Display */}
+          {searchQuery && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Search:</span>
+                <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium border border-blue-200">
+                  <span>"{searchQuery}"</span>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-blue-600 hover:text-blue-800 transition-colors"
+                    aria-label="Clear search"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pagination Controls - Top */}
+          {totalPages > 1 && (
+            <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
                   {articles.length} total results (showing {startIndex + 1}-{Math.min(endIndex, articles.length)})
                 </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setResultsPage(p => Math.max(1, p - 1))}
-                    disabled={resultsPage === 1}
-                    className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Previous
-                  </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setResultsPage(p => Math.max(1, p - 1))}
+                  disabled={resultsPage === 1}
+                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
 
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(page => {
-                        // Show first page, last page, current page, and pages around current
-                        if (page === 1 || page === totalPages) return true
-                        if (Math.abs(page - resultsPage) <= 1) return true
-                        return false
-                      })
-                      .map((page, index, array) => {
-                        // Add ellipsis when there's a gap
-                        const prevPage = array[index - 1]
-                        const showEllipsis = prevPage && page - prevPage > 1
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      if (page === 1 || page === totalPages) return true
+                      if (Math.abs(page - resultsPage) <= 1) return true
+                      return false
+                    })
+                    .map((page, index, array) => {
+                      const prevPage = array[index - 1]
+                      const showEllipsis = prevPage && page - prevPage > 1
 
-                        return (
-                          <div key={page} className="flex items-center gap-1">
-                            {showEllipsis && <span className="px-2 text-gray-400">...</span>}
-                            <button
-                              onClick={() => setResultsPage(page)}
-                              className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                                }`}
-                            >
-                              {page}
-                            </button>
-                          </div>
-                        )
-                      })}
+                      return (
+                        <div key={page} className="flex items-center gap-1">
+                          {showEllipsis && <span className="px-2 text-gray-400">...</span>}
+                          <button
+                            onClick={() => setResultsPage(page)}
+                            className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                              }`}
+                          >
+                            {page}
+                          </button>
+                        </div>
+                      )
+                    })}
+                </div>
+
+                <button
+                  onClick={() => setResultsPage(p => Math.min(totalPages, p + 1))}
+                  disabled={resultsPage === totalPages}
+                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900">Articles</h2>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={resetAll}
+                className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
+                title="Reset all filters"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                Reset Filters
+              </button>
+              <button
+                onClick={handleExport}
+                className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
+                title="Export results to CSV"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Export CSV
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {paginatedArticles.map((article) => (
+              <div key={article.pubmed_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {article.mutations.map(m => (
+                        <span key={m} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                          {m}
+                        </span>
+                      ))}
+                      {article.diseases.map(d => (
+                        <span key={d} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                          {d}
+                        </span>
+                      ))}
+                      {article.treatments?.map((t, idx) => (
+                        <span
+                          key={`${t.code}-${idx}`}
+                          className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
+                          title={t.type === 'protocol' ? 'Protocol' : 'Drug'}
+                        >
+                          {t.type === 'protocol' ? '⚕️' : '💊'} {t.name}
+                        </span>
+                      ))}
+                      {article.tags.map(t => (
+                        <span key={t} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                          {t}
+                        </span>
+                      ))}
+                      <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                        {article.journal}
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2 break-words">
+                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline">
+                        <HighlightText text={article.title} highlight={searchQuery} />
+                      </a>
+                    </h3>
+                    <div className="text-xs text-gray-500 mb-3 flex flex-col gap-1">
+                      <span className="font-semibold text-gray-800 break-words">{article.authors}</span>
+                      {article.affiliations && <span className="text-gray-400 italic truncate w-full" title={article.affiliations}>{article.affiliations}</span>}
+                    </div>
+                    <p className="text-sm text-gray-700 mb-4 line-clamp-3 leading-relaxed break-words">
+                      <HighlightText text={article.abstract} highlight={searchQuery} />
+                    </p>
+                    <div className="flex items-center text-xs font-medium text-gray-500 gap-4 border-t border-gray-100 pt-3">
+                      <span>PMID: {article.pubmed_id}</span>
+                      <span>Published: {article.pub_date}</span>
+                    </div>
                   </div>
-
-                  <button
-                    onClick={() => setResultsPage(p => Math.min(totalPages, p + 1))}
-                    disabled={resultsPage === totalPages}
-                    className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Next
-                  </button>
                 </div>
               </div>
+            ))}
+
+            {paginatedArticles.length === 0 && (
+              <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+                <p className="text-gray-500 text-lg">No articles found matching filters.</p>
+                <button onClick={resetAll} className="mt-4 text-blue-600 hover:underline text-sm">Clear all filters</button>
+              </div>
             )}
-          </main>
-        </div>
-      )}
+          </div>
+
+          {/* Pagination Controls - Bottom */}
+          {totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-between flex-wrap gap-4">
+              <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
+                {articles.length} total results (showing {startIndex + 1}-{Math.min(endIndex, articles.length)})
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setResultsPage(p => Math.max(1, p - 1))}
+                  disabled={resultsPage === 1}
+                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      // Show first page, last page, current page, and pages around current
+                      if (page === 1 || page === totalPages) return true
+                      if (Math.abs(page - resultsPage) <= 1) return true
+                      return false
+                    })
+                    .map((page, index, array) => {
+                      // Add ellipsis when there's a gap
+                      const prevPage = array[index - 1]
+                      const showEllipsis = prevPage && page - prevPage > 1
+
+                      return (
+                        <div key={page} className="flex items-center gap-1">
+                          {showEllipsis && <span className="px-2 text-gray-400">...</span>}
+                          <button
+                            onClick={() => setResultsPage(page)}
+                            className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                              }`}
+                          >
+                            {page}
+                          </button>
+                        </div>
+                      )
+                    })}
+                </div>
+
+                <button
+                  onClick={() => setResultsPage(p => Math.min(totalPages, p + 1))}
+                  disabled={resultsPage === totalPages}
+                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   )
 }
