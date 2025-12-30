@@ -57,7 +57,6 @@ function App() {
   // Page routing - check URL pathname
   const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats'>(() => {
     const path = window.location.pathname
-    console.log('Initial path:', path)
     if (path === '/stats') return 'stats'
     if (path === '/about') return 'about'
     if (path === '/contact') return 'contact'
@@ -65,7 +64,6 @@ function App() {
     return 'home'
   })
 
-  console.log('Current page state:', currentPage)
 
   // Listen for browser navigation (back/forward)
   useEffect(() => {
