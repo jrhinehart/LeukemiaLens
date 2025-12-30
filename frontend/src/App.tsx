@@ -57,12 +57,15 @@ function App() {
   // Page routing - check URL pathname
   const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats'>(() => {
     const path = window.location.pathname
+    console.log('Initial path:', path)
     if (path === '/stats') return 'stats'
     if (path === '/about') return 'about'
     if (path === '/contact') return 'contact'
     if (path === '/resources') return 'resources'
     return 'home'
   })
+
+  console.log('Current page state:', currentPage)
 
   // Listen for browser navigation (back/forward)
   useEffect(() => {
@@ -320,6 +323,7 @@ function App() {
           <a href="/about" onClick={(e) => { e.preventDefault(); setCurrentPage('about'); window.history.pushState({}, '', '/about') }} className="text-blue-100 hover:text-white transition-colors cursor-pointer">About</a>
           <a href="/contact" onClick={(e) => { e.preventDefault(); setCurrentPage('contact'); window.history.pushState({}, '', '/contact') }} className="text-blue-100 hover:text-white transition-colors cursor-pointer">Contact</a>
           <a href="/resources" onClick={(e) => { e.preventDefault(); setCurrentPage('resources'); window.history.pushState({}, '', '/resources') }} className="text-blue-100 hover:text-white transition-colors cursor-pointer">Resources</a>
+          <a href="/stats" onClick={(e) => { e.preventDefault(); setCurrentPage('stats'); window.history.pushState({}, '', '/stats') }} className="text-blue-100 hover:text-white transition-colors cursor-pointer">Stats</a>
         </nav>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row items-center gap-8">
