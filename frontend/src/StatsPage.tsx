@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import { PageHeader } from './components'
 
 interface DatabaseStats {
     main_tables: {
@@ -24,7 +25,7 @@ interface DatabaseStats {
     generated_at: string
 }
 
-export const StatsPage = () => {
+export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) => {
     const [stats, setStats] = useState<DatabaseStats | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -45,10 +46,13 @@ export const StatsPage = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading statistics...</p>
+            <div className="min-h-screen flex flex-col bg-gray-100">
+                <PageHeader title="Database Statistics" onNavigateHome={onNavigateHome} />
+                <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p className="text-gray-600">Loading statistics...</p>
+                    </div>
                 </div>
             </div>
         )
@@ -56,10 +60,15 @@ export const StatsPage = () => {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-                <div className="bg-white rounded-lg shadow-lg p-8 max-w-md">
-                    <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
-                    <p className="text-gray-700">{error}</p>
+            <div className="min-h-screen flex flex-col bg-gray-100">
+                <PageHeader title="Database Statistics" onNavigateHome={onNavigateHome} />
+                <div className="flex-1 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full border border-red-100">
+                        <h2 className="text-2xl font-bold text-red-600 mb-4 flex items-center gap-2">
+                            <span>⚠️</span> Error
+                        </h2>
+                        <p className="text-gray-700">{error}</p>
+                    </div>
                 </div>
             </div>
         )
@@ -68,116 +77,127 @@ export const StatsPage = () => {
     if (!stats) return null
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto">
-                {/* Header */}
-                <div className="text-center mb-12">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">LeukemiaLens Database Statistics</h1>
-                    <p className="text-gray-600">Real-time insights into our research database</p>
-                    <p className="text-sm text-gray-500 mt-2">Last updated: {new Date(stats.generated_at).toLocaleString()}</p>
-                </div>
+        <div className="min-h-screen flex flex-col bg-gray-100">
+            <PageHeader title="Database Statistics" onNavigateHome={onNavigateHome} />
 
-                {/* Main Tables Stats */}
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">📚 Main Database</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <StatCard
-                            title="Total Articles"
-                            value={stats.main_tables.studies.toLocaleString()}
-                            icon="📄"
-                            color="blue"
-                        />
-                        <StatCard
-                            title="Mutation Records"
-                            value={stats.main_tables.mutation_records.toLocaleString()}
-                            icon="🧬"
-                            color="green"
-                        />
-                        <StatCard
-                            title="Study Topics"
-                            value={stats.main_tables.topic_records.toLocaleString()}
-                            icon="🏷️"
-                            color="purple"
-                        />
-                        <StatCard
-                            title="Treatment Records"
-                            value={stats.main_tables.treatment_records.toLocaleString()}
-                            icon="💊"
-                            color="pink"
-                        />
+            <div className="flex-1 py-12 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-7xl mx-auto">
+                    {/* Secondary Header */}
+                    <div className="text-center mb-12">
+                        <p className="text-gray-600 text-lg">Real-time insights into our research database</p>
+                        <p className="text-sm text-gray-500 mt-2">Last updated: {new Date(stats.generated_at).toLocaleString()}</p>
                     </div>
-                </div>
 
-                {/* Ontology Tables Stats */}
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">📖 Reference Tables</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <StatCard
-                            title="Disease Types"
-                            value={stats.ontology_tables.reference_diseases.toLocaleString()}
-                            icon="🦠"
-                            color="red"
-                        />
-                        <StatCard
-                            title="Tracked Mutations"
-                            value={stats.ontology_tables.reference_mutations.toLocaleString()}
-                            icon="🔬"
-                            color="indigo"
-                        />
-                        <StatCard
-                            title="Treatment Options"
-                            value={stats.ontology_tables.reference_treatments.toLocaleString()}
-                            icon="💉"
-                            color="teal"
-                        />
+                    {/* Main Tables Stats */}
+                    <div className="mb-12">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            <span>📚</span> Main Database
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <StatCard
+                                title="Total Articles"
+                                value={stats.main_tables.studies.toLocaleString()}
+                                icon="📄"
+                                color="blue"
+                            />
+                            <StatCard
+                                title="Mutation Records"
+                                value={stats.main_tables.mutation_records.toLocaleString()}
+                                icon="🧬"
+                                color="green"
+                            />
+                            <StatCard
+                                title="Study Topics"
+                                value={stats.main_tables.topic_records.toLocaleString()}
+                                icon="🏷️"
+                                color="purple"
+                            />
+                            <StatCard
+                                title="Treatment Records"
+                                value={stats.main_tables.treatment_records.toLocaleString()}
+                                icon="💊"
+                                color="pink"
+                            />
+                        </div>
                     </div>
-                </div>
 
-                {/* Unique Values */}
-                <div className="mb-8">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">🔍 Unique Values Found</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <StatCard
-                            title="Unique Mutations Found"
-                            value={stats.unique_values.unique_mutations.toLocaleString()}
-                            icon="🧬"
-                            color="emerald"
-                        />
-                        <StatCard
-                            title="Unique Topics"
-                            value={stats.unique_values.unique_topics.toLocaleString()}
-                            icon="📌"
-                            color="violet"
-                        />
+                    {/* Ontology Tables Stats */}
+                    <div className="mb-12">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            <span>📖</span> Reference Tables
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <StatCard
+                                title="Disease Types"
+                                value={stats.ontology_tables.reference_diseases.toLocaleString()}
+                                icon="🦠"
+                                color="red"
+                            />
+                            <StatCard
+                                title="Tracked Mutations"
+                                value={stats.ontology_tables.reference_mutations.toLocaleString()}
+                                icon="🔬"
+                                color="indigo"
+                            />
+                            <StatCard
+                                title="Treatment Options"
+                                value={stats.ontology_tables.reference_treatments.toLocaleString()}
+                                icon="💉"
+                                color="teal"
+                            />
+                        </div>
                     </div>
-                </div>
 
-                {/* Date Range */}
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">📅 Publication Date Range</h2>
-                    <div className="bg-white rounded-lg shadow-lg p-6">
-                        <div className="flex flex-col md:flex-row justify-around items-center gap-6">
-                            <div className="text-center">
-                                <p className="text-sm text-gray-600 mb-2">Oldest Article</p>
-                                <p className="text-3xl font-bold text-blue-600">{stats.date_range.oldest_article || 'N/A'}</p>
-                            </div>
-                            <div className="text-4xl text-gray-300">→</div>
-                            <div className="text-center">
-                                <p className="text-sm text-gray-600 mb-2">Newest Article</p>
-                                <p className="text-3xl font-bold text-blue-600">{stats.date_range.newest_article || 'N/A'}</p>
+                    {/* Unique Values */}
+                    <div className="mb-12">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            <span>🔍</span> Unique Values Found
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <StatCard
+                                title="Unique Mutations Found"
+                                value={stats.unique_values.unique_mutations.toLocaleString()}
+                                icon="🧬"
+                                color="emerald"
+                            />
+                            <StatCard
+                                title="Unique Topics"
+                                value={stats.unique_values.unique_topics.toLocaleString()}
+                                icon="📌"
+                                color="violet"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Date Range */}
+                    <div className="mb-12">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            <span>📅</span> Publication Date Range
+                        </h2>
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                            <div className="flex flex-col md:flex-row justify-around items-center gap-8">
+                                <div className="text-center">
+                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Oldest Article</p>
+                                    <p className="text-4xl font-black text-blue-600 tracking-tight">{stats.date_range.oldest_article || 'N/A'}</p>
+                                </div>
+                                <div className="hidden md:block text-5xl text-gray-200 font-light">→</div>
+                                <div className="text-center">
+                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Newest Article</p>
+                                    <p className="text-4xl font-black text-blue-600 tracking-tight">{stats.date_range.newest_article || 'N/A'}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Back Link */}
-                <div className="mt-12 text-center">
-                    <a
-                        href="/"
-                        className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-lg"
-                    >
-                        ← Back to Search
-                    </a>
+                    {/* Footer / Back Link */}
+                    <div className="mt-16 text-center border-t border-gray-200 pt-12">
+                        <button
+                            onClick={onNavigateHome}
+                            className="inline-flex items-center gap-2 bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+                        >
+                            <span>←</span> Back to Search
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -205,15 +225,15 @@ const StatCard = ({ title, value, icon, color }: StatCardProps) => {
     }
 
     return (
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden transform hover:scale-105 transition-transform">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transform hover:scale-[1.02] transition-all hover:shadow-md">
             <div className={`bg-gradient-to-r ${colorClasses[color as keyof typeof colorClasses]} p-4 text-white`}>
                 <div className="flex items-center justify-between">
-                    <span className="text-4xl">{icon}</span>
-                    <h3 className="text-sm font-medium text-right">{title}</h3>
+                    <span className="text-3xl">{icon}</span>
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-white/90">{title}</h3>
                 </div>
             </div>
-            <div className="p-6">
-                <p className="text-4xl font-bold text-gray-900 text-center">{value}</p>
+            <div className="p-8">
+                <p className="text-4xl font-black text-gray-900 text-center tracking-tight">{value}</p>
             </div>
         </div>
     )

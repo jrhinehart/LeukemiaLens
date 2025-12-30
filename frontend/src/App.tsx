@@ -278,7 +278,7 @@ function App() {
 
   // Check current page state and render appropriate component
   if (currentPage === 'stats') {
-    return <StatsPage />
+    return <StatsPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
   }
   if (currentPage === 'about') {
     return <AboutPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
@@ -326,7 +326,16 @@ function App() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row items-center gap-8">
           <div className="flex-shrink-0">
-            <a href="#" className="cursor-pointer" title="Back to Home">
+            <a
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                setCurrentPage('home');
+                window.history.pushState({}, '', '/');
+              }}
+              className="cursor-pointer"
+              title="Back to Home"
+            >
               <img src={bannerImage} alt="LeukemiaLens" className="h-20 md:h-24 object-contain hover:opacity-90 transition-opacity" />
             </a>
           </div>
