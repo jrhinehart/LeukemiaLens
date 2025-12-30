@@ -118,10 +118,10 @@ app.get('/api/search', async (c) => {
 
         const studyIds = results.map((r: any) => r.id);
 
-        // SQLite has a limit on the number of variables (typically 999)
-        // However, D1 appears to have a much lower practical limit
-        // Consistently hitting errors around offset 288 with larger batches
-        const batchSize = 100; // Very conservative batch size for D1 compatibility
+        // D1 has a hard limit of 100 parameters per query (not SQLite's 999!)
+        // https://developers.cloudflare.com/d1/platform/limits/
+        // Using batch size of 50 to stay well below this limit
+        const batchSize = 50;
         const mutationsMap: Record<number, string[]> = {};
         const treatmentsMap: Record<number, any[]> = {};
 
@@ -282,10 +282,10 @@ app.get('/api/export', async (c) => {
         // Fetch mutations, topics, and treatments for the results
         const studyIds = results.map((r: any) => r.id);
 
-        // SQLite has a limit on the number of variables (typically 999)
-        // However, D1 appears to have a lower practical limit around 300
-        // So we need to batch the queries if we have many study IDs
-        const batchSize = 100; // Very conservative batch size for D1 compatibility
+        // D1 has a hard limit of 100 parameters per query (not SQLite's 999!)
+        // https://developers.cloudflare.com/d1/platform/limits/
+        // Using batch size of 50 to stay well below this limit
+        const batchSize = 50;
         const mutationsMap: Record<number, string[]> = {};
         const topicsMap: Record<number, string[]> = {};
         const treatmentsMap: Record<number, string[]> = {};
