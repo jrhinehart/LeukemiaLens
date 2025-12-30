@@ -15,7 +15,7 @@ const TOOL_NAME = "LeukemiaLens"; // Register tool name with NCBI
 // Global rate limiter instance
 let rateLimiter: RateLimiter;
 
-async function searchPubmed(env: Env, termOverride: string | null = null, limit: number = MAX_RESULTS): Promise<string[]> {
+async function searchPubmed(env: Env, termOverride: string | null = null, limit: number = MAX_RESULTS, offset: number = 0): Promise<{ ids: string[], total: number }> {
     // Initialize rate limiter if not already done
     if (!rateLimiter) {
         const requestsPerSecond = env.NCBI_API_KEY ? 10 : 3;
@@ -27,6 +27,7 @@ async function searchPubmed(env: Env, termOverride: string | null = null, limit:
         db: "pubmed",
         term: termOverride || SEARCH_TERM,
         retmax: limit.toString(),
+        retstart: offset.toString(),
         usehistory: "y",
         email: env.NCBI_EMAIL,
         tool: TOOL_NAME,
@@ -42,29 +43,50 @@ async function searchPubmed(env: Env, termOverride: string | null = null, limit:
         `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?${params.toString()}`
     );
     const data: any = await response.json();
-    return data.esearchresult.idlist || [];
+    return {
+        ids: data.esearchresult.idlist || [],
+        total: parseInt(data.esearchresult.count || "0")
+    };
 }
 
 async function fetchDetails(env: Env, ids: string[]): Promise<string> {
     if (!ids.length) return "";
 
-    const params = new URLSearchParams({
-        db: "pubmed",
-        id: ids.join(","),
-        retmode: "xml",
-        email: env.NCBI_EMAIL,
-        tool: TOOL_NAME
-    });
+    // NCBI recommends chunking efetch into batches of ~200 or fewer for stability
+    const CHUNK_SIZE = 200;
+    let combinedXml = "";
 
-    // Add API key if available
-    if (env.NCBI_API_KEY) {
-        params.append('api_key', env.NCBI_API_KEY);
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+        const chunk = ids.slice(i, i + CHUNK_SIZE);
+        const params = new URLSearchParams({
+            db: "pubmed",
+            id: chunk.join(","),
+            retmode: "xml",
+            email: env.NCBI_EMAIL,
+            tool: TOOL_NAME
+        });
+
+        if (env.NCBI_API_KEY) {
+            params.append('api_key', env.NCBI_API_KEY);
+        }
+
+        console.log(`Fetching details for chunk ${i / CHUNK_SIZE + 1} (${chunk.length} IDs)...`);
+        const response = await rateLimiter.fetchWithRetry(
+            `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?${params.toString()}`
+        );
+        const text = await response.text();
+
+        if (i === 0) {
+            combinedXml = text;
+        } else {
+            // Append the contents but skip the outer XML declarations if possible, 
+            // or just rely on cheerio being able to handle multiple PubmedArticle elements in one string.
+            // Cheerio.load handles multiple root elements fine if they are at the same level.
+            combinedXml += text.replace(/<\?xml.*\?>/g, '').replace(/<!DOCTYPE.*>/g, '');
+        }
     }
 
-    const response = await rateLimiter.fetchWithRetry(
-        `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?${params.toString()}`
-    );
-    return await response.text();
+    return combinedXml;
 }
 
 export default {
@@ -75,25 +97,38 @@ export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         const url = new URL(request.url);
         const year = url.searchParams.get("year");
+        const month = url.searchParams.get("month");
+        const offsetParam = url.searchParams.get("offset");
         const limitParam = url.searchParams.get("limit");
+
         const limit = limitParam ? parseInt(limitParam) : MAX_RESULTS;
+        const offset = offsetParam ? parseInt(offsetParam) : 0;
 
         let searchTermOverride = null;
         if (year) {
-            searchTermOverride = `(Leukemia[Title/Abstract]) AND ("${year}/01/01"[Date - Publication] : "${year}/12/31"[Date - Publication])`;
+            if (month) {
+                // Determine last day of the month
+                const y = parseInt(year);
+                const m = parseInt(month);
+                const lastDay = new Date(y, m, 0).getDate();
+                const monthStr = m.toString().padStart(2, '0');
+                searchTermOverride = `(Leukemia[Title/Abstract]) AND ("${year}/${monthStr}/01"[Date - Publication] : "${year}/${monthStr}/${lastDay}"[Date - Publication])`;
+            } else {
+                searchTermOverride = `(Leukemia[Title/Abstract]) AND ("${year}/01/01"[Date - Publication] : "${year}/12/31"[Date - Publication])`;
+            }
         }
 
         // Manual trigger for testing
-        ctx.waitUntil(this.processIngestion(env, searchTermOverride, limit));
-        return new Response(`Ingestion triggered for ${year || "default range"} with limit ${limit}`);
+        const result = await this.processIngestion(env, searchTermOverride, limit, offset);
+        return new Response(`Ingestion for ${year}${month ? '-' + month : ''}: Found ${result.total} total. Ingested ${result.ingested} in this batch (offset ${offset}).`);
     },
 
-    async processIngestion(env: Env, searchTermOverride: string | null = null, limit: number = MAX_RESULTS) {
-        console.log(`Starting ingestion... term=${searchTermOverride || "default"} limit=${limit}`);
+    async processIngestion(env: Env, searchTermOverride: string | null = null, limit: number = MAX_RESULTS, offset: number = 0) {
+        console.log(`Starting ingestion... term=${searchTermOverride || "default"} limit=${limit} offset=${offset}`);
         try {
-            const ids = await searchPubmed(env, searchTermOverride, limit);
-            console.log(`Found ${ids.length} articles.`);
-            if (ids.length === 0) return;
+            const { ids, total } = await searchPubmed(env, searchTermOverride, limit, offset);
+            console.log(`Found ${ids.length} articles to ingest (Total matching in PubMed: ${total}).`);
+            if (ids.length === 0) return { total, ingested: 0 };
 
             const xmlContent = await fetchDetails(env, ids);
             const $ = cheerio.load(xmlContent, { xmlMode: true });
@@ -253,9 +288,11 @@ export default {
                 }
             }
             console.log("Ingestion complete.");
+            return { total, ingested: ids.length };
 
         } catch (e) {
             console.error("Ingestion failed:", e);
+            return { total: 0, ingested: 0 };
         }
     }
 };

@@ -83,7 +83,7 @@ async function fetchPubMedDate(pmid: string): Promise<string | null> {
         if (!pubDateYear) {
             const medlineDate = pubDateNode.find('MedlineDate').text();
             const match = medlineDate.match(/\d{4}/);
-            pubDateYear = match ? match[0] : null;
+            pubDateYear = match ? match[0] : '';
         }
 
         if (!pubDateYear) return null;

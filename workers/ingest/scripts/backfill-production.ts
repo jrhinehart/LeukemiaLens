@@ -4,25 +4,32 @@
  * Safely backfills LeukemiaLens database with historical PubMed articles.
  * Respects NCBI rate limits and runs in manageable batches.
  * 
+ * NCBI API RESTRICTIONS:
+ * - 3 requests/sec without API key
+ * - 10 requests/sec with API key
+ * - Large backfills (>100 requests) should run between 9 PM and 5 AM US Eastern Time.
+ * 
  * Usage:
- *   # Backfill 2000-2022 (before current data), 100 articles per year
+ *   # Backfill 2000-2022, 100 articles per year (Default)
  *   npx tsx scripts/backfill-production.ts --start-year 2000 --end-year 2022 --batch-size 100
  *   
- *   # Resume from specific year
- *   npx tsx scripts/backfill-production.ts --start-year 2015 --end-year 2022 --batch-size 100
- *   
- *   # Dry run (see what will be fetched without ingesting)
- *   npx tsx scripts/backfill-production.ts --start-year 2020 --end-year 2020 --dry-run
+ *   # Monthly granularity (recommended for large datasets)
+ *   npx tsx scripts/backfill-production.ts --start-year 2023 --granular --batch-size 500
+ * 
+ *   # Resume from specific offset
+ *   npx tsx scripts/backfill-production.ts --start-year 2023 --granular --offset 500
  */
 
 const WORKER_URL = process.env.WORKER_URL || 'https://leukemialens-ingest.jr-rhinehart.workers.dev';
-const DELAY_BETWEEN_YEARS = 5000; // 5 seconds between year batches (conservative)
 
 interface BackfillOptions {
     startYear: number;
     endYear: number;
     batchSize: number;
+    offset: number;
+    month?: number;
     dryRun: boolean;
+    granular: boolean;
 }
 
 interface BackfillProgress {
@@ -33,9 +40,29 @@ interface BackfillProgress {
     currentYear?: number;
 }
 
+function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function printProgress(progress: BackfillProgress) {
+    const elapsed = Date.now() - progress.startTime;
+    const elapsedMin = Math.floor(elapsed / 60000);
+    const percentComplete = Math.round((progress.completedYears / progress.totalYears) * 100);
+
+    console.log('\n--- Progress Report ---');
+    console.log(`  Completed: ${progress.completedYears}/${progress.totalYears} segments (${percentComplete}%)`);
+    console.log(`  Failed: ${progress.failedYears.length}`);
+    console.log(`  Elapsed Time: ${elapsedMin} minutes`);
+    if (progress.currentYear) {
+        console.log(`  Current Year: ${progress.currentYear}`);
+    }
+    console.log('----------------------\n');
+}
+
 async function backfillProduction(options: BackfillOptions) {
+    const years = options.endYear - options.startYear + 1;
     const progress: BackfillProgress = {
-        totalYears: options.endYear - options.startYear + 1,
+        totalYears: years,
         completedYears: 0,
         failedYears: [],
         startTime: Date.now()
@@ -46,56 +73,58 @@ async function backfillProduction(options: BackfillOptions) {
     console.log('='.repeat(60));
     console.log(`Worker URL: ${WORKER_URL}`);
     console.log(`Year Range: ${options.startYear} - ${options.endYear}`);
-    console.log(`Batch Size: ${options.batchSize} articles/year`);
-    console.log(`Dry Run: ${options.dryRun ? 'YES' : 'NO'}`);
-    console.log(`Total Years: ${progress.totalYears}`);
+    if (options.month) console.log(`Month:      ${options.month}`);
+    console.log(`Mode:       ${options.granular ? 'MONTHLY (Granular)' : 'YEARLY'}`);
+    console.log(`Batch Size: ${options.batchSize} articles per segment`);
+    if (options.offset > 0) console.log(`Offset:     ${options.offset}`);
     console.log('='.repeat(60));
 
     if (!options.dryRun) {
         console.log('⚠️  Running in PRODUCTION mode. Press Ctrl+C to cancel...');
-        console.log('Starting in 5 seconds...\n');
-        await sleep(5000);
+        console.log('Starting in 3 seconds...\n');
+        await sleep(3000);
     }
 
     for (let year = options.startYear; year <= options.endYear; year++) {
-        progress.currentYear = year;
+        const startMonth = options.month || 1;
+        const endMonth = options.month || (options.granular ? 12 : 1);
 
-        try {
-            console.log(`\n[${year}] Processing year ${year}...`);
+        for (let m = startMonth; m <= endMonth; m++) {
+            const displayMonth = (options.granular || options.month) ? `-${m.toString().padStart(2, '0')}` : '';
+            console.log(`\n[${year}${displayMonth}] Processing...`);
 
-            if (options.dryRun) {
-                console.log(`  [DRY RUN] Would trigger: ${WORKER_URL}?year=${year}&limit=${options.batchSize}`);
-                await sleep(100); // Minimal delay for dry run
-            } else {
-                const response = await fetch(`${WORKER_URL}?year=${year}&limit=${options.batchSize}`);
-                const text = await response.text();
+            try {
+                const url = new URL(WORKER_URL);
+                url.searchParams.set('year', year.toString());
+                if (options.granular || options.month) url.searchParams.set('month', m.toString());
+                url.searchParams.set('limit', options.batchSize.toString());
+                if (options.offset > 0) url.searchParams.set('offset', options.offset.toString());
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${text}`);
+                if (options.dryRun) {
+                    console.log(`  [DRY RUN] Would trigger: ${url.toString()}`);
+                } else {
+                    const response = await fetch(url.toString());
+                    const text = await response.text();
+
+                    if (!response.ok) throw new Error(`HTTP ${response.status}: ${text}`);
+
+                    console.log(`  [${year}${displayMonth}] ✓ ${text}`);
+
+                    // Delay between requests to be extra safe
+                    const delay = (options.granular || options.month) ? 2000 : 5000;
+                    if (year < options.endYear || m < endMonth) {
+                        console.log(`  [${year}${displayMonth}] Waiting ${delay}ms...`);
+                        await sleep(delay);
+                    }
                 }
-
-                console.log(`  [${year}] ✓ ${response.status} - ${text}`);
-                progress.completedYears++;
-
-                // Conservative delay between years
-                if (year < options.endYear) {
-                    console.log(`  [${year}] Waiting ${DELAY_BETWEEN_YEARS}ms before next year...`);
-                    await sleep(DELAY_BETWEEN_YEARS);
-                }
+            } catch (error: any) {
+                console.error(`  [${year}${displayMonth}] ✗ Failed: ${error.message}`);
+                progress.failedYears.push(`${year}${displayMonth}: ${error.message}`);
             }
-
-            // Progress report every 5 years
-            if (progress.completedYears % 5 === 0 && progress.completedYears > 0) {
-                printProgress(progress);
-            }
-
-        } catch (error: any) {
-            console.error(`  [${year}] ✗ Failed: ${error.message}`);
-            progress.failedYears.push(`${year}: ${error.message}`);
-
-            // Continue on error but log it
-            console.log(`  [${year}] Continuing to next year after error...`);
         }
+        progress.completedYears++;
+        progress.currentYear = year;
+        if (progress.completedYears % 5 === 0) printProgress(progress);
     }
 
     console.log('\n' + '='.repeat(60));
@@ -103,31 +132,9 @@ async function backfillProduction(options: BackfillOptions) {
     printProgress(progress);
 
     if (progress.failedYears.length > 0) {
-        console.log('\n⚠️  Failed Years:');
+        console.log('\n⚠️  Failed Segments:');
         progress.failedYears.forEach(failure => console.log(`  - ${failure}`));
-        console.log('\nYou can re-run the script for failed years to retry.');
     }
-
-    console.log('='.repeat(60));
-}
-
-function printProgress(progress: BackfillProgress) {
-    const elapsed = Date.now() - progress.startTime;
-    const elapsedMin = Math.floor(elapsed / 60000);
-    const percentComplete = Math.round((progress.completedYears / progress.totalYears) * 100);
-
-    console.log('\n--- Progress Report ---');
-    console.log(`  Completed: ${progress.completedYears}/${progress.totalYears} years (${percentComplete}%)`);
-    console.log(`  Failed: ${progress.failedYears.length}`);
-    console.log(`  Elapsed Time: ${elapsedMin} minutes`);
-    if (progress.currentYear) {
-        console.log(`  Current Year: ${progress.currentYear}`);
-    }
-    console.log('----------------------\n');
-}
-
-function sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // CLI argument parsing
@@ -136,14 +143,19 @@ const options: BackfillOptions = {
     startYear: 2000,
     endYear: 2022,
     batchSize: 100,
-    dryRun: false
+    offset: 0,
+    dryRun: false,
+    granular: false
 };
 
 for (let i = 0; i < args.length; i++) {
     if (args[i] === '--start-year' && args[i + 1]) options.startYear = parseInt(args[i + 1]);
     if (args[i] === '--end-year' && args[i + 1]) options.endYear = parseInt(args[i + 1]);
     if (args[i] === '--batch-size' && args[i + 1]) options.batchSize = parseInt(args[i + 1]);
+    if (args[i] === '--offset' && args[i + 1]) options.offset = parseInt(args[i + 1]);
+    if (args[i] === '--month' && args[i + 1]) options.month = parseInt(args[i + 1]);
     if (args[i] === '--dry-run') options.dryRun = true;
+    if (args[i] === '--granular') options.granular = true;
 }
 
 // Validation
@@ -152,12 +164,12 @@ if (options.startYear > options.endYear) {
     process.exit(1);
 }
 
-if (options.batchSize < 1 || options.batchSize > 500) {
-    console.error('Error: batch-size must be between 1-500');
+if (options.batchSize < 0 || options.batchSize > 1000) {
+    console.error('Error: batch-size must be between 0-1000 (Set to 0 for count-only mode)');
     process.exit(1);
 }
 
 backfillProduction(options).catch(err => {
-    console.error('Backfill failed:', err);
+    console.error('Backfill execution failed:', err);
     process.exit(1);
 });

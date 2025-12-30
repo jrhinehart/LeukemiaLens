@@ -77,7 +77,8 @@ CREATE TABLE links (
   study_id INTEGER NOT NULL,
   url TEXT NOT NULL,
   link_type TEXT, -- 'pubmed', 'doi', 'clinicaltrials', etc.
-  FOREIGN KEY(study_id) REFERENCES studies(id) ON DELETE CASCADE
+  FOREIGN KEY(study_id) REFERENCES studies(id) ON DELETE CASCADE,
+  UNIQUE(study_id, url) -- Prevent duplicate links per study
 );
 CREATE INDEX idx_links_study ON links(study_id);
 

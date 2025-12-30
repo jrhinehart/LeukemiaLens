@@ -1,6 +1,6 @@
 # LeukemiaLens
 
-LeukemiaLens is a specialized research tracker designed to help researchers and clinicians stay updated with the latest scientific developments in leukemia. It aggregates articles from PubMed and enriches them with intelligent tagging for specific gene mutations, disease subtypes, and study topics.
+LeukemiaLens is a specialized research tracker designed to help researchers and clinicians stay updated with the latest scientific developments in leukemia. It aggregates articles from PubMed and enriches them with intelligent tagging for specific gene mutations, disease subtypes, research topics, and clinical treatments.
 
 ## Screenshots
 ### Advanced Filtering & Study Topics
@@ -13,13 +13,20 @@ LeukemiaLens is a specialized research tracker designed to help researchers and 
   - **Mutations**: Automatically detects common gene mutations (FLT3, NPM1, IDH1, TP53, KRAS, NRAS, etc.).
   - **Diseases**: Categorizes articles by subtype (AML, CML, ALL, CLL, MDS, MPN, DLBCL, MM).
   - **Study Topics**: Identifies key research areas like CAR-T, Cell Therapy, Immunotherapy, Clinical Trials, and Data Science/AI.
-- **Ontology-Based Filtering**: Reference tables ensure consistent disease and mutation classification.
-- **Advanced Search**: Filter by mutations, diseases, topics, author, journal, institution, and publication date.
-- **CSV Export**: Export filtered results to CSV for further analysis.
-- **Interactive Dashboard**:
-  - Visual statistics of trending mutations and topics.
+  - **Treatments**: Detects specific pharmacological treatments and established protocols (e.g., 7+3, VEN-AZA, FLAG-IDA).
+- **Ontology-Based Filtering**: Reference tables ensure consistent disease, mutation, and treatment classification.
+- **Advanced Search**: 
+  - Filter by mutations, diseases, topics, and treatments.
+  - Search by author, journal, institution, and complex karyotype status.
+  - Flexible date range filtering.
+- **CSV Export**: Export filtered results to CSV for further analysis, including full metadata and PubMed links.
+- **Interactive Dashboards**:
+  - **Real-time Research Stats**: Visual statistics of trending mutations, topics, and treatments.
+  - **Database Statistics**: Specialized dashboard showing database growth, diversity, and coverage.
+- **Modern UI**:
+  - Responsive layout with specialized filtering components.
+  - Client-side pagination for smooth and responsive browsing.
   - One-click filtering and resetting.
-  - Direct links to full PubMed articles.
 
 ## Architecture
 
@@ -40,7 +47,8 @@ LeukemiaLens is built on a serverless Cloudflare Workers architecture:
 │  Endpoints:                             │
 │  • GET /api/search                      │
 │  • GET /api/export (CSV)                │
-│  • GET /api/stats                       │
+│  • GET /api/stats (Trends)              │
+│  • GET /api/database-stats              │
 │  • GET /api/ontology                    │
 │  • GET /api/study/:id                   │
 └─────────────────┬───────────────────────┘
@@ -53,10 +61,10 @@ LeukemiaLens is built on a serverless Cloudflare Workers architecture:
 │                                         │
 │  Tables:                                │
 │  • studies                              │
-│  • mutations                            │
-│  • study_topics                         │
-│  • ref_diseases (ontology)              │
-│  • ref_mutations (ontology)             │
+│  • mutations / study_topics             │
+│  • treatments                           │
+│  • ref_diseases / ref_mutations         │
+│  • ref_treatments (protocols/drugs)     │
 └─────────────────────────────────────────┘
                   ▲
                   │
@@ -85,16 +93,19 @@ LeukemiaLens is built on a serverless Cloudflare Workers architecture:
 The application uses a relational schema with ontology tables for consistent classification:
 
 ### Core Tables
-- **`studies`** - Main article metadata (title, abstract, journal, authors, publication date)
+- **`studies`** - Main article metadata (title, abstract, journal, authors, publication date, complex karyotype status)
 - **`mutations`** - Junction table linking studies to detected gene mutations
-- **`study_topics`** - Junction table linking studies to research topics
+- **`study_topics`** - Junction table linking studies to research topics (tags)
+- **`treatments`** - Junction table linking studies to specific treatments
 - **`links`** - External links to full text sources
 
 ### Reference Tables (Ontology)
 - **`ref_diseases`** - Authoritative list of disease subtypes (AML, ALL, CML, etc.)
 - **`ref_mutations`** - Tracked gene mutations with categorization
+- **`ref_treatments`** - Catalog of normalized treatments (drugs and clinical protocols)
+- **`ref_treatment_components`** - Mapping of clinical protocols to their individual drug components
 
-See [`schema.sql`](schema.sql) for complete schema definition.
+See [`schema.sql`](schema.sql) and [`schema_treatments.sql`](schema_treatments.sql) for complete definitions.
 
 ## Setup & Deployment
 
@@ -116,9 +127,10 @@ wrangler d1 create leukemialens-db
 
 Note the database ID from the output and update `wrangler.toml` files.
 
-Apply the schema:
+Apply the schemas:
 ```bash
 wrangler d1 execute leukemialens-db --file=schema.sql
+wrangler d1 execute leukemialens-db --file=schema_treatments.sql
 ```
 
 ### 2. API Worker Setup
@@ -126,10 +138,6 @@ wrangler d1 execute leukemialens-db --file=schema.sql
 Navigate to the API worker directory:
 ```bash
 cd workers/api
-```
-
-Install dependencies:
-```bash
 npm install
 ```
 
@@ -145,10 +153,6 @@ wrangler deploy
 Navigate to the ingest worker directory:
 ```bash
 cd workers/ingest
-```
-
-Install dependencies:
-```bash
 npm install
 ```
 
@@ -162,6 +166,14 @@ wrangler secret put CLOUDFLARE_ACCOUNT_ID
 wrangler secret put CLOUDFLARE_API_TOKEN
 ```
 
+> [!IMPORTANT]
+> ### NCBI API Limits & Best Practices
+> To ensure reliable ingestion and avoid IP blocks from NCBI:
+> - **API Key**: Always use an `NCBI_API_KEY`. It increases your rate limit from **3** to **10** requests per second.
+> - **Off-Peak Hours**: For large backfills (more than 100 requests), NCBI recommends running scripts during off-peak hours (9:00 PM – 5:00 AM US Eastern Time).
+> - **Chunking**: The system automatically chunks requests, but it is recommended to keep `batch-size` per year between **100-500** to avoid timeouts.
+> - **Tool Identification**: This project identifies itself as `LeukemiaLens` as required by NCBI policy.
+
 Update `wrangler.toml` with your database ID and configure the CRON schedule.
 
 Deploy:
@@ -174,11 +186,16 @@ wrangler deploy
 To populate the database with historical data:
 
 ```bash
-# Backfill articles
-npx tsx scripts/backfill-production.ts
+# Backfill articles (100 per year by default)
+npx tsx scripts/backfill-production.ts --start-year 2000 --end-year 2024
 
-# Backfill study topics for existing articles
+# For larger datasets, run in chunks or during off-peak hours
+npx tsx scripts/backfill-production.ts --start-year 2000 --end-year 2024 --batch-size 500
+
+# Backfill specific metadata for existing articles
 npx tsx scripts/backfill-topics.ts
+npx tsx scripts/backfill-treatments.ts
+npx tsx scripts/backfill-dates.ts
 ```
 
 ### 4. Frontend Setup
@@ -186,14 +203,8 @@ npx tsx scripts/backfill-topics.ts
 Navigate to the frontend directory:
 ```bash
 cd frontend
-```
-
-Install dependencies:
-```bash
 npm install
 ```
-
-Update API endpoints in `src/App.tsx` if needed (currently points to production).
 
 **Local Development:**
 ```bash
@@ -207,8 +218,6 @@ npm run build
 wrangler pages deploy dist
 ```
 
-Or connect your GitHub repository to Cloudflare Pages for automatic deployments.
-
 ## API Endpoints
 
 ### `GET /api/search`
@@ -216,36 +225,41 @@ Search and filter articles.
 
 **Query Parameters:**
 - `q` - Text search (title/abstract)
-- `mutation` - Filter by gene mutations (comma-separated)
-- `disease` - Filter by disease subtypes (comma-separated)
+- `mutation` - Filter by gene mutations (comma-separated symbols)
+- `disease` - Filter by disease subtypes (comma-separated codes)
 - `tag` - Filter by study topics (comma-separated)
+- `treatment` - Filter by treatment codes (comma-separated)
+- `complex_karyotype` - Filter for complex karyotype articles (`true`/`false`)
 - `author` - Filter by author name
 - `journal` - Filter by journal name
-- `institution` - Filter by institution/affiliation
-- `year_start` - Filter by start year (YYYY or YYYY-MM-DD)
-- `year_end` - Filter by end year (YYYY or YYYY-MM-DD)
+- `institution` - Filter by institution/affiliation (currently matches titles)
+- `year_start` - Filter by start date (YYYY or YYYY-MM-DD)
+- `year_end` - Filter by end date (YYYY or YYYY-MM-DD)
 - `limit` - Results per page (default: 50)
 - `offset` - Pagination offset (default: 0)
 
 ### `GET /api/export`
-Export filtered results as CSV. Accepts same query parameters as `/api/search`.
+Export filtered results as CSV. Accepts same query parameters as `/api/search` (higher `limit` recommended).
 
 ### `GET /api/stats`
-Get statistics on mutations and topics.
+Get trend statistics on mutations, topics, and treatments.
 
-**Response:**
-```json
-{
-  "mutations": { "FLT3": 245, "NPM1": 198, ... },
-  "tags": { "Clinical Trial": 89, "CAR-T": 56, ... }
-}
-```
+### `GET /api/database-stats`
+Get comprehensive metrics on database size, coverage, and date ranges.
 
 ### `GET /api/ontology`
-Get reference lists of diseases and mutations.
+Get reference lists of diseases, mutations, and treatments (including protocol components).
 
 ### `GET /api/study/:id`
 Get detailed information for a specific study by ID.
+
+## UI Components
+
+LeukemiaLens uses a modular filtering system built with specialized React components:
+- **`SimpleListFilter`**: Multi-select filtering for discrete categories (Diseases, Topics).
+- **`SearchableListFilter`**: High-cardinality filtering with search and frequency counts (Mutations, Treatments).
+- **`DateRangeFilter`**: Flexible date boundary selection.
+- **`TextSearchFilter`**: Real-time keyword search.
 
 ## Development
 
