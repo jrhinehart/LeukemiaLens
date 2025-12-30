@@ -54,8 +54,30 @@ const HighlightText = ({ text, highlight }: { text: string, highlight: string })
 }
 
 function App() {
-  // Page routing
-  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats'>('home')
+  // Page routing - check URL pathname
+  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats'>(() => {
+    const path = window.location.pathname
+    if (path === '/stats') return 'stats'
+    if (path === '/about') return 'about'
+    if (path === '/contact') return 'contact'
+    if (path === '/resources') return 'resources'
+    return 'home'
+  })
+
+  // Listen for browser navigation (back/forward)
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname
+      if (path === '/stats') setCurrentPage('stats')
+      else if (path === '/about') setCurrentPage('about')
+      else if (path === '/contact') setCurrentPage('contact')
+      else if (path === '/resources') setCurrentPage('resources')
+      else setCurrentPage('home')
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   // Beta banner state (persist dismissal in localStorage)
   const [showBetaBanner, setShowBetaBanner] = useState<boolean>(() => {
@@ -253,8 +275,8 @@ function App() {
   const endIndex = startIndex + itemsPerPage
   const paginatedArticles = articles.slice(startIndex, endIndex)
 
-  // Check URL path for stats page
-  if (window.location.pathname === '/stats') {
+  // Check current page state
+  if (currentPage === 'stats') {
     return <StatsPage />
   }
 
