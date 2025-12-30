@@ -117,34 +117,44 @@ app.get('/api/search', async (c) => {
         if (results.length === 0) return c.json([]);
 
         const studyIds = results.map((r: any) => r.id);
-        // Fetch mutations and treatments for these studies to hydrate the response
-        const idsPlaceholder = studyIds.map(() => '?').join(',');
-        const [mutationsRes, treatmentsRes] = await Promise.all([
-            c.env.DB.prepare(`
-                SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
-            `).bind(...studyIds).run(),
-            c.env.DB.prepare(`
-                SELECT tr.study_id, rt.code, rt.name, rt.type 
-                FROM treatments tr 
-                JOIN ref_treatments rt ON tr.treatment_id = rt.id 
-                WHERE tr.study_id IN (${idsPlaceholder})
-            `).bind(...studyIds).run()
-        ]);
 
+        // SQLite has a limit on the number of variables (typically 999)
+        // So we need to batch the queries if we have many study IDs
+        const batchSize = 500; // Safe batch size well below the limit
         const mutationsMap: Record<number, string[]> = {};
-        if (mutationsRes.results) {
-            mutationsRes.results.forEach((m: any) => {
-                if (!mutationsMap[m.study_id]) mutationsMap[m.study_id] = [];
-                mutationsMap[m.study_id].push(m.gene_symbol);
-            });
-        }
-
         const treatmentsMap: Record<number, any[]> = {};
-        if (treatmentsRes.results) {
-            treatmentsRes.results.forEach((t: any) => {
-                if (!treatmentsMap[t.study_id]) treatmentsMap[t.study_id] = [];
-                treatmentsMap[t.study_id].push({ code: t.code, name: t.name, type: t.type });
-            });
+
+        // Process study IDs in batches
+        for (let i = 0; i < studyIds.length; i += batchSize) {
+            const batchIds = studyIds.slice(i, i + batchSize);
+            const idsPlaceholder = batchIds.map(() => '?').join(',');
+
+            const [mutationsRes, treatmentsRes] = await Promise.all([
+                c.env.DB.prepare(`
+                    SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
+                `).bind(...batchIds).run(),
+                c.env.DB.prepare(`
+                    SELECT tr.study_id, rt.code, rt.name, rt.type 
+                    FROM treatments tr 
+                    JOIN ref_treatments rt ON tr.treatment_id = rt.id 
+                    WHERE tr.study_id IN (${idsPlaceholder})
+                `).bind(...batchIds).run()
+            ]);
+
+            // Merge batch results into maps
+            if (mutationsRes.results) {
+                mutationsRes.results.forEach((m: any) => {
+                    if (!mutationsMap[m.study_id]) mutationsMap[m.study_id] = [];
+                    mutationsMap[m.study_id].push(m.gene_symbol);
+                });
+            }
+
+            if (treatmentsRes.results) {
+                treatmentsRes.results.forEach((t: any) => {
+                    if (!treatmentsMap[t.study_id]) treatmentsMap[t.study_id] = [];
+                    treatmentsMap[t.study_id].push({ code: t.code, name: t.name, type: t.type });
+                });
+            }
         }
 
         const enhancedResults = results.map((r: any) => ({
@@ -265,42 +275,50 @@ app.get('/api/export', async (c) => {
 
         // Fetch mutations, topics, and treatments for the results
         const studyIds = results.map((r: any) => r.id);
-        const idsPlaceholder = studyIds.map(() => '?').join(',');
 
-        const [mutationsRes, topicsRes, treatmentsRes] = await Promise.all([
-            c.env.DB.prepare(`
-                SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
-            `).bind(...studyIds).run(),
-            c.env.DB.prepare(`
-                SELECT study_id, topic_name FROM study_topics WHERE study_id IN (${idsPlaceholder})
-            `).bind(...studyIds).run(),
-            c.env.DB.prepare(`
-                SELECT tr.study_id, rt.name
-                FROM treatments tr
-                JOIN ref_treatments rt ON tr.treatment_id = rt.id
-                WHERE tr.study_id IN (${idsPlaceholder})
-            `).bind(...studyIds).run()
-        ]);
-
-        // Build maps for mutations, topics, and treatments
+        // SQLite has a limit on the number of variables (typically 999)
+        // So we need to batch the queries if we have many study IDs
+        const batchSize = 500; // Safe batch size well below the limit
         const mutationsMap: Record<number, string[]> = {};
         const topicsMap: Record<number, string[]> = {};
         const treatmentsMap: Record<number, string[]> = {};
 
-        mutationsRes.results?.forEach((m: any) => {
-            if (!mutationsMap[m.study_id]) mutationsMap[m.study_id] = [];
-            mutationsMap[m.study_id].push(m.gene_symbol);
-        });
+        // Process study IDs in batches
+        for (let i = 0; i < studyIds.length; i += batchSize) {
+            const batchIds = studyIds.slice(i, i + batchSize);
+            const idsPlaceholder = batchIds.map(() => '?').join(',');
 
-        topicsRes.results?.forEach((t: any) => {
-            if (!topicsMap[t.study_id]) topicsMap[t.study_id] = [];
-            topicsMap[t.study_id].push(t.topic_name);
-        });
+            const [mutationsRes, topicsRes, treatmentsRes] = await Promise.all([
+                c.env.DB.prepare(`
+                    SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
+                `).bind(...batchIds).run(),
+                c.env.DB.prepare(`
+                    SELECT study_id, topic_name FROM study_topics WHERE study_id IN (${idsPlaceholder})
+                `).bind(...batchIds).run(),
+                c.env.DB.prepare(`
+                    SELECT tr.study_id, rt.name
+                    FROM treatments tr
+                    JOIN ref_treatments rt ON tr.treatment_id = rt.id
+                    WHERE tr.study_id IN (${idsPlaceholder})
+                `).bind(...batchIds).run()
+            ]);
 
-        treatmentsRes.results?.forEach((t: any) => {
-            if (!treatmentsMap[t.study_id]) treatmentsMap[t.study_id] = [];
-            treatmentsMap[t.study_id].push(t.name);
-        });
+            // Merge batch results into maps
+            mutationsRes.results?.forEach((m: any) => {
+                if (!mutationsMap[m.study_id]) mutationsMap[m.study_id] = [];
+                mutationsMap[m.study_id].push(m.gene_symbol);
+            });
+
+            topicsRes.results?.forEach((t: any) => {
+                if (!topicsMap[t.study_id]) topicsMap[t.study_id] = [];
+                topicsMap[t.study_id].push(t.topic_name);
+            });
+
+            treatmentsRes.results?.forEach((t: any) => {
+                if (!treatmentsMap[t.study_id]) treatmentsMap[t.study_id] = [];
+                treatmentsMap[t.study_id].push(t.name);
+            });
+        }
 
         // Convert to CSV
         const headers = ['ID', 'Title', 'Abstract', 'Publication Date', 'Journal', 'Disease', 'Mutations', 'Treatments', 'Topics', 'Authors', 'Affiliations', 'Link'];
