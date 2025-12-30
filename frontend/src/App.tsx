@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import bannerImage from './assets/LL-logo-banner.jpg'
 import { AboutPage, ContactPage, ResourcesPage } from './Pages'
-import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter } from './components'
+import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal } from './components'
 
 // Helper to serialize arrays as repeat params: key=val1&key=val2
 const paramsSerializer = (params: any) => {
@@ -85,6 +85,9 @@ function App() {
   const [stats, setStats] = useState<{ mutations: { [key: string]: number }, tags: { [key: string]: number }, treatments: { [key: string]: number } }>({ mutations: {}, tags: {}, treatments: {} })
   const [ontology, setOntology] = useState<{ diseases: any[], mutations: any[], treatments: any[], treatment_components: any[] }>({ diseases: [], mutations: [], treatments: [], treatment_components: [] })
 
+  // Error state
+  const [error, setError] = useState<{ title: string, message: string } | null>(null)
+
   // Pagination state
   const [resultsPage, setResultsPage] = useState(1)
   const itemsPerPage = 25
@@ -150,6 +153,9 @@ function App() {
       if (startDate) params.year_start = startDate
       if (endDate) params.year_end = endDate
 
+      // Request up to 1000 results (API will handle pagination internally)
+      params.limit = '1000'
+
       const res = await axios.get('https://leukemialens-api.jr-rhinehart.workers.dev/api/search', {
         params,
         paramsSerializer: { serialize: paramsSerializer }
@@ -170,8 +176,12 @@ function App() {
         tags: []
       }))
       setArticles(mapped)
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
+      setError({
+        title: 'Failed to Load Articles',
+        message: err.response?.data?.error || 'Unable to fetch articles. Please check your connection and try again.'
+      })
     }
   }
 
@@ -179,8 +189,12 @@ function App() {
     try {
       const res = await axios.get('https://leukemialens-api.jr-rhinehart.workers.dev/api/stats')
       setStats(res.data)
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
+      setError({
+        title: 'Failed to Load Statistics',
+        message: 'Unable to load filter statistics. Some filters may not display properly.'
+      })
     }
   }
 
@@ -188,8 +202,12 @@ function App() {
     try {
       const res = await axios.get('https://leukemialens-api.jr-rhinehart.workers.dev/api/ontology')
       setOntology(res.data)
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch ontology", err)
+      setError({
+        title: 'Failed to Load Ontology',
+        message: 'Unable to load disease and mutation data. Some filters may not be available.'
+      })
     }
   }
 
@@ -236,6 +254,13 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-200">
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={error !== null}
+        onClose={() => setError(null)}
+        title={error?.title || 'Error'}
+        message={error?.message || 'An unexpected error occurred.'}
+      />
       {/* Return to Top Button */}
       {showScrollTop && (
         <button
@@ -524,10 +549,66 @@ function App() {
               </div>
             )}
 
+            {/* Pagination Controls - Top */}
+            {totalPages > 1 && (
+              <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
+                    {articles.length} total results (showing {startIndex + 1}-{Math.min(endIndex, articles.length)})
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setResultsPage(p => Math.max(1, p - 1))}
+                    disabled={resultsPage === 1}
+                    className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        if (page === 1 || page === totalPages) return true
+                        if (Math.abs(page - resultsPage) <= 1) return true
+                        return false
+                      })
+                      .map((page, index, array) => {
+                        const prevPage = array[index - 1]
+                        const showEllipsis = prevPage && page - prevPage > 1
+
+                        return (
+                          <div key={page} className="flex items-center gap-1">
+                            {showEllipsis && <span className="px-2 text-gray-400">...</span>}
+                            <button
+                              onClick={() => setResultsPage(page)}
+                              className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                }`}
+                            >
+                              {page}
+                            </button>
+                          </div>
+                        )
+                      })}
+                  </div>
+
+                  <button
+                    onClick={() => setResultsPage(p => Math.min(totalPages, p + 1))}
+                    disabled={resultsPage === totalPages}
+                    className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Latest Articles</h2>
+              <h2 className="text-xl font-bold text-gray-900">Articles</h2>
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">{articles.length} results</span>
+                <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">{articles.length} total results</span>
                 <button
                   onClick={resetAll}
                   className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
@@ -614,54 +695,59 @@ function App() {
               )}
             </div>
 
-            {/* Pagination Controls */}
+            {/* Pagination Controls - Bottom */}
             {totalPages > 1 && (
-              <div className="mt-8 flex items-center justify-center gap-2">
-                <button
-                  onClick={() => setResultsPage(p => Math.max(1, p - 1))}
-                  disabled={resultsPage === 1}
-                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Previous
-                </button>
+              <div className="mt-8 flex items-center justify-between flex-wrap gap-4">
+                <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
+                  {articles.length} total results (showing {startIndex + 1}-{Math.min(endIndex, articles.length)})
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setResultsPage(p => Math.max(1, p - 1))}
+                    disabled={resultsPage === 1}
+                    className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
 
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(page => {
-                      // Show first page, last page, current page, and pages around current
-                      if (page === 1 || page === totalPages) return true
-                      if (Math.abs(page - resultsPage) <= 1) return true
-                      return false
-                    })
-                    .map((page, index, array) => {
-                      // Add ellipsis when there's a gap
-                      const prevPage = array[index - 1]
-                      const showEllipsis = prevPage && page - prevPage > 1
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        // Show first page, last page, current page, and pages around current
+                        if (page === 1 || page === totalPages) return true
+                        if (Math.abs(page - resultsPage) <= 1) return true
+                        return false
+                      })
+                      .map((page, index, array) => {
+                        // Add ellipsis when there's a gap
+                        const prevPage = array[index - 1]
+                        const showEllipsis = prevPage && page - prevPage > 1
 
-                      return (
-                        <div key={page} className="flex items-center gap-1">
-                          {showEllipsis && <span className="px-2 text-gray-400">...</span>}
-                          <button
-                            onClick={() => setResultsPage(page)}
-                            className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                              }`}
-                          >
-                            {page}
-                          </button>
-                        </div>
-                      )
-                    })}
+                        return (
+                          <div key={page} className="flex items-center gap-1">
+                            {showEllipsis && <span className="px-2 text-gray-400">...</span>}
+                            <button
+                              onClick={() => setResultsPage(page)}
+                              className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                }`}
+                            >
+                              {page}
+                            </button>
+                          </div>
+                        )
+                      })}
+                  </div>
+
+                  <button
+                    onClick={() => setResultsPage(p => Math.min(totalPages, p + 1))}
+                    disabled={resultsPage === totalPages}
+                    className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
                 </div>
-
-                <button
-                  onClick={() => setResultsPage(p => Math.min(totalPages, p + 1))}
-                  disabled={resultsPage === totalPages}
-                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                </button>
               </div>
             )}
           </main>
