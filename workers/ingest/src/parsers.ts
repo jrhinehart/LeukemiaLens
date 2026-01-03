@@ -8,26 +8,132 @@ export interface ExtractedMetadata {
     transplantContext: boolean;
 }
 
+/**
+ * MUTATION_PATTERNS - Comprehensive gene mutation detection
+ * 
+ * Based on ELN 2022 (AML risk stratification) and WHO 2022 (ALL classification) standards.
+ * See schema_mutations.sql for the complete reference ontology.
+ * 
+ * Categories:
+ * - ELN Favorable: NPM1, CEBPA
+ * - ELN Intermediate: FLT3 (ITD/TKD)
+ * - ELN Adverse/MDS-related: TP53, ASXL1, BCOR, EZH2, RUNX1, SF3B1, SRSF2, STAG2, U2AF1, ZRSR2
+ * - Fusion genes: BCR-ABL1, PML-RARA, RUNX1-RUNX1T1, CBFB-MYH11, KMT2A, etc.
+ * - Kinase/Signaling: KIT, JAK2, KRAS, NRAS, BRAF, CBL, NF1, PTPN11
+ * - Epigenetic: DNMT3A, TET2, IDH1, IDH2, KDM6A
+ * - Transcription Factors: GATA2, WT1, ETV6, IKZF1, PAX5
+ * - ALL-specific: NOTCH1, FBXW7, CRLF2, TAL1, TLX1, TLX3
+ */
 const MUTATION_PATTERNS: Record<string, RegExp> = {
-    "FLT3": /\bFLT3\b/i,
+    // ==========================================
+    // ELN 2022 FAVORABLE RISK
+    // ==========================================
     "NPM1": /\bNPM1\b/i,
-    "IDH1": /\bIDH1\b/i,
-    "IDH2": /\bIDH2\b/i,
+    "CEBPA": /\bC?EBP[- ]?A\b/i,
+
+    // ==========================================
+    // ELN 2022 INTERMEDIATE RISK
+    // ==========================================
+    "FLT3": /\bFLT3\b(?![- ]?(ITD|TKD))/i,  // FLT3 without ITD/TKD suffix
+    "FLT3-ITD": /\bFLT3[- ]?ITD\b/i,
+    "FLT3-TKD": /\bFLT3[- ]?TKD\b/i,
+
+    // ==========================================
+    // ELN 2022 ADVERSE RISK / MDS-RELATED
+    // ==========================================
     "TP53": /\bTP53\b/i,
-    "KIT": /\bKIT\b/i,
-    "CEBPA": /\bCEBPA\b/i,
-    "RUNX1": /\bRUNX1\b/i,
     "ASXL1": /\bASXL1\b/i,
-    "DNMT3A": /\bDNMT3A\b/i,
-    "TET2": /\bTET2\b/i,
-    "KRAS": /\bKRAS\b/i,
-    "NRAS": /\bNRAS\b/i,
-    "WT1": /\bWT1\b/i,
+    "BCOR": /\bBCOR\b(?!L)/i,  // BCOR but not BCORL1
+    "EZH2": /\bEZH2\b/i,
+    "RUNX1": /\bRUNX1\b(?![- ]?(RUNX1T1|T1))/i,  // RUNX1 but not fusion
+    "SF3B1": /\bSF3B1\b/i,
+    "SRSF2": /\bSRSF2\b/i,
+    "STAG2": /\bSTAG2\b/i,
+    "U2AF1": /\bU2AF1\b/i,
+    "ZRSR2": /\bZRSR2\b/i,
+
+    // ==========================================
+    // FUSION GENES
+    // ==========================================
     "BCR-ABL1": /\bBCR[- ]?ABL1?\b/i,
     "PML-RARA": /\bPML[- ]?RARA\b/i,
-    "SF3B1": /\bSF3B1\b/i,
-    "GATA2": /\bGATA2\b/i
+    "RUNX1-RUNX1T1": /\b(RUNX1[- ]?RUNX1T1|AML1[- ]?ETO|t\(8;21\))\b/i,
+    "CBFB-MYH11": /\b(CBFB[- ]?MYH11|inv\(16\)|t\(16;16\))\b/i,
+    "KMT2A": /\b(KMT2A|MLL)[- ]?(rearranged|r|fusion)?\b/i,
+    "DEK-NUP214": /\b(DEK[- ]?NUP214|t\(6;9\))\b/i,
+    "MECOM": /\b(MECOM|EVI1)[- ]?(rearranged|r)?\b/i,
+    "NUP98": /\bNUP98[- ]?(rearranged|r|fusion|NSD1|HOXA9)?\b/i,
+    "ETV6-RUNX1": /\b(ETV6[- ]?RUNX1|TEL[- ]?AML1|t\(12;21\))\b/i,
+    "TCF3-PBX1": /\b(TCF3[- ]?PBX1|E2A[- ]?PBX1|t\(1;19\))\b/i,
+    "TCF3-HLF": /\b(TCF3[- ]?HLF|E2A[- ]?HLF|t\(17;19\))\b/i,
+
+    // ==========================================
+    // KINASE/SIGNALING PATHWAY
+    // ==========================================
+    "KIT": /\bKIT\b/i,
+    "JAK2": /\bJAK2\b/i,
+    "KRAS": /\bKRAS\b/i,
+    "NRAS": /\bNRAS\b/i,
+    "BRAF": /\bBRAF\b/i,
+    "CBL": /\bCBL\b/i,
+    "NF1": /\bNF1\b/i,
+    "PTPN11": /\bPTPN11\b/i,
+    "CSF3R": /\bCSF3R\b/i,
+
+    // ==========================================
+    // EPIGENETIC MODIFIERS
+    // ==========================================
+    "DNMT3A": /\bDNMT3A\b/i,
+    "TET2": /\bTET2\b/i,
+    "IDH1": /\bIDH1\b/i,
+    "IDH2": /\bIDH2\b/i,
+    "KDM6A": /\bKDM6A\b/i,
+    "SETBP1": /\bSETBP1\b/i,
+
+    // ==========================================
+    // TRANSCRIPTION FACTORS
+    // ==========================================
+    "GATA2": /\bGATA2\b/i,
+    "WT1": /\bWT1\b/i,
+    "ETV6": /\bETV6\b(?![- ]?RUNX1)/i,  // ETV6 but not fusion
+    "PHF6": /\bPHF6\b/i,
+    "IKZF1": /\bIKZF1\b/i,
+    "PAX5": /\bPAX5\b/i,
+    "CREBBP": /\bCREBBP\b/i,
+
+    // ==========================================
+    // ALL-SPECIFIC
+    // ==========================================
+    "NOTCH1": /\bNOTCH1\b/i,
+    "FBXW7": /\bFBXW7\b/i,
+    "CRLF2": /\bCRLF2\b/i,
+    "IL7R": /\bIL7R\b/i,
+    "CDKN2A": /\bCDKN2A\b/i,
+    "CDKN2B": /\bCDKN2B\b/i,
+    "RB1": /\bRB1\b/i,
+
+    // ==========================================
+    // ADDITIONAL ELN 2022 RECOMMENDED
+    // ==========================================
+    "ANKRD26": /\bANKRD26\b/i,
+    "BCORL1": /\bBCORL1\b/i,
+    "DDX41": /\bDDX41\b/i,
+    "PPM1D": /\bPPM1D\b/i,
+    "RAD21": /\bRAD21\b/i,
+    "SMC1A": /\bSMC1A\b/i,
+    "SMC3": /\bSMC3\b/i,
+
+    // ==========================================
+    // T-ALL SPECIFIC
+    // ==========================================
+    "TAL1": /\bTAL1\b/i,
+    "TLX1": /\bTLX1\b/i,
+    "TLX3": /\bTLX3\b/i,
+    "LMO1": /\bLMO1\b/i,
+    "LMO2": /\bLMO2\b/i,
+    "PTEN": /\bPTEN\b/i
 };
+
 
 const TOPIC_PATTERNS: Record<string, RegExp> = {
     // Technology & Methods

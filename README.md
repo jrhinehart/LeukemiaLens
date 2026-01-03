@@ -10,7 +10,7 @@ LeukemiaLens is a specialized research tracker designed to help researchers and 
 
 - **Automated Data Ingestion**: Scheduled workers fetch recent scientific articles from PubMed (NCBI) matching leukemia-related queries.
 - **Smart Tagging**:
-  - **Mutations**: Automatically detects common gene mutations (FLT3, NPM1, IDH1, TP53, KRAS, NRAS, etc.).
+  - **Mutations**: Automatically detects 65+ gene mutations based on ELN 2022 (AML) and WHO 2022 (ALL) standards, including risk-stratifying markers (NPM1, FLT3-ITD, TP53), MDS-related genes (ASXL1, BCOR, SF3B1), fusion genes (BCR-ABL1, PML-RARA, KMT2A), and ALL-specific alterations.
   - **Diseases**: Categorizes articles by subtype (AML, CML, ALL, CLL, MDS, MPN, DLBCL, MM).
   - **Study Topics**: Identifies key research areas like CAR-T, Cell Therapy, Immunotherapy, Clinical Trials, and Data Science/AI.
   - **Treatments**: Detects specific pharmacological treatments and established protocols (e.g., 7+3, VEN-AZA, FLAG-IDA).
@@ -101,11 +101,11 @@ The application uses a relational schema with ontology tables for consistent cla
 
 ### Reference Tables (Ontology)
 - **`ref_diseases`** - Authoritative list of disease subtypes (AML, ALL, CML, etc.)
-- **`ref_mutations`** - Tracked gene mutations with categorization
+- **`ref_mutations`** - Comprehensive gene mutation ontology (65+ genes) with ELN risk classification
 - **`ref_treatments`** - Catalog of normalized treatments (drugs and clinical protocols)
 - **`ref_treatment_components`** - Mapping of clinical protocols to their individual drug components
 
-See [`schema.sql`](schema.sql) and [`schema_treatments.sql`](schema_treatments.sql) for complete definitions.
+See [`schema.sql`](schema.sql), [`schema_mutations.sql`](schema_mutations.sql), and [`schema_treatments.sql`](schema_treatments.sql) for complete definitions.
 
 ## Setup & Deployment
 
@@ -130,6 +130,7 @@ Note the database ID from the output and update `wrangler.toml` files.
 Apply the schemas:
 ```bash
 wrangler d1 execute leukemialens-db --file=schema.sql
+wrangler d1 execute leukemialens-db --file=schema_mutations.sql
 wrangler d1 execute leukemialens-db --file=schema_treatments.sql
 ```
 
@@ -194,6 +195,7 @@ npx tsx scripts/backfill-production.ts --start-year 2000 --end-year 2024 --batch
 
 # Backfill specific metadata for existing articles
 npx tsx scripts/backfill-topics.ts
+npx tsx scripts/backfill-mutations.ts   # Re-tag with expanded 65-gene set
 npx tsx scripts/backfill-treatments.ts
 npx tsx scripts/backfill-dates.ts
 ```
