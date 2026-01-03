@@ -8,8 +8,18 @@ export interface Env {
     NCBI_EMAIL: string; // Stored as environment variable
 }
 
-const SEARCH_TERM = '(Leukemia[Title/Abstract]) AND ("2023/01/01"[Date - Publication] : "3000"[Date - Publication])';
-const MAX_RESULTS = 20;
+// Default search: Last 2 months of leukemia articles (calculated dynamically)
+function getDefaultSearchTerm(): string {
+    const now = new Date();
+    const twoMonthsAgo = new Date(now);
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+
+    const startDate = `${twoMonthsAgo.getFullYear()}/${String(twoMonthsAgo.getMonth() + 1).padStart(2, '0')}/01`;
+    // Use "2050" as end date to include future-dated publications
+    return `(Leukemia[Title/Abstract]) AND ("${startDate}"[Date - Publication] : "2050"[Date - Publication])`;
+}
+
+const MAX_RESULTS = 100;
 const TOOL_NAME = "LeukemiaLens"; // Register tool name with NCBI
 
 // Global rate limiter instance
@@ -25,7 +35,7 @@ async function searchPubmed(env: Env, termOverride: string | null = null, limit:
 
     const params = new URLSearchParams({
         db: "pubmed",
-        term: termOverride || SEARCH_TERM,
+        term: termOverride || getDefaultSearchTerm(),
         retmax: limit.toString(),
         retstart: offset.toString(),
         usehistory: "y",
