@@ -544,9 +544,9 @@ function App() {
               <div className="flex items-start gap-3 pr-8">
                 <div className="flex-shrink-0 text-2xl">🧪</div>
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900 mb-2">Welcome to LeukemiaLens Beta!</h3>
+                  <h3 className="text-base font-semibold text-gray-900 mb-2">Welcome to LeukemiaLens!</h3>
                   <p className="text-sm text-gray-700 leading-relaxed mb-2">
-                    You're testing an early version of LeukemiaLens. Currently, the database contains <strong>~50 records per year</strong> for recent years to validate functionality and gather feedback.
+                    Currently, the database contains over <strong>1,500 records</strong> (including full coverage for Jan-Feb 2025) to demonstrate functionality and gather feedback.
                   </p>
                   <p className="text-sm text-gray-700 leading-relaxed">
                     We'd love to hear your thoughts! Please share feedback, feature requests, or bug reports via the <a href="#contact" className="text-blue-600 hover:text-blue-800 font-medium underline">Contact</a> page.

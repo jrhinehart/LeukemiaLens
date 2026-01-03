@@ -14,3 +14,8 @@ crons = ["0 0 * * *"] # Run once a day at midnight
 binding = "DB"
 database_name = "leukemia-lens-db"
 database_id = "6f7d8bb5-1a41-428d-8692-4bc39384a08d"
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true

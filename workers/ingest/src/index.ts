@@ -19,7 +19,7 @@ function getDefaultSearchTerm(): string {
     return `(Leukemia[Title/Abstract]) AND ("${startDate}"[Date - Publication] : "2050"[Date - Publication])`;
 }
 
-const MAX_RESULTS = 100;
+const MAX_RESULTS = 25;
 const TOOL_NAME = "LeukemiaLens"; // Register tool name with NCBI
 
 // Global rate limiter instance

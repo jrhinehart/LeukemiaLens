@@ -183,22 +183,25 @@ Deploy:
 wrangler deploy
 ```
 
-#### Running Backfill Scripts
+#### Running Backfill & Ingest Scripts
 
-To populate the database with historical data:
+To populate the database with historical data or run large ingestions locally (to avoid Cloudflare Worker CPU limits):
 
 ```bash
-# Backfill articles (100 per year by default)
+# Safely ingest a full year via Worker HTTP trigger (respects and manages batching)
+npx tsx scripts/batch-ingest.ts --year 2025
+
+# Run ingestion locally (direct PubMed -> D1 via API) - No timeout limits
+# Recommended for large backfills or historical months
+npx tsx scripts/local-ingest.ts --year 2025 --month 2
+
+# Process existing production database articles (100 per year by default)
 npx tsx scripts/backfill-production.ts --start-year 2000 --end-year 2024
 
-# For larger datasets, run in chunks or during off-peak hours
-npx tsx scripts/backfill-production.ts --start-year 2000 --end-year 2024 --batch-size 500
-
-# Backfill specific metadata for existing articles
-npx tsx scripts/backfill-topics.ts
+# Re-tag existing articles with specific metadata
 npx tsx scripts/backfill-mutations.ts   # Re-tag with expanded 65-gene set
+npx tsx scripts/backfill-topics.ts
 npx tsx scripts/backfill-treatments.ts
-npx tsx scripts/backfill-dates.ts
 ```
 
 ### 4. Frontend Setup
