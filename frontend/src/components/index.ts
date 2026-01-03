@@ -4,6 +4,7 @@ export { DateRangeFilter } from './DateRangeFilter'
 export { TextSearchFilter } from './TextSearchFilter'
 export { ErrorModal } from './ErrorModal'
 export { PageHeader } from './PageHeader'
+export { GroupedMutationFilter } from './GroupedMutationFilter'
 
 export type { SimpleListFilterProps, SimpleListFilterItem } from './SimpleListFilter'
 export type { SearchableListFilterProps, SearchableListFilterItem } from './SearchableListFilter'
@@ -11,3 +12,5 @@ export type { DateRangeFilterProps } from './DateRangeFilter'
 export type { TextSearchFilterProps } from './TextSearchFilter'
 export type { ErrorModalProps } from './ErrorModal'
 export type { PageHeaderProps } from './PageHeader'
+export type { GroupedMutationFilterProps, MutationItem } from './GroupedMutationFilter'
+

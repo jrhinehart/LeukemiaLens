@@ -14,6 +14,7 @@ LeukemiaLens is a specialized research tracker designed to help researchers and 
   - **Diseases**: Categorizes articles by subtype (AML, CML, ALL, CLL, MDS, MPN, DLBCL, MM).
   - **Study Topics**: Identifies key research areas like CAR-T, Cell Therapy, Immunotherapy, Clinical Trials, and Data Science/AI.
   - **Treatments**: Detects specific pharmacological treatments and established protocols (e.g., 7+3, VEN-AZA, FLAG-IDA).
+- **Grouped Mutation Filter**: Toggle between functional category view (Kinase, Epigenetic, Fusion, etc.) or ELN 2022 risk classification (Favorable, Intermediate, Adverse) with collapsible sections and help tooltip.
 - **Ontology-Based Filtering**: Reference tables ensure consistent disease, mutation, and treatment classification.
 - **Advanced Search**: 
   - Filter by mutations, diseases, topics, and treatments.

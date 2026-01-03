@@ -436,9 +436,9 @@ app.get('/api/ontology', async (c) => {
         `).all();
 
         const mutations = await c.env.DB.prepare(`
-            SELECT gene_symbol, category 
+            SELECT gene_symbol, name, category, risk_class, disease_relevance
             FROM ref_mutations 
-            ORDER BY gene_symbol
+            ORDER BY display_order, gene_symbol
         `).all();
 
         const treatments = await c.env.DB.prepare(`

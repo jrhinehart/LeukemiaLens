@@ -3,7 +3,7 @@ import axios from 'axios'
 import bannerImage from './assets/LL-logo-banner.jpg'
 import { AboutPage, ContactPage, ResourcesPage } from './Pages'
 import { StatsPage } from './StatsPage'
-import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal } from './components'
+import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter } from './components'
 
 // Helper to serialize arrays as repeat params: key=val1&key=val2
 const paramsSerializer = (params: any) => {
@@ -388,24 +388,12 @@ function App() {
             <hr className="border-gray-300" />
 
             {/* Mutations */}
-            <SearchableListFilter
+            <GroupedMutationFilter
               title="Mutations"
-              items={ontology.mutations.length > 0
-                ? ontology.mutations.map(m => ({
-                  id: m.gene_symbol,
-                  label: m.gene_symbol,
-                  count: stats.mutations[m.gene_symbol] || 0
-                }))
-                : Object.entries(stats.mutations).map(([mut, count]) => ({
-                  id: mut,
-                  label: mut,
-                  count: count as number
-                }))
-              }
+              items={ontology.mutations}
               selectedIds={selectedMutation}
               onChange={setSelectedMutation}
-              searchPlaceholder="Search mutations..."
-              maxHeight="24rem"
+              stats={stats.mutations}
               defaultCollapsed={true}
             />
 
