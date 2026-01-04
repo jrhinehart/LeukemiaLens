@@ -119,6 +119,9 @@ function App() {
   // Scroll tracking for return-to-top button
   const [showScrollTop, setShowScrollTop] = useState(false)
 
+  // Sidebar visibility for mobile
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
   useEffect(() => {
     // Debounce text inputs if needed, but for now just fetch on effect
     const timeoutId = setTimeout(() => {
@@ -161,6 +164,18 @@ function App() {
   useEffect(() => {
     setResultsPage(1)
   }, [selectedMutation, selectedDisease, selectedTag, selectedTreatment, searchQuery, authorFilter, journalFilter, institutionFilter, startDate, endDate])
+
+  // Prevent background scroll when mobile sidebar is open
+  useEffect(() => {
+    if (isSidebarOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isSidebarOpen])
 
   const fetchArticles = async () => {
     try {
@@ -349,12 +364,35 @@ function App() {
         </div>
       </div>
 
+      {/* Mobile Sidebar Backdrop */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Home/Search Page */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8 relative">
 
         {/* Sidebar Filters */}
-        <aside className="w-64 flex-shrink-0">
-          <div className="sticky top-8 space-y-6 max-h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar pr-2">
+        <aside className={`
+          fixed inset-y-0 left-0 z-50 w-72 bg-gray-50 p-6 shadow-2xl transition-transform duration-300 ease-in-out transform
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:relative md:translate-x-0 md:w-64 md:flex-shrink-0 md:bg-transparent md:p-0 md:shadow-none md:z-0
+        `}>
+          <div className="flex justify-between items-center mb-6 md:hidden">
+            <h2 className="text-lg font-bold text-gray-900">Filters</h2>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-2 text-gray-500 hover:text-gray-700"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="sticky top-8 space-y-6 max-h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar pr-2 md:max-h-none md:overflow-visible">
 
             {/* Main Search - Moved to top of filters */}
             <div>
@@ -635,8 +673,19 @@ function App() {
             </div>
           )}
 
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Articles</h2>
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="md:hidden flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 18H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 12h9" />
+                </svg>
+                Filters
+              </button>
+              <h2 className="text-xl font-bold text-gray-900">Articles</h2>
+            </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={resetAll}

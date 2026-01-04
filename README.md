@@ -6,6 +6,13 @@ LeukemiaLens is a specialized research tracker designed to help researchers and 
 ### Advanced Filtering & Study Topics
 ![LeukemiaLens UI](assets/images/filter-screenshot.png)
 
+### Responsive Mobile Design
+LeukemiaLens is fully optimized for mobile devices, featuring a collapsible filter drawer to maximize screen space for research content.
+
+| Mobile Article List | Mobile Filter Drawer |
+| :---: | :---: |
+| ![Mobile Homepage](assets/images/mobile-homepage.png) | ![Mobile Sidebar](assets/images/mobile-sidebar.png) |
+
 ## Features
 
 - **Automated Data Ingestion**: Scheduled workers fetch recent scientific articles from PubMed (NCBI) matching leukemia-related queries.
