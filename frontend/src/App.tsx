@@ -392,7 +392,7 @@ function App() {
               </svg>
             </button>
           </div>
-          <div className="sticky top-8 space-y-6 max-h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar pr-2 md:max-h-none md:overflow-visible">
+          <div className="sticky top-8 space-y-6 max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar pr-2">
 
             {/* Smart Search - AI-powered natural language query */}
             <SmartSearchInput
