@@ -129,8 +129,7 @@ function App() {
       fetchArticles()
     }, 500)
     return () => clearTimeout(timeoutId)
-    // Removed searchQuery from dependencies to make search manual (Enter/Click)
-  }, [selectedMutation, selectedDisease, selectedTag, selectedTreatment, authorFilter, journalFilter, institutionFilter, startDate, endDate])
+  }, [selectedMutation, selectedDisease, selectedTag, selectedTreatment, searchQuery, authorFilter, journalFilter, institutionFilter, startDate, endDate])
 
   useEffect(() => {
     fetchStats()
@@ -398,17 +397,17 @@ function App() {
             {/* Smart Search - AI-powered natural language query */}
             <SmartSearchInput
               onApplyFilters={(filters: ParsedFilters) => {
-                if (filters.q) setSearchQuery(filters.q)
-                if (filters.mutations) setSelectedMutation(filters.mutations)
-                if (filters.diseases) setSelectedDisease(filters.diseases)
-                if (filters.treatments) setSelectedTreatment(filters.treatments)
-                if (filters.tags) setSelectedTag(filters.tags)
-                if (filters.yearStart) setStartDate(filters.yearStart)
-                if (filters.yearEnd) setEndDate(filters.yearEnd)
-                if (filters.author) setAuthorFilter(filters.author)
-                if (filters.journal) setJournalFilter(filters.journal)
-                // Trigger search after applying filters
-                fetchArticles()
+                // Only set search query if there are unparsed terms
+                setSearchQuery(filters.q || '')
+                setSelectedMutation(filters.mutations || [])
+                setSelectedDisease(filters.diseases || [])
+                setSelectedTreatment(filters.treatments || [])
+                setSelectedTag(filters.tags || [])
+                setStartDate(filters.yearStart || '')
+                setEndDate(filters.yearEnd || '')
+                setAuthorFilter(filters.author || '')
+                setJournalFilter(filters.journal || '')
+                // Note: useEffect will trigger fetchArticles when state updates
               }}
             />
 

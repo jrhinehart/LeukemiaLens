@@ -189,7 +189,7 @@ app.post('/api/parse-query', async (c) => {
 Given a natural language query, extract structured filters as JSON.
 
 Available filters:
-- q: free-text search terms (keywords not matching specific filters)
+- q: ONLY for keywords that do NOT match any other filter category below. Do not put gene names, disease names, treatments, or other recognized terms here.
 - mutations: gene symbols like FLT3, NPM1, IDH1, IDH2, TP53, DNMT3A, TET2, ASXL1, RUNX1, CEBPA, KRAS, NRAS, WT1, SF3B1, GATA2, BCR-ABL1, PML-RARA, KIT
 - diseases: AML (Acute Myeloid Leukemia), ALL (Acute Lymphoblastic Leukemia), CML (Chronic Myeloid Leukemia), CLL (Chronic Lymphocytic Leukemia), MDS (Myelodysplastic Syndromes), MPN (Myeloproliferative Neoplasms), DLBCL, MM
 - treatments: chemotherapy drugs and protocols like "7+3", azacitidine (AZA), venetoclax (VEN), decitabine, cytarabine, daunorubicin, idarubicin
@@ -205,7 +205,8 @@ Rules:
 3. Recognize synonyms: "venetoclax" = "VEN", "azacitidine" = "AZA", "aza" = "AZA"
 4. For date ranges like "from 2020" use yearStart, "until 2023" use yearEnd, "in 2024" use both
 5. "recent" or "latest" means yearStart should be current year minus 2
-6. Respond ONLY with valid JSON object, no explanation or markdown`;
+6. NEVER put terms in "q" that belong in another filter category - only unrecognized keywords go in "q"
+7. Respond ONLY with valid JSON object, no explanation or markdown`;
 
     try {
         const response = await c.env.AI.run('@cf/meta/llama-2-7b-chat-int8', {
