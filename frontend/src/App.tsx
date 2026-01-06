@@ -599,14 +599,22 @@ function App() {
                 </svg>
               </button>
               <div className="flex items-start gap-3 pr-8">
-                <div className="flex-shrink-0 text-2xl">🧪</div>
+                <div className="flex-shrink-0 text-2xl">🔬</div>
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900 mb-2">Welcome to LeukemiaLens!</h3>
-                  <p className="text-sm text-gray-700 leading-relaxed mb-2">
-                    Currently, the database contains over <strong>1,500 records</strong> (including full coverage for Jan-Feb 2025) to demonstrate functionality and gather feedback.
+                  <h3 className="text-base font-semibold text-gray-900 mb-2">Your AI-Powered Leukemia Research Assistant</h3>
+                  <p className="text-sm text-gray-700 leading-relaxed mb-3">
+                    LeukemiaLens aggregates the latest research from PubMed and enriches it with intelligent tagging for <strong>65+ gene mutations</strong>, disease subtypes, treatments, and research topics.
                   </p>
-                  <p className="text-sm text-gray-700 leading-relaxed">
-                    We'd love to hear your thoughts! Please share feedback, feature requests, or bug reports via the <a href="#contact" className="text-blue-600 hover:text-blue-800 font-medium underline">Contact</a> page.
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium">
+                      ✨ Smart Search — describe what you need in plain English
+                    </span>
+                    <span className="inline-flex items-center gap-1 bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full text-xs font-medium">
+                      🧠 Research Insights — AI-generated synthesis of findings
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Try the <strong className="text-purple-700">Smart Search</strong> button to query naturally, or explore the filters to drill down into specific mutations, diseases, and treatments.
                   </p>
                 </div>
               </div>
