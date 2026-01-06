@@ -244,6 +244,75 @@ Rules:
     }
 });
 
+// AI-powered research insights summarization
+app.post('/api/summarize', async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const { articles, query } = body;
+
+    if (!articles || !Array.isArray(articles) || articles.length === 0) {
+        return c.json({ error: 'No articles provided' }, 400);
+    }
+
+    // Limit to 15 articles and truncate abstracts to fit context window
+    const maxArticles = 15;
+    const maxAbstractLength = 200;
+
+    const truncatedArticles = articles.slice(0, maxArticles).map((a: any, idx: number) => ({
+        num: idx + 1,
+        title: a.title?.substring(0, 150) || 'Untitled',
+        abstract: a.abstract ? a.abstract.substring(0, maxAbstractLength) + '...' : 'No abstract',
+        mutations: Array.isArray(a.mutations) ? a.mutations.join(', ') : '',
+        diseases: Array.isArray(a.diseases) ? a.diseases.join(', ') : '',
+        year: a.pub_date?.substring(0, 4) || 'Unknown'
+    }));
+
+    const systemPrompt = `You are a medical research synthesis expert specializing in leukemia and hematological malignancies.
+
+Given a list of research article summaries, provide a concise research synthesis with these sections:
+
+## Key Findings
+- 3-5 bullet points summarizing the main discoveries across these articles
+
+## Treatment & Therapy Trends
+- 2-4 bullet points about treatments, drugs, or therapeutic approaches mentioned
+
+## Research Gaps & Future Directions
+- 2-3 bullet points about what questions remain unanswered or need more study
+
+Keep each bullet point to 1-2 sentences. Be specific and cite article numbers when relevant (e.g., "Article #3 found...").
+Use plain text formatting, no markdown headers beyond the section titles shown above.`;
+
+    const userContent = query
+        ? `Research query: "${query}"\n\nArticles:\n${JSON.stringify(truncatedArticles, null, 2)}`
+        : `Articles:\n${JSON.stringify(truncatedArticles, null, 2)}`;
+
+    try {
+        const response = await c.env.AI.run('@cf/meta/llama-3-8b-instruct', {
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userContent }
+            ]
+        });
+
+        if (!response || !response.response) {
+            throw new Error('No response from AI model');
+        }
+
+        return c.json({
+            success: true,
+            summary: response.response,
+            articleCount: truncatedArticles.length,
+            totalArticles: articles.length
+        });
+    } catch (e: any) {
+        console.error('Summarize error:', e);
+        return c.json({
+            success: false,
+            error: 'Failed to generate summary. Please try again.'
+        }, 500);
+    }
+});
+
 app.get('/api/export', async (c) => {
     const {
         q,

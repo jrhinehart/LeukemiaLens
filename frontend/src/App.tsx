@@ -3,7 +3,7 @@ import axios from 'axios'
 import bannerImage from './assets/LL-logo-banner.jpg'
 import { AboutPage, ContactPage, ResourcesPage } from './Pages'
 import { StatsPage } from './StatsPage'
-import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput } from './components'
+import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput, ResearchInsights } from './components'
 import type { ParsedFilters } from './components'
 
 // Helper to serialize arrays as repeat params: key=val1&key=val2
@@ -726,6 +726,10 @@ function App() {
                 </svg>
                 Export CSV
               </button>
+              <ResearchInsights
+                articles={articles}
+                searchQuery={searchQuery}
+              />
             </div>
           </div>
 
