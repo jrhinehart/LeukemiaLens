@@ -265,9 +265,27 @@ export function ResearchInsights({
                                 <div>
                                     <h2 className="text-lg font-bold text-gray-900">Research Insights</h2>
                                     {summary && (
-                                        <p className="text-xs text-gray-500">
-                                            Based on {articleCount} of {articles.length} articles
-                                        </p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-xs text-gray-500">
+                                                Based on {articleCount} of {articles.length} articles
+                                            </p>
+                                            <div className="relative group">
+                                                <button
+                                                    type="button"
+                                                    className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs font-medium flex items-center justify-center hover:bg-gray-300 transition-colors"
+                                                    aria-label="Sample size info"
+                                                >
+                                                    ?
+                                                </button>
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                                                    <p className="font-medium mb-1">Beta Limitation</p>
+                                                    <p className="text-gray-300">
+                                                        The 15-article sample size is a beta limitation due to AI model context constraints. A production release would analyze significantly more articles using advanced models.
+                                                    </p>
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>
