@@ -296,41 +296,46 @@ app.post('/api/summarize', async (c) => {
 
     // With Claude's 200k context, we can analyze many more articles
     const maxArticles = 50;
-    const maxAbstractLength = 500;
+    const maxAbstractLength = 1000;
 
     const truncatedArticles = articles.slice(0, maxArticles).map((a: any, idx: number) => ({
         num: idx + 1,
-        title: a.title?.substring(0, 200) || 'Untitled',
+        title: a.title || 'Untitled',
         abstract: a.abstract ? a.abstract.substring(0, maxAbstractLength) + (a.abstract.length > maxAbstractLength ? '...' : '') : 'No abstract',
         mutations: Array.isArray(a.mutations) ? a.mutations.join(', ') : '',
         diseases: Array.isArray(a.diseases) ? a.diseases.join(', ') : '',
+        treatments: Array.isArray(a.treatments) ? a.treatments.map((t: any) => t.name).join(', ') : '',
         year: a.pub_date?.substring(0, 4) || 'Unknown'
     }));
 
-    const systemPrompt = `You are a medical research synthesis expert specializing in leukemia and hematological malignancies.
+    const systemPrompt = `You are a medical research synthesis expert specializing in leukemia and hematological malignancies. Your goal is to provide a high-level scientific synthesis that extracts specific metrics, identifies shared findings across studies, and distinguishes the quality of evidence.
 
-Given a list of research article summaries, provide a comprehensive research synthesis with these sections:
+Please provide a synthesis with these specific sections:
 
-## Key Findings
-- 5-8 bullet points summarizing the main discoveries across these articles
-- Highlight statistically significant results and novel insights
-- Cite article numbers when making specific claims (e.g., "Article #3 demonstrated...")
+## Key Findings & Comparative Efficacy
+- Extract specific metrics/stats (e.g., ORR, OS, HR, CI, p-values) whenever available in the abstracts.
+- Identify common themes or conflicting results across multiple articles.
+- Explicitly distinguish between:
+    - **Clinical Evidence**: Findings from randomized controlled trials (RCTs), Phase I/II/III studies, or retrospective patient cohorts.
+    - **Laboratory/Pre-clinical**: Findings from "wet work," cell lines, mouse models, or in-vitro molecular studies.
+- Cite article numbers for EVERY claim (e.g., "Combination therapy showed 85% ORR [#1, #4], whereas monotherapy was less effective [#2]").
 
-## Treatment & Therapy Trends
-- 3-5 bullet points about treatments, drugs, or therapeutic approaches
-- Include specific drug names, dosages, or protocols when mentioned
-- Note any comparative efficacy data
+## Therapeutic Landscapes
+- Synthesize trends in drug development, dosages, and combinations.
+- Note any specific toxicity or safety signals mentioned.
 
-## Mutation & Biomarker Insights
-- 3-4 bullet points about genetic mutations, biomarkers, or molecular findings
-- Include prognostic or predictive implications
+## Molecular & Biomarker Profiles
+- Deep dive into mutation-specific responses or prognostic biomarkers.
+- How do genetic profiles influence the outcomes seen in the therapeutic section?
 
-## Research Gaps & Future Directions
-- 2-3 bullet points about what questions remain unanswered
-- Suggest potential areas for future investigation
+## Critical Gaps & Evidence Strength
+- Which findings are preliminary (lab-only) vs. ready for clinical consideration?
+- What specific questions remain unanswered based on the provided data?
 
-Keep each bullet point to 2-3 sentences maximum. Be specific and scientific but accessible.
-Use markdown formatting with ## for section headers and - for bullets.`;
+Guidelines:
+- Do not just mirror titles; read into the abstracts for data.
+- Use scientific but accessible language.
+- Use markdown formatting: ## for headers, **bold** for emphasis, and - for bullets.`;
 
     const userContent = query
         ? `Research query context: "${query}"\n\nPlease synthesize insights from the following ${truncatedArticles.length} articles:\n\n${JSON.stringify(truncatedArticles, null, 2)}`

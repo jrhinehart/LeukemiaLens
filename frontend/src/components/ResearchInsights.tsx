@@ -11,12 +11,14 @@ interface Article {
     pubmed_id?: string
     authors?: string
     journal?: string
+    url?: string
 }
 
 interface AnalyzedArticle {
     num: number
     title: string
     year: string
+    url?: string
 }
 
 interface InsightEntry {
@@ -136,10 +138,11 @@ export function ResearchInsights({
             diseases: a.diseases
         }))
 
-        const analyzedList = articles.slice(0, maxArticles).map((a, idx) => ({
+        const analyzedList: AnalyzedArticle[] = articles.slice(0, maxArticles).map((a, idx) => ({
             num: idx + 1,
-            title: a.title?.substring(0, 100) + (a.title?.length > 100 ? '...' : ''),
-            year: a.pub_date?.substring(0, 4) || 'Unknown'
+            title: a.title || 'Untitled',
+            year: a.pub_date?.substring(0, 4) || 'Unknown',
+            url: (a as any).url // Try to get url from article object
         }))
 
         try {
@@ -603,13 +606,33 @@ export function ResearchInsights({
                                             </button>
 
                                             {showArticleList && (
-                                                <div className="mt-3 bg-gray-50 rounded-lg p-4 space-y-2 max-h-64 overflow-y-auto">
+                                                <div className="mt-3 space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
                                                     {analyzedArticles.map((article) => (
-                                                        <div key={article.num} className="flex gap-2 text-sm">
-                                                            <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium flex-shrink-0">#{article.num}</span>
-                                                            <span className="text-gray-700">{article.title}</span>
-                                                            <span className="text-gray-400 flex-shrink-0">({article.year})</span>
-                                                        </div>
+                                                        <a
+                                                            key={article.num}
+                                                            href={article.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex gap-4 p-3 bg-white border border-gray-200 rounded-lg hover:border-purple-300 hover:shadow-sm transition-all group"
+                                                        >
+                                                            <span className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-sm group-hover:bg-purple-100 transition-colors">
+                                                                {article.num}
+                                                            </span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <h4 className="text-sm font-semibold text-gray-900 group-hover:text-purple-700 transition-colors leading-snug break-words">
+                                                                    {article.title}
+                                                                </h4>
+                                                                <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                                                                    <span className="font-medium px-1.5 py-0.5 bg-gray-100 rounded">{article.year}</span>
+                                                                    <span className="flex items-center gap-1">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                                                        </svg>
+                                                                        View Source
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </a>
                                                     ))}
                                                 </div>
                                             )}
