@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import axios from 'axios'
 
 interface Article {
@@ -7,6 +7,14 @@ interface Article {
     pub_date: string
     mutations: string[]
     diseases: string[]
+    pubmed_id?: string
+    url?: string
+}
+
+interface AnalyzedArticle {
+    num: number
+    title: string
+    year: string
 }
 
 export interface ResearchInsightsProps {
@@ -23,9 +31,11 @@ export function ResearchInsights({
     const [isOpen, setIsOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [summary, setSummary] = useState<string | null>(null)
+    const [analyzedArticles, setAnalyzedArticles] = useState<AnalyzedArticle[]>([])
     const [error, setError] = useState<string | null>(null)
     const [articleCount, setArticleCount] = useState(0)
     const [copied, setCopied] = useState(false)
+    const [showArticleList, setShowArticleList] = useState(false)
 
     const handleGetInsights = async () => {
         if (articles.length === 0) {
@@ -38,22 +48,35 @@ export function ResearchInsights({
         setIsLoading(true)
         setError(null)
         setSummary(null)
+        setAnalyzedArticles([])
+
+        // Prepare articles for analysis and keep track of which ones we're analyzing
+        const maxArticles = 15
+        const articlesToAnalyze = articles.slice(0, maxArticles).map((a) => ({
+            title: a.title,
+            abstract: a.abstract,
+            pub_date: a.pub_date,
+            mutations: a.mutations,
+            diseases: a.diseases
+        }))
+
+        // Store analyzed articles for reference
+        const analyzedList = articles.slice(0, maxArticles).map((a, idx) => ({
+            num: idx + 1,
+            title: a.title?.substring(0, 100) + (a.title?.length > 100 ? '...' : ''),
+            year: a.pub_date?.substring(0, 4) || 'Unknown'
+        }))
 
         try {
             const response = await axios.post(`${apiBaseUrl}/api/summarize`, {
-                articles: articles.map(a => ({
-                    title: a.title,
-                    abstract: a.abstract,
-                    pub_date: a.pub_date,
-                    mutations: a.mutations,
-                    diseases: a.diseases
-                })),
+                articles: articlesToAnalyze,
                 query: searchQuery
             })
 
             if (response.data.success) {
                 setSummary(response.data.summary)
                 setArticleCount(response.data.articleCount)
+                setAnalyzedArticles(analyzedList)
             } else {
                 setError(response.data.error || 'Failed to generate insights')
             }
@@ -67,8 +90,17 @@ export function ResearchInsights({
     const handleCopy = async () => {
         if (!summary) return
 
+        // Include article reference list in copied text
+        let textToCopy = summary
+        if (analyzedArticles.length > 0) {
+            textToCopy += '\n\n---\nArticles Analyzed:\n'
+            analyzedArticles.forEach(a => {
+                textToCopy += `#${a.num}: ${a.title} (${a.year})\n`
+            })
+        }
+
         try {
-            await navigator.clipboard.writeText(summary)
+            await navigator.clipboard.writeText(textToCopy)
             setCopied(true)
             setTimeout(() => setCopied(false), 2000)
         } catch (err) {
@@ -80,6 +112,120 @@ export function ResearchInsights({
         setIsOpen(false)
         setSummary(null)
         setError(null)
+        setAnalyzedArticles([])
+        setShowArticleList(false)
+    }
+
+    // Render markdown-like content
+    const renderContent = (text: string) => {
+        const lines = text.split('\n')
+        const elements: React.ReactNode[] = []
+        let listItems: string[] = []
+        let listStartIdx = 0
+
+        const flushList = () => {
+            if (listItems.length > 0) {
+                elements.push(
+                    <ul key={`list-${listStartIdx}`} className="space-y-2 mb-4">
+                        {listItems.map((item, i) => (
+                            <li key={i} className="flex gap-2">
+                                <span className="text-purple-600 flex-shrink-0 mt-1">•</span>
+                                <span className="text-gray-700">{renderInlineMarkdown(item)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                )
+                listItems = []
+            }
+        }
+
+        lines.forEach((line, idx) => {
+            // H2 headers
+            if (line.startsWith('## ')) {
+                flushList()
+                elements.push(
+                    <h3 key={idx} className="text-lg font-bold text-gray-900 mt-5 mb-3 first:mt-0 border-b border-gray-200 pb-2">
+                        {line.replace('## ', '')}
+                    </h3>
+                )
+                return
+            }
+
+            // H3 headers
+            if (line.startsWith('### ')) {
+                flushList()
+                elements.push(
+                    <h4 key={idx} className="text-md font-semibold text-gray-800 mt-4 mb-2">
+                        {line.replace('### ', '')}
+                    </h4>
+                )
+                return
+            }
+
+            // Bullet points
+            if (line.match(/^[-•*]\s+/)) {
+                if (listItems.length === 0) listStartIdx = idx
+                listItems.push(line.replace(/^[-•*]\s+/, ''))
+                return
+            }
+
+            // Numbered lists
+            if (line.match(/^\d+\.\s+/)) {
+                flushList()
+                const content = line.replace(/^\d+\.\s+/, '')
+                const num = line.match(/^(\d+)\./)?.[1]
+                elements.push(
+                    <div key={idx} className="flex gap-2 mb-2">
+                        <span className="text-purple-600 font-medium flex-shrink-0">{num}.</span>
+                        <span className="text-gray-700">{renderInlineMarkdown(content)}</span>
+                    </div>
+                )
+                return
+            }
+
+            // Empty lines
+            if (!line.trim()) {
+                flushList()
+                return
+            }
+
+            // Regular paragraphs
+            flushList()
+            elements.push(
+                <p key={idx} className="text-gray-700 mb-3 leading-relaxed">
+                    {renderInlineMarkdown(line)}
+                </p>
+            )
+        })
+
+        flushList()
+        return elements
+    }
+
+    // Render inline markdown (bold, italic, code, article references)
+    const renderInlineMarkdown = (text: string): React.ReactNode => {
+        // Process bold (**text** or __text__)
+        const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|`[^`]+`|Article #\d+|#\d+)/g)
+
+        return parts.map((part, i) => {
+            // Bold
+            if (part.match(/^\*\*[^*]+\*\*$/) || part.match(/^__[^_]+__$/)) {
+                return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>
+            }
+            // Italic
+            if (part.match(/^\*[^*]+\*$/) || part.match(/^_[^_]+_$/)) {
+                return <em key={i}>{part.slice(1, -1)}</em>
+            }
+            // Code
+            if (part.match(/^`[^`]+`$/)) {
+                return <code key={i} className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">{part.slice(1, -1)}</code>
+            }
+            // Article references like "Article #3" or just "#3"
+            if (part.match(/^(Article )?#\d+$/)) {
+                return <span key={i} className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium text-sm">{part}</span>
+            }
+            return part
+        })
     }
 
     return (
@@ -107,7 +253,7 @@ export function ResearchInsights({
                     />
 
                     {/* Modal Content */}
-                    <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-2xl md:max-h-[80vh] bg-white rounded-xl shadow-2xl z-50 flex flex-col">
+                    <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-3xl md:max-h-[85vh] bg-white rounded-xl shadow-2xl z-50 flex flex-col">
                         {/* Header */}
                         <div className="flex items-center justify-between p-4 border-b border-gray-200">
                             <div className="flex items-center gap-3">
@@ -130,8 +276,8 @@ export function ResearchInsights({
                                     <button
                                         onClick={handleCopy}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${copied
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                             }`}
                                         title="Copy to clipboard"
                                     >
@@ -164,7 +310,7 @@ export function ResearchInsights({
                         </div>
 
                         {/* Body */}
-                        <div className="flex-1 overflow-y-auto p-4">
+                        <div className="flex-1 overflow-y-auto p-6">
                             {isLoading && (
                                 <div className="flex flex-col items-center justify-center py-12">
                                     <div className="relative">
@@ -193,33 +339,47 @@ export function ResearchInsights({
                             )}
 
                             {summary && (
-                                <div className="prose prose-sm max-w-none">
-                                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                                        {summary.split('\n').map((line, idx) => {
-                                            // Style section headers
-                                            if (line.startsWith('## ')) {
-                                                return (
-                                                    <h3 key={idx} className="text-lg font-bold text-gray-900 mt-4 mb-2 first:mt-0">
-                                                        {line.replace('## ', '')}
-                                                    </h3>
-                                                )
-                                            }
-                                            // Style bullet points
-                                            if (line.startsWith('- ') || line.startsWith('• ')) {
-                                                return (
-                                                    <p key={idx} className="flex gap-2 mb-2">
-                                                        <span className="text-purple-600 flex-shrink-0">•</span>
-                                                        <span>{line.replace(/^[-•]\s*/, '')}</span>
-                                                    </p>
-                                                )
-                                            }
-                                            // Regular text
-                                            if (line.trim()) {
-                                                return <p key={idx} className="mb-2">{line}</p>
-                                            }
-                                            return null
-                                        })}
+                                <div className="space-y-4">
+                                    {/* Summary content with markdown rendering */}
+                                    <div className="prose prose-sm max-w-none">
+                                        {renderContent(summary)}
                                     </div>
+
+                                    {/* Collapsible Article Reference List */}
+                                    {analyzedArticles.length > 0 && (
+                                        <div className="mt-6 border-t border-gray-200 pt-4">
+                                            <button
+                                                onClick={() => setShowArticleList(!showArticleList)}
+                                                className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                                            >
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    strokeWidth={2}
+                                                    stroke="currentColor"
+                                                    className={`w-4 h-4 transition-transform ${showArticleList ? 'rotate-90' : ''}`}
+                                                >
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                                                </svg>
+                                                Articles Analyzed ({analyzedArticles.length})
+                                            </button>
+
+                                            {showArticleList && (
+                                                <div className="mt-3 bg-gray-50 rounded-lg p-4 space-y-2 max-h-64 overflow-y-auto">
+                                                    {analyzedArticles.map((article) => (
+                                                        <div key={article.num} className="flex gap-2 text-sm">
+                                                            <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
+                                                                #{article.num}
+                                                            </span>
+                                                            <span className="text-gray-700">{article.title}</span>
+                                                            <span className="text-gray-400 flex-shrink-0">({article.year})</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
