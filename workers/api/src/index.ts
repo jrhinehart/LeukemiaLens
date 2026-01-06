@@ -1,9 +1,11 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import Anthropic from '@anthropic-ai/sdk';
 
 type Bindings = {
     DB: D1Database;
     AI: Ai;
+    ANTHROPIC_API_KEY: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -244,7 +246,7 @@ Rules:
     }
 });
 
-// AI-powered research insights summarization
+// AI-powered research insights summarization using Claude
 app.post('/api/summarize', async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const { articles, query } = body;
@@ -253,14 +255,14 @@ app.post('/api/summarize', async (c) => {
         return c.json({ error: 'No articles provided' }, 400);
     }
 
-    // Limit to 15 articles and truncate abstracts to fit context window
-    const maxArticles = 15;
-    const maxAbstractLength = 200;
+    // With Claude's 200k context, we can analyze many more articles
+    const maxArticles = 100;
+    const maxAbstractLength = 500;
 
     const truncatedArticles = articles.slice(0, maxArticles).map((a: any, idx: number) => ({
         num: idx + 1,
-        title: a.title?.substring(0, 150) || 'Untitled',
-        abstract: a.abstract ? a.abstract.substring(0, maxAbstractLength) + '...' : 'No abstract',
+        title: a.title?.substring(0, 200) || 'Untitled',
+        abstract: a.abstract ? a.abstract.substring(0, maxAbstractLength) + (a.abstract.length > maxAbstractLength ? '...' : '') : 'No abstract',
         mutations: Array.isArray(a.mutations) ? a.mutations.join(', ') : '',
         diseases: Array.isArray(a.diseases) ? a.diseases.join(', ') : '',
         year: a.pub_date?.substring(0, 4) || 'Unknown'
@@ -268,44 +270,93 @@ app.post('/api/summarize', async (c) => {
 
     const systemPrompt = `You are a medical research synthesis expert specializing in leukemia and hematological malignancies.
 
-Given a list of research article summaries, provide a concise research synthesis with these sections:
+Given a list of research article summaries, provide a comprehensive research synthesis with these sections:
 
 ## Key Findings
-- 3-5 bullet points summarizing the main discoveries across these articles
+- 5-8 bullet points summarizing the main discoveries across these articles
+- Highlight statistically significant results and novel insights
+- Cite article numbers when making specific claims (e.g., "Article #3 demonstrated...")
 
 ## Treatment & Therapy Trends
-- 2-4 bullet points about treatments, drugs, or therapeutic approaches mentioned
+- 3-5 bullet points about treatments, drugs, or therapeutic approaches
+- Include specific drug names, dosages, or protocols when mentioned
+- Note any comparative efficacy data
+
+## Mutation & Biomarker Insights
+- 3-4 bullet points about genetic mutations, biomarkers, or molecular findings
+- Include prognostic or predictive implications
 
 ## Research Gaps & Future Directions
-- 2-3 bullet points about what questions remain unanswered or need more study
+- 2-3 bullet points about what questions remain unanswered
+- Suggest potential areas for future investigation
 
-Keep each bullet point to 1-2 sentences. Be specific and cite article numbers when relevant (e.g., "Article #3 found...").
-Use plain text formatting, no markdown headers beyond the section titles shown above.`;
+Keep each bullet point to 2-3 sentences maximum. Be specific and scientific but accessible.
+Use markdown formatting with ## for section headers and - for bullets.`;
 
     const userContent = query
-        ? `Research query: "${query}"\n\nArticles:\n${JSON.stringify(truncatedArticles, null, 2)}`
-        : `Articles:\n${JSON.stringify(truncatedArticles, null, 2)}`;
+        ? `Research query context: "${query}"\n\nPlease synthesize insights from the following ${truncatedArticles.length} articles:\n\n${JSON.stringify(truncatedArticles, null, 2)}`
+        : `Please synthesize insights from the following ${truncatedArticles.length} articles:\n\n${JSON.stringify(truncatedArticles, null, 2)}`;
 
     try {
-        const response = await c.env.AI.run('@cf/meta/llama-3-8b-instruct', {
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userContent }
-            ]
+        const anthropic = new Anthropic({
+            apiKey: c.env.ANTHROPIC_API_KEY,
         });
 
-        if (!response || !response.response) {
-            throw new Error('No response from AI model');
+        const response = await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-latest',
+            max_tokens: 2048,
+            messages: [
+                { role: 'user', content: userContent }
+            ],
+            system: systemPrompt,
+        });
+
+        const textContent = response.content.find(block => block.type === 'text');
+        if (!textContent || textContent.type !== 'text') {
+            throw new Error('No text response from Claude');
         }
 
         return c.json({
             success: true,
-            summary: response.response,
+            summary: textContent.text,
             articleCount: truncatedArticles.length,
-            totalArticles: articles.length
+            totalArticles: articles.length,
+            model: 'claude-3-5-sonnet-latest'
         });
     } catch (e: any) {
         console.error('Summarize error:', e);
+
+        // Fallback to Workers AI if Claude fails
+        try {
+            const fallbackArticles = articles.slice(0, 15).map((a: any, idx: number) => ({
+                num: idx + 1,
+                title: a.title?.substring(0, 150) || 'Untitled',
+                abstract: a.abstract ? a.abstract.substring(0, 200) + '...' : 'No abstract',
+                mutations: Array.isArray(a.mutations) ? a.mutations.join(', ') : '',
+                diseases: Array.isArray(a.diseases) ? a.diseases.join(', ') : '',
+                year: a.pub_date?.substring(0, 4) || 'Unknown'
+            }));
+
+            const fallbackResponse = await c.env.AI.run('@cf/meta/llama-3-8b-instruct', {
+                messages: [
+                    { role: 'system', content: 'You are a medical research synthesis expert. Summarize the key findings from these articles briefly.' },
+                    { role: 'user', content: JSON.stringify(fallbackArticles, null, 2) }
+                ]
+            });
+
+            if (fallbackResponse?.response) {
+                return c.json({
+                    success: true,
+                    summary: fallbackResponse.response,
+                    articleCount: fallbackArticles.length,
+                    totalArticles: articles.length,
+                    model: 'llama-3-8b-instruct (fallback)'
+                });
+            }
+        } catch (fallbackError) {
+            console.error('Fallback also failed:', fallbackError);
+        }
+
         return c.json({
             success: false,
             error: 'Failed to generate summary. Please try again.'

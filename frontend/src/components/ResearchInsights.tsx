@@ -126,7 +126,7 @@ export function ResearchInsights({
         setViewingHistoryEntry(null)
         setIsCached(false)
 
-        const maxArticles = 15
+        const maxArticles = 100
         const articlesToAnalyze = articles.slice(0, maxArticles).map((a) => ({
             title: a.title,
             abstract: a.abstract,
@@ -479,8 +479,8 @@ PMID,Title,Authors,Journal,PubDate,Mutations,Diseases
                                                     ?
                                                 </button>
                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                                                    <p className="font-medium mb-1">Beta Limitation</p>
-                                                    <p className="text-gray-300">The 15-article sample size is a beta limitation due to AI model context constraints. A production release would analyze significantly more articles using advanced models.</p>
+                                                    <p className="font-medium mb-1">Advanced AI Synthesis</p>
+                                                    <p className="text-gray-300">Analysis powered by Claude 3.5 Sonnet. The 100-article sample size is a beta balance between depth and performance.</p>
                                                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                                                 </div>
                                             </div>
@@ -529,7 +529,7 @@ PMID,Title,Authors,Journal,PubDate,Mutations,Diseases
                             {isLoading && (
                                 <div className="flex flex-col items-center justify-center py-12">
                                     <div className="w-12 h-12 border-4 border-purple-200 rounded-full animate-spin border-t-purple-600"></div>
-                                    <p className="mt-4 text-gray-600 font-medium">Analyzing {Math.min(15, articles.length)} articles...</p>
+                                    <p className="mt-4 text-gray-600 font-medium">Analyzing {Math.min(100, articles.length)} articles with Claude...</p>
                                     <p className="text-sm text-gray-400 mt-1">This may take a few seconds</p>
                                 </div>
                             )}
