@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 
 type Bindings = {
     DB: D1Database;
+    AI: Ai;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -172,6 +173,73 @@ app.get('/api/search', async (c) => {
         return c.json(enhancedResults);
     } catch (e: any) {
         return c.json({ error: e.message }, 500);
+    }
+});
+
+// NLP-powered query parsing using Workers AI
+app.post('/api/parse-query', async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const { query } = body;
+
+    if (!query || typeof query !== 'string') {
+        return c.json({ error: 'Query is required' }, 400);
+    }
+
+    const systemPrompt = `You are a search filter extractor for a leukemia research database.
+Given a natural language query, extract structured filters as JSON.
+
+Available filters:
+- q: free-text search terms (keywords not matching specific filters)
+- mutations: gene symbols like FLT3, NPM1, IDH1, IDH2, TP53, DNMT3A, TET2, ASXL1, RUNX1, CEBPA, KRAS, NRAS, WT1, SF3B1, GATA2, BCR-ABL1, PML-RARA, KIT
+- diseases: AML (Acute Myeloid Leukemia), ALL (Acute Lymphoblastic Leukemia), CML (Chronic Myeloid Leukemia), CLL (Chronic Lymphocytic Leukemia), MDS (Myelodysplastic Syndromes), MPN (Myeloproliferative Neoplasms), DLBCL, MM
+- treatments: chemotherapy drugs and protocols like "7+3", azacitidine (AZA), venetoclax (VEN), decitabine, cytarabine, daunorubicin, idarubicin
+- tags: study topics like Prognosis, Biomarkers, MRD (Minimal Residual Disease), Clinical Trial, Transplant, Pediatric, Relapsed, Refractory
+- yearStart: publication start year (YYYY format)
+- yearEnd: publication end year (YYYY format)
+- author: author name
+- journal: journal name like Blood, Leukemia, JCO, NEJM
+
+Rules:
+1. Only include fields that are clearly indicated in the query
+2. Use uppercase for gene symbols and disease codes
+3. Recognize synonyms: "venetoclax" = "VEN", "azacitidine" = "AZA", "aza" = "AZA"
+4. For date ranges like "from 2020" use yearStart, "until 2023" use yearEnd, "in 2024" use both
+5. "recent" or "latest" means yearStart should be current year minus 2
+6. Respond ONLY with valid JSON object, no explanation or markdown`;
+
+    try {
+        const response = await c.env.AI.run('@cf/meta/llama-2-7b-chat-int8', {
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: query }
+            ]
+        });
+
+        // Check if we got a valid response
+        if (!response || !response.response) {
+            throw new Error('No response from AI model');
+        }
+
+        // Extract JSON from response (handle potential markdown wrapping)
+        let jsonStr = response.response.trim();
+        if (jsonStr.startsWith('```')) {
+            jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+        }
+
+        const parsed = JSON.parse(jsonStr);
+
+        return c.json({
+            success: true,
+            filters: parsed,
+            originalQuery: query
+        });
+    } catch (e: any) {
+        console.error('Parse query error:', e);
+        return c.json({
+            success: false,
+            error: 'Failed to parse query. Try being more specific.',
+            originalQuery: query
+        }, 500);
     }
 });
 

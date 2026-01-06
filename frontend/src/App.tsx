@@ -3,7 +3,8 @@ import axios from 'axios'
 import bannerImage from './assets/LL-logo-banner.jpg'
 import { AboutPage, ContactPage, ResourcesPage } from './Pages'
 import { StatsPage } from './StatsPage'
-import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter } from './components'
+import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput } from './components'
+import type { ParsedFilters } from './components'
 
 // Helper to serialize arrays as repeat params: key=val1&key=val2
 const paramsSerializer = (params: any) => {
@@ -393,6 +394,25 @@ function App() {
             </button>
           </div>
           <div className="sticky top-8 space-y-6 max-h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar pr-2 md:max-h-none md:overflow-visible">
+
+            {/* Smart Search - AI-powered natural language query */}
+            <SmartSearchInput
+              onApplyFilters={(filters: ParsedFilters) => {
+                if (filters.q) setSearchQuery(filters.q)
+                if (filters.mutations) setSelectedMutation(filters.mutations)
+                if (filters.diseases) setSelectedDisease(filters.diseases)
+                if (filters.treatments) setSelectedTreatment(filters.treatments)
+                if (filters.tags) setSelectedTag(filters.tags)
+                if (filters.yearStart) setStartDate(filters.yearStart)
+                if (filters.yearEnd) setEndDate(filters.yearEnd)
+                if (filters.author) setAuthorFilter(filters.author)
+                if (filters.journal) setJournalFilter(filters.journal)
+                // Trigger search after applying filters
+                fetchArticles()
+              }}
+            />
+
+            <hr className="border-gray-300" />
 
             {/* Main Search - Moved to top of filters */}
             <div>
