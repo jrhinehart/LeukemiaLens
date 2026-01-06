@@ -135,3 +135,10 @@ INSERT INTO ref_mutations (gene_symbol, category) VALUES
 ('PML-RARA', 'Fusion'),
 ('SF3B1', 'Splicing'),
 ('GATA2', 'Transcription Factor');
+
+-- Table for tracking API usage and rate limiting
+CREATE TABLE IF NOT EXISTS api_usage (
+  ip TEXT PRIMARY KEY,
+  count INTEGER DEFAULT 0,
+  last_reset INTEGER
+);

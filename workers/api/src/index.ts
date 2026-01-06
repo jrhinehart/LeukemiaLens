@@ -255,8 +255,47 @@ app.post('/api/summarize', async (c) => {
         return c.json({ error: 'No articles provided' }, 400);
     }
 
+    // Rate Limiting Logic (IP-based, 25 requests per hour)
+    const ip = c.req.header('cf-connecting-ip') || 'unknown';
+    const now = Math.floor(Date.now() / 1000);
+    const oneHourAgo = now - 3600;
+
+    try {
+        const usage = await c.env.DB.prepare(
+            'SELECT count, last_reset FROM api_usage WHERE ip = ?'
+        ).bind(ip).first<{ count: number, last_reset: number }>();
+
+        if (usage) {
+            if (usage.last_reset < oneHourAgo) {
+                // Reset limit
+                await c.env.DB.prepare(
+                    'UPDATE api_usage SET count = 1, last_reset = ? WHERE ip = ?'
+                ).bind(now, ip).run();
+            } else if (usage.count >= 25) {
+                const waitMinutes = Math.ceil((usage.last_reset + 3600 - now) / 60);
+                return c.json({
+                    error: `Rate limit exceeded. Please try again in ${waitMinutes} minutes.`,
+                    retryAfter: waitMinutes * 60
+                }, 429);
+            } else {
+                // Increment count
+                await c.env.DB.prepare(
+                    'UPDATE api_usage SET count = count + 1 WHERE ip = ?'
+                ).bind(ip).run();
+            }
+        } else {
+            // First time user
+            await c.env.DB.prepare(
+                'INSERT INTO api_usage (ip, count, last_reset) VALUES (?, 1, ?)'
+            ).bind(ip, now).run();
+        }
+    } catch (dbError) {
+        console.error('Rate limit DB error:', dbError);
+        // Continue if DB fails (don't block user)
+    }
+
     // With Claude's 200k context, we can analyze many more articles
-    const maxArticles = 100;
+    const maxArticles = 50;
     const maxAbstractLength = 500;
 
     const truncatedArticles = articles.slice(0, maxArticles).map((a: any, idx: number) => ({

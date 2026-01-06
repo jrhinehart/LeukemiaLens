@@ -105,6 +105,7 @@ export function ResearchInsights({
     const [history, setHistory] = useState<InsightEntry[]>([])
     const [viewingHistoryEntry, setViewingHistoryEntry] = useState<InsightEntry | null>(null)
     const [isCached, setIsCached] = useState(false)
+    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false)
 
     // Load history on mount
     useEffect(() => {
@@ -126,7 +127,7 @@ export function ResearchInsights({
         setViewingHistoryEntry(null)
         setIsCached(false)
 
-        const maxArticles = 100
+        const maxArticles = 50
         const articlesToAnalyze = articles.slice(0, maxArticles).map((a) => ({
             title: a.title,
             abstract: a.abstract,
@@ -191,37 +192,29 @@ export function ResearchInsights({
         localStorage.removeItem(STORAGE_KEY)
     }
 
-    const handleExport = () => {
+    const handleExport = (type: 'combined' | 'csv' | 'copy') => {
         if (!summary) return
+        setIsExportMenuOpen(false)
+
+        if (type === 'copy') {
+            handleCopy()
+            return
+        }
+
+        if (type === 'csv') {
+            handleExportCSVOnly()
+            return
+        }
 
         const filterSummary = viewingHistoryEntry?.filterSummary || generateFilterSummary(searchQuery, selectedFilters)
         const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 
-        let content = `LEUKEMIALENS RESEARCH INSIGHTS
-Generated: ${date}
-Query: ${filterSummary}
-
-${'─'.repeat(50)}
-INSIGHTS SUMMARY
-${'─'.repeat(50)}
-
-${summary}
-
-${'─'.repeat(50)}
-ARTICLES ANALYZED (${analyzedArticles.length})
-${'─'.repeat(50)}
-`
+        let content = `LEUKEMIALENS RESEARCH INSIGHTS\nGenerated: ${date}\nQuery: ${filterSummary}\n\n${'─'.repeat(50)}\nINSIGHTS SUMMARY\n${'─'.repeat(50)}\n\n${summary}\n\n${'─'.repeat(50)}\nARTICLES ANALYZED (${analyzedArticles.length})\n${'─'.repeat(50)}\n`
         analyzedArticles.forEach(a => {
             content += `#${a.num}: ${a.title} (${a.year})\n`
         })
 
-        // Add full article CSV data
-        content += `
-${'─'.repeat(50)}
-FULL ARTICLE DATA (CSV FORMAT)
-${'─'.repeat(50)}
-PMID,Title,Authors,Journal,PubDate,Mutations,Diseases
-`
+        content += `\n${'─'.repeat(50)}\n` + `FULL ARTICLE DATA (CSV FORMAT)\n` + `${'─'.repeat(50)}\n` + `PMID,Title,Authors,Journal,PubDate,Mutations,Diseases\n`
         articles.slice(0, 50).forEach(a => {
             const row = [
                 a.pubmed_id || '',
@@ -235,12 +228,37 @@ PMID,Title,Authors,Journal,PubDate,Mutations,Diseases
             content += row.join(',') + '\n'
         })
 
-        // Download as file
         const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
         link.download = `leukemialens-insights-${Date.now()}.txt`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+    }
+
+    const handleExportCSVOnly = () => {
+        let csv = 'PMID,Title,Authors,Journal,PubDate,Mutations,Diseases\n'
+        articles.forEach(a => {
+            const row = [
+                a.pubmed_id || '',
+                `"${(a.title || '').replace(/"/g, '""')}"`,
+                `"${(a.authors || '').replace(/"/g, '""')}"`,
+                `"${(a.journal || '').replace(/"/g, '""')}"`,
+                a.pub_date || '',
+                `"${(a.mutations || []).join(', ')}"`,
+                `"${(a.diseases || []).join(', ')}"`
+            ]
+            csv += row.join(',') + '\n'
+        })
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `leukemialens-articles-${Date.now()}.csv`
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
@@ -480,7 +498,7 @@ PMID,Title,Authors,Journal,PubDate,Mutations,Diseases
                                                 </button>
                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                                                     <p className="font-medium mb-1">Advanced AI Synthesis</p>
-                                                    <p className="text-gray-300">Analysis powered by Claude 3.5 Sonnet. The 100-article sample size is a beta balance between depth and performance.</p>
+                                                    <p className="text-gray-300">Analysis powered by Claude 3.5 Sonnet. The 50-article sample size is a beta balance between depth and performance.</p>
                                                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                                                 </div>
                                             </div>
@@ -490,31 +508,51 @@ PMID,Title,Authors,Journal,PubDate,Mutations,Diseases
                             </div>
                             <div className="flex items-center gap-2">
                                 {summary && (
-                                    <>
-                                        <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors" title="Export insights + data">
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                                        >
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                                             </svg>
                                             Export
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-3 h-3 transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                                            </svg>
                                         </button>
-                                        <button onClick={handleCopy} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${copied ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`} title="Copy to clipboard">
-                                            {copied ? (
-                                                <>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                                                    </svg>
-                                                    Copied!
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                                                    </svg>
-                                                    Copy
-                                                </>
-                                            )}
-                                        </button>
-                                    </>
+
+                                        {isExportMenuOpen && (
+                                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-[60]">
+                                                <button
+                                                    onClick={() => handleExport('combined')}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex flex-col"
+                                                >
+                                                    <span className="font-medium">Combined Report</span>
+                                                    <span className="text-xs text-gray-500 text-wrap">Insights summary + CSV data</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleExport('csv')}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex flex-col border-t border-gray-100"
+                                                >
+                                                    <span className="font-medium">Articles Only (CSV)</span>
+                                                    <span className="text-xs text-gray-500 text-wrap">Metadata for all {articles.length} articles</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleExport('copy')}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex flex-col border-t border-gray-100"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="font-medium">Copy to Clipboard</span>
+                                                        {copied && (
+                                                            <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">Copied!</span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-xs text-gray-500">Text only for quick pasting</span>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                                 <button onClick={handleClose} className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -529,7 +567,7 @@ PMID,Title,Authors,Journal,PubDate,Mutations,Diseases
                             {isLoading && (
                                 <div className="flex flex-col items-center justify-center py-12">
                                     <div className="w-12 h-12 border-4 border-purple-200 rounded-full animate-spin border-t-purple-600"></div>
-                                    <p className="mt-4 text-gray-600 font-medium">Analyzing {Math.min(100, articles.length)} articles with Claude...</p>
+                                    <p className="mt-4 text-gray-600 font-medium">Analyzing {Math.min(50, articles.length)} articles with Claude...</p>
                                     <p className="text-sm text-gray-400 mt-1">This may take a few seconds</p>
                                 </div>
                             )}
