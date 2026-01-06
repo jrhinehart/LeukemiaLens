@@ -23,6 +23,9 @@ LeukemiaLens is fully optimized for mobile devices, featuring a collapsible filt
   - **Treatments**: Detects specific pharmacological treatments and established protocols (e.g., 7+3, VEN-AZA, FLAG-IDA).
 - **Grouped Mutation Filter**: Toggle between functional category view (Kinase, Epigenetic, Fusion, etc.) or ELN 2022 risk classification (Favorable, Intermediate, Adverse) with collapsible sections and help tooltip.
 - **Ontology-Based Filtering**: Reference tables ensure consistent disease, mutation, and treatment classification.
+- **AI-Powered Features** (Cloudflare Workers AI):
+  - **Smart Search**: Natural language query parsing - type queries like "FLT3 mutations in AML from 2023" and automatically populate the appropriate filters.
+  - **Research Insights**: AI-generated synthesis of filtered articles, providing Key Findings, Treatment Trends, and Research Gaps with one-click copy.
 - **Advanced Search**: 
   - Filter by mutations, diseases, topics, and treatments.
   - Search by author, journal, institution, and complex karyotype status.
@@ -59,25 +62,27 @@ LeukemiaLens is built on a serverless Cloudflare Workers architecture:
 │  • GET /api/database-stats              │
 │  • GET /api/ontology                    │
 │  • GET /api/study/:id                   │
-└─────────────────┬───────────────────────┘
-                  │
-                  │
-                  ▼
-┌─────────────────────────────────────────┐
-│       Cloudflare D1 Database            │
-│           (SQLite)                      │
-│                                         │
-│  Tables:                                │
-│  • studies                              │
-│  • mutations / study_topics             │
-│  • treatments                           │
-│  • ref_diseases / ref_mutations         │
-│  • ref_treatments (protocols/drugs)     │
-└─────────────────────────────────────────┘
-                  ▲
-                  │
-                  │
-┌─────────────────┴───────────────────────┐
+│  • POST /api/parse-query (AI)           │
+│  • POST /api/summarize (AI)             │
+└───────┬─────────────────┬───────────────┘
+        │                 │
+        │                 │
+        ▼                 ▼
+┌───────────────┐  ┌─────────────────────┐
+│  Cloudflare   │  │   Cloudflare        │
+│  D1 Database  │  │   Workers AI        │
+│   (SQLite)    │  │  (LLM Inference)    │
+│               │  │                     │
+│  Tables:      │  │  • llama-3-8b       │
+│  • studies    │  │  • llama-2-7b       │
+│  • mutations  │  │                     │
+│  • treatments │  └─────────────────────┘
+│  • ref_*      │
+└───────────────┘
+        ▲
+        │
+        │
+┌───────┴─────────────────────────────────┐
 │   Cloudflare Workers (Ingest)           │
 │      (Scheduled CRON Job)               │
 │                                         │
@@ -90,6 +95,7 @@ LeukemiaLens is built on a serverless Cloudflare Workers architecture:
 ## Tech Stack
 
 - **API**: Cloudflare Workers + Hono framework (TypeScript)
+- **AI**: Cloudflare Workers AI (LLaMA 3, LLaMA 2 models)
 - **Ingestion**: Cloudflare Workers with scheduled CRON jobs
 - **Database**: Cloudflare D1 (SQLite)
 - **Frontend**: React + Vite + TailwindCSS
@@ -266,6 +272,50 @@ Get reference lists of diseases, mutations, and treatments (including protocol c
 ### `GET /api/study/:id`
 Get detailed information for a specific study by ID.
 
+### `POST /api/parse-query` (AI)
+Parse a natural language query into structured filters.
+
+**Request Body:**
+```json
+{
+  "query": "FLT3 mutations in AML from 2023"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "filters": {
+    "mutations": ["FLT3"],
+    "diseases": ["AML"],
+    "yearStart": "2023"
+  },
+  "originalQuery": "FLT3 mutations in AML from 2023"
+}
+```
+
+### `POST /api/summarize` (AI)
+Generate research insights from a set of articles.
+
+**Request Body:**
+```json
+{
+  "articles": [...],
+  "query": "optional search context"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "summary": "## Key Findings\n- ...",
+  "articleCount": 15,
+  "totalArticles": 47
+}
+```
+
 ## UI Components
 
 LeukemiaLens uses a modular filtering system built with specialized React components:
@@ -273,6 +323,8 @@ LeukemiaLens uses a modular filtering system built with specialized React compon
 - **`SearchableListFilter`**: High-cardinality filtering with search and frequency counts (Mutations, Treatments).
 - **`DateRangeFilter`**: Flexible date boundary selection.
 - **`TextSearchFilter`**: Real-time keyword search.
+- **`SmartSearchInput`**: AI-powered natural language query parsing with filter preview.
+- **`ResearchInsights`**: AI-generated research synthesis with copy-to-clipboard functionality.
 
 ## Development
 
