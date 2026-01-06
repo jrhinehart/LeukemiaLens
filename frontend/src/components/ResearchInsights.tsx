@@ -395,7 +395,7 @@ export function ResearchInsights({
                 <button
                     onClick={handleGetInsights}
                     disabled={articles.length === 0}
-                    className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex items-center gap-2"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1 rounded-md text-sm font-medium hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md flex items-center gap-2 border-transparent"
                     title={articles.length === 0 ? 'No articles to analyze' : 'Get AI-powered research insights'}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">

@@ -710,7 +710,12 @@ function App() {
                 </svg>
                 Filters
               </button>
-              <h2 className="text-xl font-bold text-gray-900">Articles</h2>
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-xl font-bold text-gray-900">Articles</h2>
+                <span className="text-sm font-medium text-gray-500 whitespace-nowrap">
+                  ({articles.length} {articles.length === 1 ? 'result' : 'results'})
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -812,8 +817,8 @@ function App() {
           {/* Pagination Controls - Bottom */}
           {totalPages > 1 && (
             <div className="mt-8 flex items-center justify-between flex-wrap gap-4">
-              <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
-                {articles.length} total results (showing {startIndex + 1}-{Math.min(endIndex, articles.length)})
+              <span className="text-sm font-medium text-gray-500 italic">
+                Showing {startIndex + 1}-{Math.min(endIndex, articles.length)} of {articles.length}
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -827,13 +832,11 @@ function App() {
                 <div className="flex items-center gap-1">
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(page => {
-                      // Show first page, last page, current page, and pages around current
                       if (page === 1 || page === totalPages) return true
                       if (Math.abs(page - resultsPage) <= 1) return true
                       return false
                     })
                     .map((page, index, array) => {
-                      // Add ellipsis when there's a gap
                       const prevPage = array[index - 1]
                       const showEllipsis = prevPage && page - prevPage > 1
 
@@ -865,8 +868,8 @@ function App() {
             </div>
           )}
         </main>
-      </div>
-    </div>
+      </div >
+    </div >
   )
 }
 
