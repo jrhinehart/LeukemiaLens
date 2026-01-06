@@ -361,7 +361,7 @@ function App() {
             </p>
             <div className="flex flex-wrap gap-3 justify-center md:justify-start">
               <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur text-white px-3 py-1.5 rounded-full text-sm font-medium">
-                ✨ Smart Search — query in plain English
+                ✨ Smart Search — Ask questions in plain English
               </span>
               <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur text-white px-3 py-1.5 rounded-full text-sm font-medium">
                 🧠 Research Insights — AI synthesis of findings
@@ -736,6 +736,12 @@ function App() {
               <ResearchInsights
                 articles={articles}
                 searchQuery={searchQuery}
+                selectedFilters={{
+                  mutations: selectedMutation,
+                  diseases: selectedDisease,
+                  treatments: selectedTreatment,
+                  tags: selectedTag
+                }}
               />
             </div>
           </div>

@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 
+// Types
 interface Article {
     title: string
     abstract: string
@@ -8,7 +9,8 @@ interface Article {
     mutations: string[]
     diseases: string[]
     pubmed_id?: string
-    url?: string
+    authors?: string
+    journal?: string
 }
 
 interface AnalyzedArticle {
@@ -17,18 +19,82 @@ interface AnalyzedArticle {
     year: string
 }
 
+interface InsightEntry {
+    id: string
+    timestamp: number
+    filterSummary: string
+    summary: string
+    analyzedArticles: AnalyzedArticle[]
+    articleCount: number
+    totalArticles: number
+}
+
 export interface ResearchInsightsProps {
     articles: Article[]
     searchQuery?: string
     apiBaseUrl?: string
+    selectedFilters?: {
+        mutations?: string[]
+        diseases?: string[]
+        treatments?: string[]
+        tags?: string[]
+    }
+}
+
+// localStorage helpers
+const STORAGE_KEY = 'leukemialens_insights_history'
+const MAX_ENTRIES = 20
+const EXPIRY_DAYS = 7
+
+function loadHistory(): InsightEntry[] {
+    try {
+        const data = localStorage.getItem(STORAGE_KEY)
+        if (!data) return []
+        const entries: InsightEntry[] = JSON.parse(data)
+        // Filter out expired entries
+        const now = Date.now()
+        const expiryMs = EXPIRY_DAYS * 24 * 60 * 60 * 1000
+        return entries.filter(e => now - e.timestamp < expiryMs)
+    } catch {
+        return []
+    }
+}
+
+function saveHistory(entries: InsightEntry[]) {
+    try {
+        // Keep only the most recent entries
+        const trimmed = entries.slice(0, MAX_ENTRIES)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
+    } catch (e) {
+        console.error('Failed to save insights history:', e)
+    }
+}
+
+function generateFilterSummary(
+    searchQuery?: string,
+    filters?: { mutations?: string[], diseases?: string[], treatments?: string[], tags?: string[] }
+): string {
+    const parts: string[] = []
+    if (filters?.mutations?.length) parts.push(filters.mutations.slice(0, 3).join(', '))
+    if (filters?.diseases?.length) parts.push(filters.diseases.slice(0, 2).join(', '))
+    if (filters?.treatments?.length) parts.push(filters.treatments.slice(0, 2).join(', '))
+    if (filters?.tags?.length) parts.push(filters.tags.slice(0, 2).join(', '))
+    if (searchQuery) parts.push(`"${searchQuery}"`)
+    return parts.join(' + ') || 'All articles'
+}
+
+function generateId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9)
 }
 
 export function ResearchInsights({
     articles,
     searchQuery,
+    selectedFilters,
     apiBaseUrl = 'https://leukemialens-api.jr-rhinehart.workers.dev'
 }: ResearchInsightsProps) {
     const [isOpen, setIsOpen] = useState(false)
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [summary, setSummary] = useState<string | null>(null)
     const [analyzedArticles, setAnalyzedArticles] = useState<AnalyzedArticle[]>([])
@@ -36,6 +102,14 @@ export function ResearchInsights({
     const [articleCount, setArticleCount] = useState(0)
     const [copied, setCopied] = useState(false)
     const [showArticleList, setShowArticleList] = useState(false)
+    const [history, setHistory] = useState<InsightEntry[]>([])
+    const [viewingHistoryEntry, setViewingHistoryEntry] = useState<InsightEntry | null>(null)
+    const [isCached, setIsCached] = useState(false)
+
+    // Load history on mount
+    useEffect(() => {
+        setHistory(loadHistory())
+    }, [])
 
     const handleGetInsights = async () => {
         if (articles.length === 0) {
@@ -49,8 +123,9 @@ export function ResearchInsights({
         setError(null)
         setSummary(null)
         setAnalyzedArticles([])
+        setViewingHistoryEntry(null)
+        setIsCached(false)
 
-        // Prepare articles for analysis and keep track of which ones we're analyzing
         const maxArticles = 15
         const articlesToAnalyze = articles.slice(0, maxArticles).map((a) => ({
             title: a.title,
@@ -60,7 +135,6 @@ export function ResearchInsights({
             diseases: a.diseases
         }))
 
-        // Store analyzed articles for reference
         const analyzedList = articles.slice(0, maxArticles).map((a, idx) => ({
             num: idx + 1,
             title: a.title?.substring(0, 100) + (a.title?.length > 100 ? '...' : ''),
@@ -77,6 +151,20 @@ export function ResearchInsights({
                 setSummary(response.data.summary)
                 setArticleCount(response.data.articleCount)
                 setAnalyzedArticles(analyzedList)
+
+                // Save to history
+                const newEntry: InsightEntry = {
+                    id: generateId(),
+                    timestamp: Date.now(),
+                    filterSummary: generateFilterSummary(searchQuery, selectedFilters),
+                    summary: response.data.summary,
+                    analyzedArticles: analyzedList,
+                    articleCount: response.data.articleCount,
+                    totalArticles: articles.length
+                }
+                const updatedHistory = [newEntry, ...history]
+                setHistory(updatedHistory)
+                saveHistory(updatedHistory)
             } else {
                 setError(response.data.error || 'Failed to generate insights')
             }
@@ -87,10 +175,81 @@ export function ResearchInsights({
         }
     }
 
+    const handleViewHistoryEntry = (entry: InsightEntry) => {
+        setViewingHistoryEntry(entry)
+        setSummary(entry.summary)
+        setAnalyzedArticles(entry.analyzedArticles)
+        setArticleCount(entry.articleCount)
+        setError(null)
+        setIsCached(true)
+        setIsHistoryOpen(false)
+        setIsOpen(true)
+    }
+
+    const handleClearHistory = () => {
+        setHistory([])
+        localStorage.removeItem(STORAGE_KEY)
+    }
+
+    const handleExport = () => {
+        if (!summary) return
+
+        const filterSummary = viewingHistoryEntry?.filterSummary || generateFilterSummary(searchQuery, selectedFilters)
+        const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+
+        let content = `LEUKEMIALENS RESEARCH INSIGHTS
+Generated: ${date}
+Query: ${filterSummary}
+
+${'─'.repeat(50)}
+INSIGHTS SUMMARY
+${'─'.repeat(50)}
+
+${summary}
+
+${'─'.repeat(50)}
+ARTICLES ANALYZED (${analyzedArticles.length})
+${'─'.repeat(50)}
+`
+        analyzedArticles.forEach(a => {
+            content += `#${a.num}: ${a.title} (${a.year})\n`
+        })
+
+        // Add full article CSV data
+        content += `
+${'─'.repeat(50)}
+FULL ARTICLE DATA (CSV FORMAT)
+${'─'.repeat(50)}
+PMID,Title,Authors,Journal,PubDate,Mutations,Diseases
+`
+        articles.slice(0, 50).forEach(a => {
+            const row = [
+                a.pubmed_id || '',
+                `"${(a.title || '').replace(/"/g, '""')}"`,
+                `"${(a.authors || '').replace(/"/g, '""')}"`,
+                `"${(a.journal || '').replace(/"/g, '""')}"`,
+                a.pub_date || '',
+                `"${(a.mutations || []).join(', ')}"`,
+                `"${(a.diseases || []).join(', ')}"`
+            ]
+            content += row.join(',') + '\n'
+        })
+
+        // Download as file
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `leukemialens-insights-${Date.now()}.txt`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+    }
+
     const handleCopy = async () => {
         if (!summary) return
 
-        // Include article reference list in copied text
         let textToCopy = summary
         if (analyzedArticles.length > 0) {
             textToCopy += '\n\n---\nArticles Analyzed:\n'
@@ -114,6 +273,8 @@ export function ResearchInsights({
         setError(null)
         setAnalyzedArticles([])
         setShowArticleList(false)
+        setViewingHistoryEntry(null)
+        setIsCached(false)
     }
 
     // Render markdown-like content
@@ -140,7 +301,6 @@ export function ResearchInsights({
         }
 
         lines.forEach((line, idx) => {
-            // H2 headers
             if (line.startsWith('## ')) {
                 flushList()
                 elements.push(
@@ -150,8 +310,6 @@ export function ResearchInsights({
                 )
                 return
             }
-
-            // H3 headers
             if (line.startsWith('### ')) {
                 flushList()
                 elements.push(
@@ -161,15 +319,11 @@ export function ResearchInsights({
                 )
                 return
             }
-
-            // Bullet points
             if (line.match(/^[-•*]\s+/)) {
                 if (listItems.length === 0) listStartIdx = idx
                 listItems.push(line.replace(/^[-•*]\s+/, ''))
                 return
             }
-
-            // Numbered lists
             if (line.match(/^\d+\.\s+/)) {
                 flushList()
                 const content = line.replace(/^\d+\.\s+/, '')
@@ -182,14 +336,10 @@ export function ResearchInsights({
                 )
                 return
             }
-
-            // Empty lines
             if (!line.trim()) {
                 flushList()
                 return
             }
-
-            // Regular paragraphs
             flushList()
             elements.push(
                 <p key={idx} className="text-gray-700 mb-3 leading-relaxed">
@@ -202,25 +352,16 @@ export function ResearchInsights({
         return elements
     }
 
-    // Render inline markdown (bold, italic, code, article references)
     const renderInlineMarkdown = (text: string): React.ReactNode => {
-        // Process bold (**text** or __text__)
-        const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|`[^`]+`|Article #\d+|#\d+)/g)
+        const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|Article #\d+|#\d+)/g)
 
         return parts.map((part, i) => {
-            // Bold
             if (part.match(/^\*\*[^*]+\*\*$/) || part.match(/^__[^_]+__$/)) {
                 return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>
             }
-            // Italic
-            if (part.match(/^\*[^*]+\*$/) || part.match(/^_[^_]+_$/)) {
-                return <em key={i}>{part.slice(1, -1)}</em>
-            }
-            // Code
             if (part.match(/^`[^`]+`$/)) {
                 return <code key={i} className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">{part.slice(1, -1)}</code>
             }
-            // Article references like "Article #3" or just "#3"
             if (part.match(/^(Article )?#\d+$/)) {
                 return <span key={i} className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium text-sm">{part}</span>
             }
@@ -230,58 +371,116 @@ export function ResearchInsights({
 
     return (
         <>
-            {/* Trigger Button */}
-            <button
-                onClick={handleGetInsights}
-                disabled={articles.length === 0}
-                className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex items-center gap-2"
-                title={articles.length === 0 ? 'No articles to analyze' : 'Get AI-powered research insights'}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
-                </svg>
-                Get Insights
-            </button>
+            {/* Button Group */}
+            <div className="flex items-center gap-2">
+                {/* Get Insights Button */}
+                <button
+                    onClick={handleGetInsights}
+                    disabled={articles.length === 0}
+                    className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex items-center gap-2"
+                    title={articles.length === 0 ? 'No articles to analyze' : 'Get AI-powered research insights'}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                    </svg>
+                    Get Insights
+                </button>
 
-            {/* Modal */}
+                {/* History Button */}
+                {history.length > 0 && (
+                    <button
+                        onClick={() => setIsHistoryOpen(true)}
+                        className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
+                        title="View insights history"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        History ({history.length})
+                    </button>
+                )}
+            </div>
+
+            {/* History Modal */}
+            {isHistoryOpen && (
+                <>
+                    <div className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm" onClick={() => setIsHistoryOpen(false)} />
+                    <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg md:max-h-[70vh] bg-white rounded-xl shadow-2xl z-50 flex flex-col">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                            <div className="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-purple-600">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg>
+                                <h2 className="text-lg font-bold text-gray-900">Insights History</h2>
+                            </div>
+                            <button onClick={() => setIsHistoryOpen(false)} className="p-2 text-gray-400 hover:text-gray-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                            {history.map((entry) => (
+                                <button
+                                    key={entry.id}
+                                    onClick={() => handleViewHistoryEntry(entry)}
+                                    className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
+                                >
+                                    <div className="font-medium text-gray-900 truncate">{entry.filterSummary}</div>
+                                    <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                                        <span>{new Date(entry.timestamp).toLocaleDateString()}</span>
+                                        <span>•</span>
+                                        <span>{entry.articleCount} articles analyzed</span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="p-4 border-t border-gray-200">
+                            <button
+                                onClick={handleClearHistory}
+                                className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                                Clear History
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* Insights Modal */}
             {isOpen && (
                 <>
-                    {/* Backdrop */}
-                    <div
-                        className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm"
-                        onClick={handleClose}
-                    />
-
-                    {/* Modal Content */}
+                    <div className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm" onClick={handleClose} />
                     <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-3xl md:max-h-[85vh] bg-white rounded-xl shadow-2xl z-50 flex flex-col">
                         {/* Header */}
                         <div className="flex items-center justify-between p-4 border-b border-gray-200">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-white">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
                                     </svg>
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold text-gray-900">Research Insights</h2>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-lg font-bold text-gray-900">Research Insights</h2>
+                                        {isCached && (
+                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
+                                                Cached
+                                            </span>
+                                        )}
+                                    </div>
                                     {summary && (
                                         <div className="flex items-center gap-1.5">
                                             <p className="text-xs text-gray-500">
-                                                Based on {articleCount} of {articles.length} articles
+                                                Based on {articleCount} of {viewingHistoryEntry?.totalArticles || articles.length} articles
                                             </p>
                                             <div className="relative group">
-                                                <button
-                                                    type="button"
-                                                    className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs font-medium flex items-center justify-center hover:bg-gray-300 transition-colors"
-                                                    aria-label="Sample size info"
-                                                >
+                                                <button type="button" className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs font-medium flex items-center justify-center hover:bg-gray-300 transition-colors" aria-label="Sample size info">
                                                     ?
                                                 </button>
                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                                                     <p className="font-medium mb-1">Beta Limitation</p>
-                                                    <p className="text-gray-300">
-                                                        The 15-article sample size is a beta limitation due to AI model context constraints. A production release would analyze significantly more articles using advanced models.
-                                                    </p>
+                                                    <p className="text-gray-300">The 15-article sample size is a beta limitation due to AI model context constraints. A production release would analyze significantly more articles using advanced models.</p>
                                                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                                                 </div>
                                             </div>
@@ -291,35 +490,33 @@ export function ResearchInsights({
                             </div>
                             <div className="flex items-center gap-2">
                                 {summary && (
-                                    <button
-                                        onClick={handleCopy}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${copied
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                            }`}
-                                        title="Copy to clipboard"
-                                    >
-                                        {copied ? (
-                                            <>
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                                                </svg>
-                                                Copied!
-                                            </>
-                                        ) : (
-                                            <>
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                                                </svg>
-                                                Copy
-                                            </>
-                                        )}
-                                    </button>
+                                    <>
+                                        <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors" title="Export insights + data">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                            </svg>
+                                            Export
+                                        </button>
+                                        <button onClick={handleCopy} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${copied ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`} title="Copy to clipboard">
+                                            {copied ? (
+                                                <>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                                    </svg>
+                                                    Copied!
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                                                    </svg>
+                                                    Copy
+                                                </>
+                                            )}
+                                        </button>
+                                    </>
                                 )}
-                                <button
-                                    onClick={handleClose}
-                                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                                >
+                                <button onClick={handleClose} className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                                     </svg>
@@ -331,9 +528,7 @@ export function ResearchInsights({
                         <div className="flex-1 overflow-y-auto p-6">
                             {isLoading && (
                                 <div className="flex flex-col items-center justify-center py-12">
-                                    <div className="relative">
-                                        <div className="w-12 h-12 border-4 border-purple-200 rounded-full animate-spin border-t-purple-600"></div>
-                                    </div>
+                                    <div className="w-12 h-12 border-4 border-purple-200 rounded-full animate-spin border-t-purple-600"></div>
                                     <p className="mt-4 text-gray-600 font-medium">Analyzing {Math.min(15, articles.length)} articles...</p>
                                     <p className="text-sm text-gray-400 mt-1">This may take a few seconds</p>
                                 </div>
@@ -347,10 +542,7 @@ export function ResearchInsights({
                                         </svg>
                                     </div>
                                     <p className="text-gray-900 font-medium">{error}</p>
-                                    <button
-                                        onClick={handleGetInsights}
-                                        className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm"
-                                    >
+                                    <button onClick={handleGetInsights} className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium text-sm">
                                         Try Again
                                     </button>
                                 </div>
@@ -358,7 +550,6 @@ export function ResearchInsights({
 
                             {summary && (
                                 <div className="space-y-4">
-                                    {/* Summary content with markdown rendering */}
                                     <div className="prose prose-sm max-w-none">
                                         {renderContent(summary)}
                                     </div>
@@ -366,18 +557,8 @@ export function ResearchInsights({
                                     {/* Collapsible Article Reference List */}
                                     {analyzedArticles.length > 0 && (
                                         <div className="mt-6 border-t border-gray-200 pt-4">
-                                            <button
-                                                onClick={() => setShowArticleList(!showArticleList)}
-                                                className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-                                            >
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
-                                                    strokeWidth={2}
-                                                    stroke="currentColor"
-                                                    className={`w-4 h-4 transition-transform ${showArticleList ? 'rotate-90' : ''}`}
-                                                >
+                                            <button onClick={() => setShowArticleList(!showArticleList)} className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 transition-transform ${showArticleList ? 'rotate-90' : ''}`}>
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                                                 </svg>
                                                 Articles Analyzed ({analyzedArticles.length})
@@ -387,9 +568,7 @@ export function ResearchInsights({
                                                 <div className="mt-3 bg-gray-50 rounded-lg p-4 space-y-2 max-h-64 overflow-y-auto">
                                                     {analyzedArticles.map((article) => (
                                                         <div key={article.num} className="flex gap-2 text-sm">
-                                                            <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
-                                                                #{article.num}
-                                                            </span>
+                                                            <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium flex-shrink-0">#{article.num}</span>
                                                             <span className="text-gray-700">{article.title}</span>
                                                             <span className="text-gray-400 flex-shrink-0">({article.year})</span>
                                                         </div>
@@ -398,6 +577,17 @@ export function ResearchInsights({
                                             )}
                                         </div>
                                     )}
+
+                                    {/* Ask a Question (Coming Soon) */}
+                                    <div className="mt-6 border-t border-gray-200 pt-4">
+                                        <button disabled className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed" title="Coming soon in a future release">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+                                            </svg>
+                                            <span>Ask a Follow-up Question</span>
+                                            <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">Coming Soon</span>
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
