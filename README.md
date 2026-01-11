@@ -198,23 +198,39 @@ wrangler deploy
 
 #### Running Backfill & Ingest Scripts
 
-To populate the database with historical data or run large ingestions locally (to avoid Cloudflare Worker CPU limits):
+The primary tool for populating historical data is `backfill-production.ts`. It supports both Worker-based and local execution modes:
 
 ```bash
-# Safely ingest a full year via Worker HTTP trigger (respects and manages batching)
-npx tsx scripts/batch-ingest.ts --year 2025
+# LOCAL MODE (recommended for large backfills - no Worker timeout limits)
+# Directly calls PubMed API and writes to D1 via REST API
+npx tsx scripts/backfill-production.ts --local --start-year 2024 --end-year 2024 --batch-size 100
 
-# Run ingestion locally (direct PubMed -> D1 via API) - No timeout limits
-# Recommended for large backfills or historical months
+# Backfill a specific month locally
+npx tsx scripts/backfill-production.ts --local --start-year 2025 --end-year 2025 --month 2 --batch-size 100
+
+# Resume from an offset (useful for continuing interrupted backfills)
+npx tsx scripts/backfill-production.ts --local --start-year 2025 --end-year 2025 --month 2 --batch-size 100 --offset 500
+
+# WORKER MODE (uses deployed Cloudflare Worker - subject to CPU limits)
+npx tsx scripts/backfill-production.ts --start-year 2024 --end-year 2024 --batch-size 50
+
+# Compare regex vs AI extraction on a specific PMID
+npx tsx scripts/compare-parsing.ts --pmid 38204493
+```
+
+**Required Environment Variables** (for local mode):
+- `CLOUDFLARE_ACCOUNT_ID` - Your Cloudflare account ID
+- `CLOUDFLARE_API_TOKEN` - API token with D1 write access  
+- `DATABASE_ID` - D1 database ID
+- `NCBI_API_KEY` - (Optional) For higher PubMed rate limits
+
+Other useful scripts:
+```bash
+# Simple local ingestion for development
 npx tsx scripts/local-ingest.ts --year 2025 --month 2
 
-# Process existing production database articles (100 per year by default)
-npx tsx scripts/backfill-production.ts --start-year 2000 --end-year 2024
-
-# Re-tag existing articles with specific metadata
-npx tsx scripts/backfill-mutations.ts   # Re-tag with expanded 65-gene set
-npx tsx scripts/backfill-topics.ts
-npx tsx scripts/backfill-treatments.ts
+# Batch ingestion via Worker with automatic pagination
+npx tsx scripts/batch-ingest.ts --year 2025
 ```
 
 ### 4. Frontend Setup

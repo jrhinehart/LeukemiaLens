@@ -610,7 +610,7 @@ function App() {
                 <div>
                   <h3 className="text-base font-semibold text-gray-900 mb-2">Welcome to LeukemiaLens Beta!</h3>
                   <p className="text-sm text-gray-700 leading-relaxed mb-2">
-                    Currently, the database contains over <strong>1,500 records</strong> (including full coverage for Jan-Feb 2025) to demonstrate functionality and gather feedback.
+                    The database contains over <strong>5,000 research articles</strong> with new content added daily via automated ingestion. Visit the <a href="/stats" onClick={(e) => { e.preventDefault(); setCurrentPage('stats'); window.history.pushState({}, '', '/stats') }} className="text-blue-600 hover:text-blue-800 font-medium underline">Stats</a> page for current coverage details.
                   </p>
                   <p className="text-sm text-gray-700 leading-relaxed">
                     We'd love to hear your thoughts! Please share feedback, feature requests, or bug reports via the <a href="#contact" className="text-blue-600 hover:text-blue-800 font-medium underline">Contact</a> page.
