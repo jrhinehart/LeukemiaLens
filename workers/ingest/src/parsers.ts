@@ -265,3 +265,50 @@ export function extractMetadata(text: string): ExtractedMetadata {
         transplantContext
     };
 }
+export async function extractMetadataAI(text: string, ai: any): Promise<ExtractedMetadata> {
+    const prompt = `
+Extract clinical metadata related to Leukemia from the following medical abstract. 
+Return ONLY a valid JSON object with the following fields:
+- mutations: array of gene symbols (e.g. ["FLT3", "NPM1"])
+- topics: array of research topics (e.g. ["NGS", "Immunotherapy", "Clinical Trial"])
+- diseaseSubtypes: array of leukemia types (e.g. ["AML", "ALL"])
+- treatments: array of treatment names or protocol codes (e.g. ["7+3", "Venetoclax"])
+- hasComplexKaryotype: boolean (true if complex karyotype/cytogenetics mentioned)
+- transplantContext: boolean (true if stem cell/bone marrow transplant mentioned)
+
+Abstract:
+"${text}"
+
+JSON:`;
+
+    try {
+        const response = await ai.run('@cf/meta/llama-3-8b-instruct', {
+            messages: [
+                { role: 'system', content: 'You are a specialized medical data extractor focused on hematology/oncology.' },
+                { role: 'user', content: prompt }
+            ]
+        });
+
+        const resultText = response.response || response;
+        // Basic JSON extraction in case the model adds conversational filler
+        const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+
+            // Normalize and validate
+            return {
+                mutations: Array.isArray(parsed.mutations) ? parsed.mutations.map((m: any) => String(m).toUpperCase()) : [],
+                topics: Array.isArray(parsed.topics) ? parsed.topics.map((t: any) => String(t)) : [],
+                diseaseSubtypes: Array.isArray(parsed.diseaseSubtypes) ? parsed.diseaseSubtypes.map((s: any) => String(s).toUpperCase()) : [],
+                treatments: Array.isArray(parsed.treatments) ? parsed.treatments.map((tr: any) => String(tr).toUpperCase()) : [],
+                hasComplexKaryotype: !!parsed.hasComplexKaryotype,
+                transplantContext: !!parsed.transplantContext
+            };
+        }
+    } catch (e: any) {
+        console.error('AI extraction failed, falling back to regex:', e.message);
+    }
+
+    // Fallback to regex parser
+    return extractMetadata(text);
+}

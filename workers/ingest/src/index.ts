@@ -1,9 +1,10 @@
-import { extractMetadata } from './parsers';
+import { extractMetadata, extractMetadataAI, ExtractedMetadata } from './parsers';
 import { RateLimiter } from './rate-limiter';
 import * as cheerio from 'cheerio';
 
 export interface Env {
     DB: D1Database;
+    AI: any; // Cloudflare Workers AI
     NCBI_API_KEY?: string; // Stored as Cloudflare secret
     NCBI_EMAIL: string; // Stored as environment variable
 }
@@ -110,6 +111,7 @@ export default {
         const month = url.searchParams.get("month");
         const offsetParam = url.searchParams.get("offset");
         const limitParam = url.searchParams.get("limit");
+        const useAI = url.searchParams.get("useAI") === "true";
 
         const limit = limitParam ? parseInt(limitParam) : MAX_RESULTS;
         const offset = offsetParam ? parseInt(offsetParam) : 0;
@@ -129,12 +131,12 @@ export default {
         }
 
         // Manual trigger for testing
-        const result = await this.processIngestion(env, searchTermOverride, limit, offset);
-        return new Response(`Ingestion for ${year}${month ? '-' + month : ''}: Found ${result.total} total. Ingested ${result.ingested} in this batch (offset ${offset}).`);
+        const result = await this.processIngestion(env, searchTermOverride, limit, offset, useAI);
+        return new Response(`Ingestion for ${year}${month ? '-' + month : ''}: Found ${result.total} total. Ingested ${result.ingested} in this batch (offset ${offset}) ${useAI ? 'using AI' : 'using regex'}.`);
     },
 
-    async processIngestion(env: Env, searchTermOverride: string | null = null, limit: number = MAX_RESULTS, offset: number = 0) {
-        console.log(`Starting ingestion... term=${searchTermOverride || "default"} limit=${limit} offset=${offset}`);
+    async processIngestion(env: Env, searchTermOverride: string | null = null, limit: number = MAX_RESULTS, offset: number = 0, useAI: boolean = false) {
+        console.log(`Starting ingestion... term=${searchTermOverride || "default"} limit=${limit} offset=${offset} useAI=${useAI}`);
         try {
             const { ids, total } = await searchPubmed(env, searchTermOverride, limit, offset);
             console.log(`Found ${ids.length} articles to ingest (Total matching in PubMed: ${total}).`);
@@ -202,7 +204,14 @@ export default {
                 const affiliations = affiliationsList.join(" | ");
 
                 const fullText = `${title} ${abstract}`;
-                const metadata = extractMetadata(fullText);
+                let metadata: ExtractedMetadata;
+
+                if (useAI) {
+                    console.log(`[PMID:${pmid}] Using AI extraction...`);
+                    metadata = await extractMetadataAI(fullText, env.AI);
+                } else {
+                    metadata = extractMetadata(fullText);
+                }
 
                 // --- D1 INSERTS ---
                 // 1. Studies Table

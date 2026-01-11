@@ -19,3 +19,6 @@ database_id = "6f7d8bb5-1a41-428d-8692-4bc39384a08d"
 enabled = true
 head_sampling_rate = 1
 invocation_logs = true
+
+[ai]
+binding = "AI"

@@ -50,7 +50,8 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
     // Coverage widget state
     const [coverage, setCoverage] = useState<CoverageData | null>(null)
     const [coverageLoading, setCoverageLoading] = useState(false)
-    const [selectedYear, setSelectedYear] = useState<string>('all')
+    const [currentPage, setCurrentPage] = useState(0)
+    const yearsPerPage = 5
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -63,23 +64,26 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
                 setLoading(false)
             }
         }
-        fetchStats()
-    }, [])
 
-    const fetchCoverage = async () => {
-        setCoverageLoading(true)
-        try {
-            const url = selectedYear === 'all'
-                ? 'https://leukemialens-api.jr-rhinehart.workers.dev/api/coverage'
-                : `https://leukemialens-api.jr-rhinehart.workers.dev/api/coverage?year=${selectedYear}`
-            const res = await axios.get(url)
-            setCoverage(res.data)
-        } catch (err: any) {
-            console.error('Coverage fetch error:', err)
-        } finally {
-            setCoverageLoading(false)
+        const fetchAllCoverage = async () => {
+            setCoverageLoading(true)
+            try {
+                const res = await axios.get('https://leukemialens-api.jr-rhinehart.workers.dev/api/coverage')
+                // Ensure years are sorted descending
+                if (res.data.coverage) {
+                    res.data.coverage.sort((a: any, b: any) => parseInt(b.year) - parseInt(a.year))
+                }
+                setCoverage(res.data)
+            } catch (err: any) {
+                console.error('Coverage fetch error:', err)
+            } finally {
+                setCoverageLoading(false)
+            }
         }
-    }
+
+        fetchStats()
+        fetchAllCoverage()
+    }, [])
 
     const getMonthColor = (count: number) => {
         if (count === 0) return 'bg-red-100 text-red-600 border-red-200'
@@ -89,6 +93,12 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
     }
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+    // Pagination logic
+    const totalPages = coverage ? Math.ceil(coverage.coverage.length / yearsPerPage) : 0
+    const paginatedCoverage = coverage
+        ? coverage.coverage.slice(currentPage * yearsPerPage, (currentPage + 1) * yearsPerPage)
+        : []
 
     if (loading) {
         return (
@@ -241,104 +251,104 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
                             <span>📊</span> Coverage Explorer
                         </h2>
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                            {/* Controls */}
-                            <div className="flex flex-wrap items-center gap-4 mb-6">
-                                <div className="flex items-center gap-2">
-                                    <label className="text-sm font-medium text-gray-700">Year:</label>
-                                    <select
-                                        value={selectedYear}
-                                        onChange={(e) => setSelectedYear(e.target.value)}
-                                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                        <option value="all">All Years</option>
-                                        {Array.from({ length: 30 }, (_, i) => 2025 - i).map(year => (
-                                            <option key={year} value={year}>{year}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <button
-                                    onClick={fetchCoverage}
-                                    disabled={coverageLoading}
-                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                                >
-                                    {coverageLoading ? (
-                                        <>
-                                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                            Loading...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                                            </svg>
-                                            Query Coverage
-                                        </>
-                                    )}
-                                </button>
-                            </div>
+                            {/* Controls moved inside the results section below */}
 
                             {/* Results */}
-                            {coverage ? (
+                            {coverageLoading ? (
+                                <div className="text-center py-12">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                                    <p className="text-gray-500 text-sm italic">Analyzing monthly article coverage...</p>
+                                </div>
+                            ) : coverage ? (
                                 <div className="space-y-6">
-                                    {/* Summary */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl">
-                                        <div className="text-center">
-                                            <p className="text-2xl font-bold text-blue-600">{coverage.summary.total_articles.toLocaleString()}</p>
-                                            <p className="text-xs text-gray-500 uppercase tracking-wider">Total Articles</p>
+                                    {/* Summary & Pagination Header */}
+                                    <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-gray-100 pb-6">
+                                        <div className="flex gap-8">
+                                            <div className="text-center md:text-left">
+                                                <p className="text-xl font-bold text-blue-600">{coverage.summary.total_articles.toLocaleString()}</p>
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Total Articles</p>
+                                            </div>
+                                            <div className="text-center md:text-left">
+                                                <p className="text-xl font-bold text-green-600">{coverage.summary.years_with_data}</p>
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Years Active</p>
+                                            </div>
+                                            <div className="text-center md:text-left">
+                                                <p className="text-xl font-bold text-red-600">{coverage.summary.total_month_gaps}</p>
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Gaps</p>
+                                            </div>
                                         </div>
-                                        <div className="text-center">
-                                            <p className="text-2xl font-bold text-green-600">{coverage.summary.years_with_data}</p>
-                                            <p className="text-xs text-gray-500 uppercase tracking-wider">Years with Data</p>
-                                        </div>
-                                        <div className="text-center">
-                                            <p className="text-2xl font-bold text-red-600">{coverage.summary.total_month_gaps}</p>
-                                            <p className="text-xs text-gray-500 uppercase tracking-wider">Month Gaps</p>
+
+                                        {/* Pagination Controls */}
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                                                disabled={currentPage === 0}
+                                                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                                                </svg>
+                                            </button>
+                                            <span className="text-sm font-medium text-gray-600 min-w-[100px] text-center">
+                                                Page {currentPage + 1} of {totalPages}
+                                            </span>
+                                            <button
+                                                onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                                                disabled={currentPage === totalPages - 1}
+                                                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                                                </svg>
+                                            </button>
                                         </div>
                                     </div>
 
                                     {/* Legend */}
-                                    <div className="flex flex-wrap items-center gap-4 text-xs">
-                                        <span className="font-medium text-gray-600">Legend:</span>
-                                        <span className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-red-100 border border-red-200"></span> No data</span>
-                                        <span className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-yellow-100 border border-yellow-200"></span> 1-9</span>
-                                        <span className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-blue-100 border border-blue-200"></span> 10-49</span>
-                                        <span className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-green-100 border border-green-200"></span> 50+</span>
+                                    <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-gray-500">
+                                        <span className="text-gray-400">Heatmap:</span>
+                                        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-100 border border-red-200"></span> 0</span>
+                                        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-yellow-100 border border-yellow-200"></span> 1-9</span>
+                                        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-100 border border-blue-200"></span> 10-49</span>
+                                        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-100 border border-green-200"></span> 50+</span>
                                     </div>
 
                                     {/* Coverage Grid */}
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm">
                                             <thead>
-                                                <tr className="border-b border-gray-200">
-                                                    <th className="py-2 px-3 text-left font-semibold text-gray-700">Year</th>
-                                                    <th className="py-2 px-2 text-right font-semibold text-gray-700">Total</th>
+                                                <tr className="border-b border-gray-100">
+                                                    <th className="py-3 px-3 text-left font-bold text-gray-400 uppercase tracking-tighter text-[10px]">Year</th>
+                                                    <th className="py-3 px-2 text-right font-bold text-gray-400 uppercase tracking-tighter text-[10px]">Count</th>
                                                     {monthNames.map(m => (
-                                                        <th key={m} className="py-2 px-1 text-center font-medium text-gray-500 text-xs">{m}</th>
+                                                        <th key={m} className="py-3 px-1 text-center font-bold text-gray-400 uppercase tracking-tighter text-[10px]">{m}</th>
                                                     ))}
-                                                    <th className="py-2 px-3 text-center font-semibold text-gray-700">Gaps</th>
+                                                    <th className="py-3 px-3 text-center font-bold text-gray-400 uppercase tracking-tighter text-[10px]">Gaps</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {coverage.coverage.slice(0, 20).map((yearData) => (
-                                                    <tr key={yearData.year} className="border-b border-gray-100 hover:bg-gray-50">
-                                                        <td className="py-2 px-3 font-bold text-gray-900">{yearData.year}</td>
-                                                        <td className="py-2 px-2 text-right font-medium text-gray-700">{yearData.total.toLocaleString()}</td>
+                                                {paginatedCoverage.map((yearData) => (
+                                                    <tr key={yearData.year} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
+                                                        <td className="py-3 px-3 font-black text-gray-900 text-lg">{yearData.year}</td>
+                                                        <td className="py-3 px-2 text-right font-bold text-blue-600">{yearData.total.toLocaleString()}</td>
                                                         {Array.from({ length: 12 }, (_, i) => {
                                                             const monthKey = (i + 1).toString().padStart(2, '0')
                                                             const count = yearData.months[monthKey] || 0
                                                             return (
-                                                                <td key={monthKey} className="py-2 px-1 text-center">
-                                                                    <span className={`inline-block min-w-[2rem] px-1 py-0.5 rounded text-xs font-medium border ${getMonthColor(count)}`}>
+                                                                <td key={monthKey} className="py-3 px-1 text-center">
+                                                                    <div className={`inline-flex items-center justify-center min-w-[2.25rem] h-7 rounded-md text-[10px] font-bold border ${getMonthColor(count)} shadow-sm`}>
                                                                         {count}
-                                                                    </span>
+                                                                    </div>
                                                                 </td>
                                                             )
                                                         })}
-                                                        <td className="py-2 px-3 text-center">
+                                                        <td className="py-3 px-3 text-center">
                                                             {yearData.gaps.length > 0 ? (
-                                                                <span className="text-red-600 font-medium">{yearData.gaps.length}</span>
+                                                                <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 text-[10px] font-black border border-red-200">
+                                                                    {yearData.gaps.length}
+                                                                </div>
                                                             ) : (
-                                                                <span className="text-green-600">✓</span>
+                                                                <span className="text-green-500 font-bold text-lg">✓</span>
                                                             )}
                                                         </td>
                                                     </tr>
@@ -347,14 +357,14 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
                                         </table>
                                     </div>
 
-                                    <p className="text-xs text-gray-400 text-right">
-                                        Generated: {new Date(coverage.generated_at).toLocaleString()}
-                                    </p>
+                                    <div className="flex justify-between items-center py-4 border-t border-gray-50 mt-4 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                        <span>Showing years {paginatedCoverage[0]?.year} - {paginatedCoverage[paginatedCoverage.length - 1]?.year}</span>
+                                        <span>Updated: {new Date(coverage.generated_at).toLocaleTimeString()}</span>
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="text-center py-8 text-gray-500">
-                                    <p className="mb-2">Click "Query Coverage" to view monthly article distribution</p>
-                                    <p className="text-sm text-gray-400">This helps identify gaps in database coverage for backfill planning</p>
+                                <div className="text-center py-12 text-gray-400 italic">
+                                    No coverage data available.
                                 </div>
                             )}
                         </div>
