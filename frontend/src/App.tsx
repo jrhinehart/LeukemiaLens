@@ -648,7 +648,7 @@ function App() {
             <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
-                  {articles.length} total results (showing {startIndex + 1}-{Math.min(endIndex, articles.length)})
+                  {articles.length >= 1000 && !searchQuery && selectedMutation.length === 0 && selectedDisease.length === 0 && selectedTag.length === 0 && selectedTreatment.length === 0 ? '1,000+' : articles.length.toLocaleString()} total results (showing {startIndex + 1}-{Math.min(endIndex, articles.length)})
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -712,9 +712,20 @@ function App() {
               </button>
               <div className="flex items-baseline gap-2">
                 <h2 className="text-xl font-bold text-gray-900">Articles</h2>
-                <span className="text-sm font-medium text-gray-500 whitespace-nowrap">
-                  ({articles.length} {articles.length === 1 ? 'result' : 'results'})
-                </span>
+                {articles.length >= 1000 && !searchQuery && selectedMutation.length === 0 && selectedDisease.length === 0 && selectedTag.length === 0 && selectedTreatment.length === 0 && !authorFilter && !journalFilter && !startDate && !endDate ? (
+                  <div className="group relative">
+                    <span className="text-sm font-medium text-amber-600 whitespace-nowrap cursor-help">
+                      (1,000+ results)
+                    </span>
+                    <div className="absolute left-0 top-full mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                      Showing first 1,000 articles. Use <strong>Smart Search</strong> or filters to narrow results.
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-sm font-medium text-gray-500 whitespace-nowrap">
+                    ({articles.length.toLocaleString()} {articles.length === 1 ? 'result' : 'results'})
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
