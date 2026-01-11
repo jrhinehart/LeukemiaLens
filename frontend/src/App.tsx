@@ -645,13 +645,11 @@ function App() {
 
           {/* Pagination Controls - Top */}
           {totalPages > 1 && (
-            <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
-                  {articles.length >= 1000 && !searchQuery && selectedMutation.length === 0 && selectedDisease.length === 0 && selectedTag.length === 0 && selectedTreatment.length === 0 ? '1,000+' : articles.length.toLocaleString()} total results (showing {startIndex + 1}-{Math.min(endIndex, articles.length)})
-                </span>
-              </div>
+            <div className="mb-6 flex items-center justify-end flex-wrap gap-4">
               <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 mr-2">
+                  {startIndex + 1}-{Math.min(endIndex, articles.length)}
+                </span>
                 <button
                   onClick={() => setResultsPage(p => Math.max(1, p - 1))}
                   disabled={resultsPage === 1}
