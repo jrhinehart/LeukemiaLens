@@ -107,6 +107,17 @@ export default {
 
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         const url = new URL(request.url);
+        const path = url.pathname;
+
+        // New: /compare endpoint for side-by-side regex vs AI comparison
+        if (path === '/compare') {
+            const pmid = url.searchParams.get('pmid');
+            if (!pmid) {
+                return new Response('Missing pmid parameter', { status: 400 });
+            }
+            return await this.compareExtraction(env, pmid);
+        }
+
         const year = url.searchParams.get("year");
         const month = url.searchParams.get("month");
         const offsetParam = url.searchParams.get("offset");
@@ -134,6 +145,91 @@ export default {
         const result = await this.processIngestion(env, searchTermOverride, limit, offset, useAI);
         return new Response(`Ingestion for ${year}${month ? '-' + month : ''}: Found ${result.total} total. Ingested ${result.ingested} in this batch (offset ${offset}) ${useAI ? 'using AI' : 'using regex'}.`);
     },
+
+    async compareExtraction(env: Env, pmid: string): Promise<Response> {
+        try {
+            // Fetch article from PubMed
+            const params = new URLSearchParams({
+                db: 'pubmed',
+                id: pmid,
+                retmode: 'xml',
+                email: env.NCBI_EMAIL,
+                tool: 'LeukemiaLens-Compare'
+            });
+            if (env.NCBI_API_KEY) {
+                params.append('api_key', env.NCBI_API_KEY);
+            }
+
+            const response = await fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?${params.toString()}`);
+            const xmlContent = await response.text();
+
+            const $ = cheerio.load(xmlContent, { xmlMode: true });
+            const articleNode = $('MedlineCitation > Article');
+            const title = articleNode.find('ArticleTitle').text() || 'No Title';
+            const abstract = articleNode.find('Abstract > AbstractText').text() || '';
+            const fullText = `${title} ${abstract}`;
+
+            // Run REGEX extraction
+            const regexResult = extractMetadata(fullText);
+
+            // Run AI extraction
+            const aiResult = await extractMetadataAI(fullText, env.AI);
+
+            // Build comparison response
+            const comparison = {
+                pmid,
+                title: title.substring(0, 150) + (title.length > 150 ? '...' : ''),
+                abstractLength: abstract.length,
+                regex: {
+                    mutations: regexResult.mutations,
+                    diseases: regexResult.diseaseSubtypes,
+                    topics: regexResult.topics,
+                    treatments: regexResult.treatments,
+                    hasComplexKaryotype: regexResult.hasComplexKaryotype,
+                    transplantContext: regexResult.transplantContext
+                },
+                ai: {
+                    mutations: aiResult.mutations,
+                    diseases: aiResult.diseaseSubtypes,
+                    topics: aiResult.topics,
+                    treatments: aiResult.treatments,
+                    hasComplexKaryotype: aiResult.hasComplexKaryotype,
+                    transplantContext: aiResult.transplantContext
+                },
+                comparison: {
+                    mutations: {
+                        both: regexResult.mutations.filter(m => aiResult.mutations.includes(m)),
+                        regexOnly: regexResult.mutations.filter(m => !aiResult.mutations.includes(m)),
+                        aiOnly: aiResult.mutations.filter(m => !regexResult.mutations.includes(m))
+                    },
+                    diseases: {
+                        both: regexResult.diseaseSubtypes.filter(d => aiResult.diseaseSubtypes.includes(d)),
+                        regexOnly: regexResult.diseaseSubtypes.filter(d => !aiResult.diseaseSubtypes.includes(d)),
+                        aiOnly: aiResult.diseaseSubtypes.filter(d => !regexResult.diseaseSubtypes.includes(d))
+                    },
+                    treatments: {
+                        both: regexResult.treatments.filter(t => aiResult.treatments.map(x => x.toUpperCase()).includes(t.toUpperCase())),
+                        regexOnly: regexResult.treatments.filter(t => !aiResult.treatments.map(x => x.toUpperCase()).includes(t.toUpperCase())),
+                        aiOnly: aiResult.treatments.filter(t => !regexResult.treatments.map(x => x.toUpperCase()).includes(t.toUpperCase()))
+                    }
+                }
+            };
+
+            return new Response(JSON.stringify(comparison, null, 2), {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                }
+            });
+
+        } catch (e: any) {
+            return new Response(JSON.stringify({ error: e.message }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    },
+
 
     async processIngestion(env: Env, searchTermOverride: string | null = null, limit: number = MAX_RESULTS, offset: number = 0, useAI: boolean = false) {
         console.log(`Starting ingestion... term=${searchTermOverride || "default"} limit=${limit} offset=${offset} useAI=${useAI}`);
@@ -216,14 +312,19 @@ export default {
                 // --- D1 INSERTS ---
                 // 1. Studies Table
                 try {
+                    const extractionMethod = useAI ? 'ai' : 'regex';
+                    const processedAt = new Date().toISOString();
+
                     const { results } = await env.DB.prepare(`
-                INSERT INTO studies (title, abstract, pub_date, journal, authors, affiliations, disease_subtype, has_complex_karyotype, transplant_context, source_id, source_type)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO studies (title, abstract, pub_date, journal, authors, affiliations, disease_subtype, has_complex_karyotype, transplant_context, source_id, source_type, extraction_method, processed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(source_id) DO UPDATE SET
                     title=excluded.title,
                     abstract=excluded.abstract,
                     disease_subtype=excluded.disease_subtype,
-                    affiliations=excluded.affiliations
+                    affiliations=excluded.affiliations,
+                    extraction_method=excluded.extraction_method,
+                    processed_at=excluded.processed_at
                 RETURNING id
             `).bind(
                         title,
@@ -236,7 +337,9 @@ export default {
                         metadata.hasComplexKaryotype ? 1 : 0,
                         metadata.transplantContext ? 1 : 0,
                         `PMID:${pmid}`,
-                        'pubmed'
+                        'pubmed',
+                        extractionMethod,
+                        processedAt
                     ).run();
 
                     const studyId = results[0].id as number;

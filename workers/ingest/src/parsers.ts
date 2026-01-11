@@ -72,6 +72,8 @@ const MUTATION_PATTERNS: Record<string, RegExp> = {
     // ==========================================
     "KIT": /\bKIT\b/i,
     "JAK2": /\bJAK2\b/i,
+    "MPL": /\bMPL\b/i,
+    "CALR": /\bCALR\b/i,
     "KRAS": /\bKRAS\b/i,
     "NRAS": /\bNRAS\b/i,
     "BRAF": /\bBRAF\b/i,

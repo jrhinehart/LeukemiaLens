@@ -264,14 +264,18 @@ function parseArticles(xmlContent: string): ArticleData[] {
 
 async function saveArticle(article: ArticleData): Promise<number | null> {
     try {
+        const processedAt = new Date().toISOString();
+
         // Insert study
         const result = await queryD1(`
-            INSERT INTO studies (title, abstract, pub_date, journal, authors, affiliations, disease_subtype, has_complex_karyotype, transplant_context, source_id, source_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO studies (title, abstract, pub_date, journal, authors, affiliations, disease_subtype, has_complex_karyotype, transplant_context, source_id, source_type, extraction_method, processed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(source_id) DO UPDATE SET
                 title=excluded.title,
                 abstract=excluded.abstract,
-                disease_subtype=excluded.disease_subtype
+                disease_subtype=excluded.disease_subtype,
+                extraction_method=excluded.extraction_method,
+                processed_at=excluded.processed_at
             RETURNING id
         `, [
             article.title,
@@ -284,7 +288,9 @@ async function saveArticle(article: ArticleData): Promise<number | null> {
             article.hasComplexKaryotype ? 1 : 0,
             0,
             `PMID:${article.pmid}`,
-            'pubmed'
+            'pubmed',
+            'regex',  // Local backfill always uses regex
+            processedAt
         ]);
 
         const studyId = result.results?.[0]?.id;
