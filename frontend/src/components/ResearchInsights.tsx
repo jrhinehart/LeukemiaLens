@@ -398,26 +398,27 @@ export function ResearchInsights({
                 <button
                     onClick={handleGetInsights}
                     disabled={articles.length === 0}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-3 py-1 rounded-md text-sm font-medium hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md flex items-center gap-2 border-transparent"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2 py-1 sm:px-3 rounded-md text-sm font-medium hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md flex items-center gap-1.5 border-transparent"
                     title={articles.length === 0 ? 'No articles to analyze' : 'Get AI-powered research insights'}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
                     </svg>
-                    Get Insights
+                    <span className="hidden sm:inline">Get Insights</span>
                 </button>
 
                 {/* History Button */}
                 {history.length > 0 && (
                     <button
                         onClick={() => setIsHistoryOpen(true)}
-                        className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2"
+                        className="bg-white border border-gray-300 text-gray-700 px-2 py-1 sm:px-3 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-1.5"
                         title="View insights history"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                         </svg>
-                        History ({history.length})
+                        <span className="hidden sm:inline">History</span>
+                        <span className="text-xs bg-gray-100 px-1 rounded">{history.length}</span>
                     </button>
                 )}
             </div>
