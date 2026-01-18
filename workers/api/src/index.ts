@@ -855,27 +855,65 @@ app.get('/api/coverage', async (c) => {
     }
 });
 
-app.get('/api/study/:id', async (c) => {
-    const id = c.req.param('id');
+app.get('/api/news/:disease', async (c) => {
+    const disease = c.req.param('disease');
+    // Using a more specific query to get better results
+    const query = encodeURIComponent(`${disease} leukemia news`);
+    const url = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
 
-    // Parallel fetch for details, mutations, links
-    const studyQuery = c.env.DB.prepare('SELECT * FROM studies WHERE id = ?').bind(id);
-    const mutationsQuery = c.env.DB.prepare('SELECT gene_symbol FROM mutations WHERE study_id = ?').bind(id);
-    const linksQuery = c.env.DB.prepare('SELECT url, link_type FROM links WHERE study_id = ?').bind(id);
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        });
+        const xml = await response.text();
 
-    const [study, mutations, links] = await Promise.all([
-        studyQuery.first(),
-        mutationsQuery.all(),
-        linksQuery.all()
-    ]);
+        // Simple regex parsing for RSS item components
+        const items: any[] = [];
+        const itemMatches = xml.matchAll(/<item>([\s\S]*?)<\/item>/g);
 
-    if (!study) return c.json({ error: 'Not found' }, 404);
+        for (const match of itemMatches) {
+            const content = match[1];
 
-    return c.json({
-        ...study,
-        mutations: mutations.results?.map((m: any) => m.gene_symbol) || [],
-        links: links.results || []
-    });
+            // Helper to unescape XML entities
+            const unescape = (str: string) => {
+                return str
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&quot;/g, '"')
+                    .replace(/&apos;/g, "'")
+                    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+            };
+
+            const title = unescape(content.match(/<title>([\s\S]*?)<\/title>/)?.[1] || '');
+            const link = content.match(/<link>([\s\S]*?)<\/link>/)?.[1] || '';
+            const pubDate = content.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] || '';
+            const source = unescape(content.match(/<source[^>]*>([\s\S]*?)<\/source>/)?.[1] || '');
+
+            // Clean up titles (Google News often appends " - Source")
+            let cleanTitle = title;
+            if (source && title.endsWith(` - ${source}`)) {
+                cleanTitle = title.substring(0, title.length - (source.length + 3));
+            }
+
+            items.push({
+                title: cleanTitle,
+                link,
+                pubDate,
+                source
+            });
+
+            if (items.length >= 8) break;
+        }
+
+        return c.json(items, 200, {
+            'Cache-Control': 'public, max-age=3600' // Cache news for 1 hour
+        });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
 });
 
 export default app;

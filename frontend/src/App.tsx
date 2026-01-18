@@ -3,6 +3,8 @@ import axios from 'axios'
 import bannerImage from './assets/LL-logo-banner.jpg'
 import { AboutPage, ContactPage, ResourcesPage } from './Pages'
 import { StatsPage } from './StatsPage'
+import { LandingPage } from './LandingPage'
+import { DiseasePage } from './DiseasePage'
 import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput, ResearchInsights } from './components'
 import type { ParsedFilters } from './components'
 
@@ -19,6 +21,11 @@ const paramsSerializer = (params: any) => {
   })
   return parts.join('&')
 }
+
+// Development vs Production API URL
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:8787'
+  : 'https://leukemialens-api.jr-rhinehart.workers.dev';
 
 interface Article {
   pubmed_id: string
@@ -56,12 +63,16 @@ const HighlightText = ({ text, highlight }: { text: string, highlight: string })
 
 function App() {
   // Page routing - check URL pathname
-  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats'>(() => {
+  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats' | 'search' | 'myeloid' | 'lymphoid' | 'myeloma'>(() => {
     const path = window.location.pathname
     if (path === '/stats') return 'stats'
     if (path === '/about') return 'about'
     if (path === '/contact') return 'contact'
     if (path === '/resources') return 'resources'
+    if (path === '/search') return 'search'
+    if (path === '/myeloid') return 'myeloid'
+    if (path === '/lymphoid') return 'lymphoid'
+    if (path === '/myeloma') return 'myeloma'
     return 'home'
   })
 
@@ -74,6 +85,10 @@ function App() {
       else if (path === '/about') setCurrentPage('about')
       else if (path === '/contact') setCurrentPage('contact')
       else if (path === '/resources') setCurrentPage('resources')
+      else if (path === '/search') setCurrentPage('search')
+      else if (path === '/myeloid') setCurrentPage('myeloid')
+      else if (path === '/lymphoid') setCurrentPage('lymphoid')
+      else if (path === '/myeloma') setCurrentPage('myeloma')
       else setCurrentPage('home')
     }
 
@@ -123,8 +138,24 @@ function App() {
   // Sidebar visibility for mobile
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
+  const hasActiveFilters = selectedMutation.length > 0 ||
+    selectedDisease.length > 0 ||
+    selectedTag.length > 0 ||
+    selectedTreatment.length > 0 ||
+    searchQuery !== "" ||
+    authorFilter !== "" ||
+    journalFilter !== "" ||
+    institutionFilter !== "" ||
+    startDate !== "" ||
+    endDate !== ""
+
   useEffect(() => {
-    // Debounce text inputs if needed, but for now just fetch on effect
+    // Prevent default fetch if no filters are active
+    if (!hasActiveFilters && articles.length === 0) {
+      return
+    }
+
+    // Debounce text inputs if needed
     const timeoutId = setTimeout(() => {
       fetchArticles()
     }, 500)
@@ -195,7 +226,7 @@ function App() {
       // Request up to 1000 results (API will handle pagination internally)
       params.limit = '1000'
 
-      const res = await axios.get('https://leukemialens-api.jr-rhinehart.workers.dev/api/search', {
+      const res = await axios.get(`${API_BASE_URL}/api/search`, {
         params,
         paramsSerializer: { serialize: paramsSerializer }
       })
@@ -226,7 +257,7 @@ function App() {
 
   const fetchStats = async () => {
     try {
-      const res = await axios.get('https://leukemialens-api.jr-rhinehart.workers.dev/api/stats')
+      const res = await axios.get(`${API_BASE_URL}/api/stats`)
       setStats(res.data)
     } catch (err: any) {
       console.error(err)
@@ -239,7 +270,7 @@ function App() {
 
   const fetchOntology = async () => {
     try {
-      const res = await axios.get('https://leukemialens-api.jr-rhinehart.workers.dev/api/ontology')
+      const res = await axios.get(`${API_BASE_URL}/api/ontology`)
       setOntology(res.data)
     } catch (err: any) {
       console.error("Failed to fetch ontology", err)
@@ -261,6 +292,7 @@ function App() {
     setInstitutionFilter("")
     setStartDate("")
     setEndDate("")
+    setArticles([])
   }
 
   const handleExport = () => {
@@ -278,7 +310,7 @@ function App() {
     params.append('limit', '500') // Limit exports to 500 rows
 
     // Trigger download
-    window.location.href = `https://leukemialens-api.jr-rhinehart.workers.dev/api/export?${params.toString()}`
+    window.location.href = `${API_BASE_URL}/api/export?${params.toString()}`
   }
 
   const scrollToTop = () => {
@@ -304,6 +336,45 @@ function App() {
   if (currentPage === 'resources') {
     return <ResourcesPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
   }
+
+  // Handle disease group pages
+  if (['myeloid', 'lymphoid', 'myeloma'].includes(currentPage)) {
+    return (
+      <DiseasePage
+        groupId={currentPage}
+        apiBaseUrl={API_BASE_URL}
+        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
+        onStartSearch={(initialDisease) => {
+          if (initialDisease) {
+            setSelectedDisease([initialDisease]);
+          }
+          setCurrentPage('search');
+          window.history.pushState({}, '', '/search');
+          window.scrollTo(0, 0);
+        }}
+      />
+    );
+  }
+
+  // If home, show the new landing page
+  if (currentPage === 'home') {
+    return (
+      <LandingPage
+        onNavigateToDisease={(id) => {
+          setCurrentPage(id as any);
+          window.history.pushState({}, '', `/${id}`);
+          window.scrollTo(0, 0);
+        }}
+        onStartSearch={() => {
+          setCurrentPage('search');
+          window.history.pushState({}, '', '/search');
+          window.scrollTo(0, 0);
+        }}
+      />
+    );
+  }
+
+  // If search, continue with the existing search UI below
 
   return (
     <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-200">
@@ -399,7 +470,7 @@ function App() {
               </svg>
             </button>
           </div>
-          <div className="sticky top-8 space-y-6 max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar pr-2">
+          <div className="sticky top-8 space-y-6 max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar px-2">
 
             {/* Smart Search - AI-powered natural language query */}
             <SmartSearchInput
@@ -761,61 +832,77 @@ function App() {
           </div>
 
           <div className="space-y-4">
-            {paginatedArticles.map((article) => (
-              <div key={article.pubmed_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {article.mutations.map(m => (
-                        <span key={m} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                          {m}
-                        </span>
-                      ))}
-                      {article.diseases.map(d => (
-                        <span key={d} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                          {d}
-                        </span>
-                      ))}
-                      {article.treatments?.map((t, idx) => (
-                        <span
-                          key={`${t.code}-${idx}`}
-                          className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
-                          title={t.type === 'protocol' ? 'Protocol' : 'Drug'}
-                        >
-                          {t.type === 'protocol' ? '⚕️' : '💊'} {t.name}
-                        </span>
-                      ))}
-                      {article.tags.map(t => (
-                        <span key={t} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                          {t}
-                        </span>
-                      ))}
-                      <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
-                        {article.journal}
-                      </span>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2 break-words">
-                      <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline">
-                        <HighlightText text={article.title} highlight={searchQuery} />
-                      </a>
-                    </h3>
-                    <div className="text-xs text-gray-500 mb-3 flex flex-col gap-1">
-                      <span className="font-semibold text-gray-800 break-words">{article.authors}</span>
-                      {article.affiliations && <span className="text-gray-400 italic truncate w-full" title={article.affiliations}>{article.affiliations}</span>}
-                    </div>
-                    <p className="text-sm text-gray-700 mb-4 line-clamp-3 leading-relaxed break-words">
-                      <HighlightText text={article.abstract} highlight={searchQuery} />
-                    </p>
-                    <div className="flex items-center text-xs font-medium text-gray-500 gap-4 border-t border-gray-100 pt-3">
-                      <span>PMID: {article.pubmed_id}</span>
-                      <span>Published: {article.pub_date}</span>
-                    </div>
+            {!hasActiveFilters && articles.length === 0 ? (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-16 text-center">
+                <div className="text-6xl mb-6">🔍</div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Ready to explore?</h3>
+                <p className="text-gray-600 max-w-md mx-auto mb-8">
+                  Select a disease, mutation, or use the <strong>Smart Search</strong> bar above to start browsing the scientific literature.
+                </p>
+                <div className="flex flex-wrap justify-center gap-4">
+                  <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl border border-blue-100 text-sm font-semibold">
+                    Step 1: Use the search bar
+                  </div>
+                  <div className="px-4 py-2 bg-purple-50 text-purple-700 rounded-xl border border-purple-100 text-sm font-semibold">
+                    Step 2: Apply filters
                   </div>
                 </div>
               </div>
-            ))}
-
-            {paginatedArticles.length === 0 && (
+            ) : paginatedArticles.length > 0 ? (
+              paginatedArticles.map((article) => (
+                <div key={article.pubmed_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {article.mutations.map(m => (
+                          <span key={m} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                            {m}
+                          </span>
+                        ))}
+                        {article.diseases.map(d => (
+                          <span key={d} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                            {d}
+                          </span>
+                        ))}
+                        {article.treatments?.map((t, idx) => (
+                          <span
+                            key={`${t.code}-${idx}`}
+                            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
+                            title={t.type === 'protocol' ? 'Protocol' : 'Drug'}
+                          >
+                            {t.type === 'protocol' ? '⚕️' : '💊'} {t.name}
+                          </span>
+                        ))}
+                        {article.tags.map(t => (
+                          <span key={t} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                            {t}
+                          </span>
+                        ))}
+                        <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                          {article.journal}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2 break-words">
+                        <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline">
+                          <HighlightText text={article.title} highlight={searchQuery} />
+                        </a>
+                      </h3>
+                      <div className="text-xs text-gray-500 mb-3 flex flex-col gap-1">
+                        <span className="font-semibold text-gray-800 break-words">{article.authors}</span>
+                        {article.affiliations && <span className="text-gray-400 italic truncate w-full" title={article.affiliations}>{article.affiliations}</span>}
+                      </div>
+                      <p className="text-sm text-gray-700 mb-4 line-clamp-3 leading-relaxed break-words">
+                        <HighlightText text={article.abstract} highlight={searchQuery} />
+                      </p>
+                      <div className="flex items-center text-xs font-medium text-gray-500 gap-4 border-t border-gray-100 pt-3">
+                        <span>PMID: {article.pubmed_id}</span>
+                        <span>Published: {article.pub_date}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
               <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
                 <p className="text-gray-500 text-lg">No articles found matching filters.</p>
                 <button onClick={resetAll} className="mt-4 text-blue-600 hover:underline text-sm">Clear all filters</button>
