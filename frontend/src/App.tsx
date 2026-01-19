@@ -370,6 +370,11 @@ function App() {
           window.history.pushState({}, '', '/search');
           window.scrollTo(0, 0);
         }}
+        onNavigateToPage={(page) => {
+          setCurrentPage(page);
+          window.history.pushState({}, '', `/${page}`);
+          window.scrollTo(0, 0);
+        }}
       />
     );
   }

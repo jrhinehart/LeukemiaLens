@@ -4,9 +4,10 @@ import bannerImage from './assets/LL-logo-banner.jpg';
 interface LandingPageProps {
     onNavigateToDisease: (id: string) => void;
     onStartSearch: () => void;
+    onNavigateToPage: (page: 'about' | 'contact' | 'stats' | 'resources') => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToDisease, onStartSearch }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToDisease, onStartSearch, onNavigateToPage }) => {
     return (
         <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-50">
             {/* Hero Section */}
@@ -33,12 +34,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToDisease, o
                         >
                             Scientific Article Search
                         </button>
-                        <a
-                            href="/about"
+                        <button
+                            onClick={() => onNavigateToPage('about')}
                             className="bg-blue-600/30 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-blue-600/50 transition-all"
                         >
                             Our Mission
-                        </a>
+                        </button>
                     </div>
                 </div>
             </header>
@@ -162,9 +163,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToDisease, o
                         LeukemiaLens is a free platform dedicated to bridging the gap between scientific research and those who need it most.
                     </p>
                     <div className="flex justify-center gap-8 mb-8">
-                        <a href="/about" className="text-gray-400 hover:text-blue-600 transition-colors font-medium">About</a>
-                        <a href="/contact" className="text-gray-400 hover:text-blue-600 transition-colors font-medium">Contact</a>
-                        <a href="/stats" className="text-gray-400 hover:text-blue-600 transition-colors font-medium">Stats</a>
+                        <button onClick={() => onNavigateToPage('about')} className="text-gray-400 hover:text-blue-600 transition-colors font-medium">About</button>
+                        <button onClick={() => onNavigateToPage('contact')} className="text-gray-400 hover:text-blue-600 transition-colors font-medium">Contact</button>
+                        <button onClick={() => onNavigateToPage('stats')} className="text-gray-400 hover:text-blue-600 transition-colors font-medium">Stats</button>
                     </div>
                     <div className="text-xs text-gray-400">
                         © {new Date().getFullYear()} LeukemiaLens. Built for researchers, clinicians, patients, and caregivers.
