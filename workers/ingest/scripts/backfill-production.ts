@@ -39,6 +39,8 @@
 
 import 'dotenv/config';
 import * as cheerio from 'cheerio';
+import * as fs from 'fs';
+import * as path from 'path';
 import { extractMetadata } from '../src/parsers';
 
 // ==========================================
@@ -74,6 +76,7 @@ interface BackfillProgress {
     failedSegments: string[];
     articlesIngested: number;
     articlesFailed: number;
+    failedPmids: string[];  // Track individual failed PMIDs
     startTime: number;
     currentSegment?: string;
 }
@@ -262,74 +265,95 @@ function parseArticles(xmlContent: string): ArticleData[] {
     return articles;
 }
 
-async function saveArticle(article: ArticleData): Promise<number | null> {
-    try {
-        const processedAt = new Date().toISOString();
-
-        // Insert study
-        const result = await queryD1(`
-            INSERT INTO studies (title, abstract, pub_date, journal, authors, affiliations, disease_subtype, has_complex_karyotype, transplant_context, source_id, source_type, extraction_method, processed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(source_id) DO UPDATE SET
-                title=excluded.title,
-                abstract=excluded.abstract,
-                disease_subtype=excluded.disease_subtype,
-                extraction_method=excluded.extraction_method,
-                processed_at=excluded.processed_at
-            RETURNING id
-        `, [
-            article.title,
-            article.abstract,
-            article.pubDate,
-            article.journal,
-            article.authors,
-            article.affiliations,
-            article.diseaseSubtypes.join(','),
-            article.hasComplexKaryotype ? 1 : 0,
-            0,
-            `PMID:${article.pmid}`,
-            'pubmed',
-            'regex',  // Local backfill always uses regex
-            processedAt
-        ]);
-
-        const studyId = result.results?.[0]?.id;
-        if (!studyId) return null;
-
-        // Clear and insert mutations
-        await queryD1('DELETE FROM mutations WHERE study_id = ?', [studyId]);
-        for (const mutation of article.mutations) {
-            await queryD1('INSERT INTO mutations (study_id, gene_symbol) VALUES (?, ?)', [studyId, mutation]);
-            await sleep(20);
-        }
-
-        // Clear and insert topics
-        await queryD1('DELETE FROM study_topics WHERE study_id = ?', [studyId]);
-        for (const topic of [...new Set(article.topics)]) {
-            await queryD1('INSERT INTO study_topics (study_id, topic_name) VALUES (?, ?)', [studyId, topic]);
-            await sleep(20);
-        }
-
-        // Clear and insert treatments
-        await queryD1('DELETE FROM treatments WHERE study_id = ?', [studyId]);
-        for (const treatmentCode of [...new Set(article.treatments)]) {
-            const treatmentResult = await queryD1('SELECT id FROM ref_treatments WHERE code = ?', [treatmentCode]);
-            if (treatmentResult.results?.[0]?.id) {
-                await queryD1('INSERT INTO treatments (study_id, treatment_id) VALUES (?, ?)', [studyId, treatmentResult.results[0].id]);
+async function saveArticleWithRetry(article: ArticleData, maxRetries: number = 3): Promise<number | null> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const result = await saveArticleCore(article);
+            return result;
+        } catch (e: any) {
+            const isRetryable = e.message?.includes('7500') || e.message?.includes('internal error');
+            if (isRetryable && attempt < maxRetries) {
+                const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
+                console.log(`  ⚠️ PMID:${article.pmid} failed (attempt ${attempt}/${maxRetries}), retrying in ${delay / 1000}s...`);
+                await sleep(delay);
+            } else {
+                console.error(`Error saving PMID:${article.pmid}:`, e.message);
+                return null;
             }
-            await sleep(20);
         }
-
-        // Insert link
-        await queryD1('INSERT OR IGNORE INTO links (study_id, url, link_type) VALUES (?, ?, ?)',
-            [studyId, `https://pubmed.ncbi.nlm.nih.gov/${article.pmid}/`, 'pubmed']);
-
-        return studyId;
-    } catch (e: any) {
-        console.error(`Error saving PMID:${article.pmid}:`, e.message);
-        return null;
     }
+    return null;
 }
+
+async function saveArticleCore(article: ArticleData): Promise<number> {
+    const processedAt = new Date().toISOString();
+
+    // Insert study
+    const result = await queryD1(`
+        INSERT INTO studies (title, abstract, pub_date, journal, authors, affiliations, disease_subtype, has_complex_karyotype, transplant_context, source_id, source_type, extraction_method, processed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(source_id) DO UPDATE SET
+            title=excluded.title,
+            abstract=excluded.abstract,
+            disease_subtype=excluded.disease_subtype,
+            extraction_method=excluded.extraction_method,
+            processed_at=excluded.processed_at
+        RETURNING id
+    `, [
+        article.title,
+        article.abstract,
+        article.pubDate,
+        article.journal,
+        article.authors,
+        article.affiliations,
+        article.diseaseSubtypes.join(','),
+        article.hasComplexKaryotype ? 1 : 0,
+        0,
+        `PMID:${article.pmid}`,
+        'pubmed',
+        'regex',  // Local backfill always uses regex
+        processedAt
+    ]);
+
+    const studyId = result.results?.[0]?.id;
+    if (!studyId) throw new Error('No study ID returned');
+
+    // Clear and insert mutations
+    await queryD1('DELETE FROM mutations WHERE study_id = ?', [studyId]);
+    for (const mutation of article.mutations) {
+        await queryD1('INSERT INTO mutations (study_id, gene_symbol) VALUES (?, ?)', [studyId, mutation]);
+        await sleep(20);
+    }
+
+    // Clear and insert topics
+    await queryD1('DELETE FROM study_topics WHERE study_id = ?', [studyId]);
+    for (const topic of [...new Set(article.topics)]) {
+        await queryD1('INSERT INTO study_topics (study_id, topic_name) VALUES (?, ?)', [studyId, topic]);
+        await sleep(20);
+    }
+
+    // Clear and insert treatments
+    await queryD1('DELETE FROM treatments WHERE study_id = ?', [studyId]);
+    for (const treatmentCode of [...new Set(article.treatments)]) {
+        const treatmentResult = await queryD1('SELECT id FROM ref_treatments WHERE code = ?', [treatmentCode]);
+        if (treatmentResult.results?.[0]?.id) {
+            await queryD1('INSERT INTO treatments (study_id, treatment_id) VALUES (?, ?)', [studyId, treatmentResult.results[0].id]);
+        }
+        await sleep(20);
+    }
+
+    // Insert link
+    await queryD1('INSERT OR IGNORE INTO links (study_id, url, link_type) VALUES (?, ?, ?)',
+        [studyId, `https://pubmed.ncbi.nlm.nih.gov/${article.pmid}/`, 'pubmed']);
+
+    return studyId;
+}
+
+// Wrapper for backward compatibility  
+async function saveArticle(article: ArticleData): Promise<number | null> {
+    return saveArticleWithRetry(article);
+}
+
 
 // ==========================================
 // LOCAL MODE EXECUTION
@@ -384,6 +408,7 @@ async function backfillLocal(options: BackfillOptions, progress: BackfillProgres
                             }
                         } else {
                             progress.articlesFailed++;
+                            progress.failedPmids.push(article.pmid);
                         }
                         await sleep(50); // Rate limit D1 writes
                     }
@@ -513,6 +538,7 @@ async function backfillProduction(options: BackfillOptions) {
         failedSegments: [],
         articlesIngested: 0,
         articlesFailed: 0,
+        failedPmids: [],
         startTime: Date.now()
     };
 
@@ -550,6 +576,23 @@ async function backfillProduction(options: BackfillOptions) {
     if (progress.failedSegments.length > 0) {
         console.log('\n⚠️  Failed Segments:');
         progress.failedSegments.forEach(failure => console.log(`  - ${failure}`));
+    }
+
+    // Write failed PMIDs to log file for later re-ingestion
+    if (options.local && progress.failedPmids.length > 0) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const logDir = path.join(__dirname, '../logs');
+        const logFile = path.join(logDir, `failed-pmids-${timestamp}.txt`);
+
+        // Ensure logs directory exists
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+
+        // Write PMIDs, one per line
+        fs.writeFileSync(logFile, progress.failedPmids.join('\n') + '\n');
+        console.log(`\n📝 Failed PMIDs written to: ${logFile}`);
+        console.log(`   Re-ingest with: npx tsx scripts/reingest-failed.ts ${progress.failedPmids.join(' ')}`);
     }
 }
 
