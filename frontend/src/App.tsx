@@ -96,16 +96,6 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  // Beta banner state (persist dismissal in localStorage)
-  const [showBetaBanner, setShowBetaBanner] = useState<boolean>(() => {
-    const dismissed = localStorage.getItem('betaBannerDismissed')
-    return dismissed !== 'true'
-  })
-
-  const dismissBetaBanner = () => {
-    setShowBetaBanner(false)
-    localStorage.setItem('betaBannerDismissed', 'true')
-  }
 
   const [articles, setArticles] = useState<Article[]>([])
 
@@ -669,32 +659,6 @@ function App() {
         {/* Main Content */}
         <main className="flex-1 min-w-0">
 
-          {/* Beta Testing Banner */}
-          {showBetaBanner && (
-            <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg p-5 shadow-sm relative">
-              <button
-                onClick={dismissBetaBanner}
-                className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors"
-                aria-label="Dismiss banner"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <div className="flex items-start gap-3 pr-8">
-                <div className="flex-shrink-0 text-2xl">🧪</div>
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900 mb-2">Welcome to LeukemiaLens Beta!</h3>
-                  <p className="text-sm text-gray-700 leading-relaxed mb-2">
-                    The database contains over <strong>5,000 research articles</strong> with new content added daily via automated ingestion. Visit the <a href="/stats" onClick={(e) => { e.preventDefault(); setCurrentPage('stats'); window.history.pushState({}, '', '/stats') }} className="text-blue-600 hover:text-blue-800 font-medium underline">Stats</a> page for current coverage details.
-                  </p>
-                  <p className="text-sm text-gray-700 leading-relaxed">
-                    We'd love to hear your thoughts! Please share feedback, feature requests, or bug reports via the <a href="#contact" className="text-blue-600 hover:text-blue-800 font-medium underline">Contact</a> page.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
 
 
 
