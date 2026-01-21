@@ -6,4 +6,7 @@
 /myeloid /index.html 200
 /lymphoid /index.html 200
 /myeloma /index.html 200
-/learn/* /index.html 200
+/learn/blood-cells /index.html 200
+/learn/mutations /index.html 200
+/learn/risk /index.html 200
+/learn/transplant /index.html 200
