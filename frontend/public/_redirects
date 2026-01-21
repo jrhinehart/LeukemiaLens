@@ -2,3 +2,8 @@
 /about /index.html 200
 /contact /index.html 200
 /resources /index.html 200
+/search /index.html 200
+/myeloid /index.html 200
+/lymphoid /index.html 200
+/myeloma /index.html 200
+/learn/* /index.html 200

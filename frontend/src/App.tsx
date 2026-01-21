@@ -5,6 +5,7 @@ import { AboutPage, ContactPage, ResourcesPage } from './Pages'
 import { StatsPage } from './StatsPage'
 import { LandingPage } from './LandingPage'
 import { DiseasePage } from './DiseasePage'
+import { BloodCellProductionPage, MutationsPage, RiskStratificationPage, StemCellTransplantPage } from './EducationPages'
 import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput, ResearchInsights } from './components'
 import type { ParsedFilters } from './components'
 
@@ -63,7 +64,7 @@ const HighlightText = ({ text, highlight }: { text: string, highlight: string })
 
 function App() {
   // Page routing - check URL pathname
-  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats' | 'search' | 'myeloid' | 'lymphoid' | 'myeloma'>(() => {
+  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats' | 'search' | 'myeloid' | 'lymphoid' | 'myeloma' | 'learn-blood-cells' | 'learn-mutations' | 'learn-risk' | 'learn-transplant'>(() => {
     const path = window.location.pathname
     if (path === '/stats') return 'stats'
     if (path === '/about') return 'about'
@@ -73,6 +74,10 @@ function App() {
     if (path === '/myeloid') return 'myeloid'
     if (path === '/lymphoid') return 'lymphoid'
     if (path === '/myeloma') return 'myeloma'
+    if (path === '/learn/blood-cells') return 'learn-blood-cells'
+    if (path === '/learn/mutations') return 'learn-mutations'
+    if (path === '/learn/risk') return 'learn-risk'
+    if (path === '/learn/transplant') return 'learn-transplant'
     return 'home'
   })
 
@@ -89,6 +94,10 @@ function App() {
       else if (path === '/myeloid') setCurrentPage('myeloid')
       else if (path === '/lymphoid') setCurrentPage('lymphoid')
       else if (path === '/myeloma') setCurrentPage('myeloma')
+      else if (path === '/learn/blood-cells') setCurrentPage('learn-blood-cells')
+      else if (path === '/learn/mutations') setCurrentPage('learn-mutations')
+      else if (path === '/learn/risk') setCurrentPage('learn-risk')
+      else if (path === '/learn/transplant') setCurrentPage('learn-transplant')
       else setCurrentPage('home')
     }
 
@@ -346,6 +355,46 @@ function App() {
     );
   }
 
+  // Handle educational pages
+  const navigateToLearn = (topic: string) => {
+    setCurrentPage(`learn-${topic}` as any);
+    window.history.pushState({}, '', `/learn/${topic}`);
+    window.scrollTo(0, 0);
+  };
+
+  if (currentPage === 'learn-blood-cells') {
+    return (
+      <BloodCellProductionPage
+        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
+        onNavigateToLearn={navigateToLearn}
+      />
+    );
+  }
+  if (currentPage === 'learn-mutations') {
+    return (
+      <MutationsPage
+        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
+        onNavigateToLearn={navigateToLearn}
+      />
+    );
+  }
+  if (currentPage === 'learn-risk') {
+    return (
+      <RiskStratificationPage
+        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
+        onNavigateToLearn={navigateToLearn}
+      />
+    );
+  }
+  if (currentPage === 'learn-transplant') {
+    return (
+      <StemCellTransplantPage
+        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
+        onNavigateToLearn={navigateToLearn}
+      />
+    );
+  }
+
   // If home, show the new landing page
   if (currentPage === 'home') {
     return (
@@ -365,6 +414,7 @@ function App() {
           window.history.pushState({}, '', `/${page}`);
           window.scrollTo(0, 0);
         }}
+        onNavigateToLearn={navigateToLearn}
       />
     );
   }

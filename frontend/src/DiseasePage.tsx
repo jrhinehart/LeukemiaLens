@@ -14,11 +14,10 @@ interface TreatmentInfo {
     url: string;
 }
 
-interface EducationalTopic {
-    icon: string;
-    title: string;
-    content: string;
-    learnMoreUrl: string;
+interface SubDiseaseInfo {
+    abbrev: string;
+    name: string;
+    description: string;
 }
 
 interface DiseaseInfo {
@@ -26,46 +25,40 @@ interface DiseaseInfo {
     name: string;
     headerQuestion: string;
     description: string;
-    educationalTopics: EducationalTopic[];
+    subDiseases: SubDiseaseInfo[];
     treatments: TreatmentInfo[];
-    diseases: string[]; // Sub-diseases in this group
+    diseases: string[]; // Sub-disease abbreviations for filtering
     clinicalTrialsQuery: string;
 }
-
-const SHARED_EDUCATIONAL_TOPICS: EducationalTopic[] = [
-    {
-        icon: '🩸',
-        title: 'Understanding Blood Cell Production',
-        content: 'Your bone marrow contains stem cells that develop into all blood cells: red cells (carry oxygen), white cells (fight infection), and platelets (stop bleeding). In blood cancers, this process is disrupted when abnormal cells crowd out healthy ones.',
-        learnMoreUrl: 'https://www.lls.org/leukemia/acute-myeloid-leukemia/understanding-aml'
-    },
-    {
-        icon: '🧬',
-        title: 'What are Mutations?',
-        content: 'Mutations are changes in the DNA of blood cells. Some mutations drive cancer growth, while others affect how well treatments work. Your doctor may test for specific mutations (like FLT3, NPM1, or TP53) to guide treatment decisions.',
-        learnMoreUrl: 'https://www.lls.org/leukemia/acute-myeloid-leukemia/diagnosis/genetics-aml'
-    },
-    {
-        icon: '📊',
-        title: 'Risk Stratification',
-        content: 'Doctors classify patients into risk groups (favorable, intermediate, or adverse) based on genetic features, age, and response to initial treatment. This helps predict outcomes and choose the most appropriate therapy.',
-        learnMoreUrl: 'https://www.lls.org/leukemia/acute-myeloid-leukemia/treatment/treatment-outcomes'
-    },
-    {
-        icon: '🏥',
-        title: 'Stem Cell Transplants',
-        content: 'A stem cell transplant replaces diseased bone marrow with healthy stem cells. In an allogeneic transplant, cells come from a donor. In an autologous transplant, your own cells are collected and returned after high-dose chemotherapy.',
-        learnMoreUrl: 'https://www.lls.org/treatment/types-treatment/stem-cell-transplantation'
-    }
-];
 
 const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
     myeloid: {
         id: 'myeloid',
         name: 'Myeloid Neoplasms',
         headerQuestion: 'What are Myeloid Neoplasms?',
-        description: 'Myeloid neoplasms are a group of cancers that affect the myeloid lineage of blood cells. This includes conditions like Acute Myeloid Leukemia (AML), Myelodysplastic Syndromes (MDS), Chronic Myeloid Leukemia (CML), and Myeloproliferative Neoplasms (MPN).',
-        educationalTopics: SHARED_EDUCATIONAL_TOPICS,
+        description: 'Myeloid neoplasms are a group of cancers that affect the myeloid lineage of blood cells—the cells that normally develop into red blood cells, platelets, and certain white blood cells (neutrophils, monocytes).',
+        subDiseases: [
+            {
+                abbrev: 'AML',
+                name: 'Acute Myeloid Leukemia',
+                description: 'AML is an aggressive cancer where immature myeloid cells (blasts) multiply rapidly and accumulate in the bone marrow, crowding out normal cells. It requires immediate treatment and can develop on its own or evolve from MDS or MPN.'
+            },
+            {
+                abbrev: 'MDS',
+                name: 'Myelodysplastic Syndromes',
+                description: 'MDS is characterized by abnormal-looking (dysplastic) blood cells and ineffective blood production. While less aggressive than AML, approximately 30% of MDS cases eventually transform into AML, making careful monitoring essential.'
+            },
+            {
+                abbrev: 'CML',
+                name: 'Chronic Myeloid Leukemia',
+                description: 'CML is caused by the Philadelphia chromosome (BCR-ABL fusion gene) and progresses through chronic, accelerated, and blast phases. Unlike AML, it often responds well to targeted oral therapies (tyrosine kinase inhibitors) that can control the disease long-term.'
+            },
+            {
+                abbrev: 'MPN',
+                name: 'Myeloproliferative Neoplasms',
+                description: 'MPNs involve the overproduction of mature blood cells—too many red cells (polycythemia vera), platelets (essential thrombocythemia), or bone marrow scarring (myelofibrosis). While chronic, some MPNs can evolve into AML over time.'
+            }
+        ],
         treatments: [
             { name: 'Chemotherapy (e.g., 7+3 regimen)', url: 'https://bloodcancerunited.org/blood-cancer/leukemia/acute-myeloid-leukemia-aml/treatment#toc-1' },
             { name: 'Targeted Therapies (e.g., FLT3, IDH inhibitors)', url: 'https://bloodcancerunited.org/blood-cancer-care/adults/types-blood-cancer-treatment/drug-therapies' },
@@ -80,8 +73,19 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
         id: 'lymphoid',
         name: 'Lymphoid Neoplasms',
         headerQuestion: 'What are Lymphoid Neoplasms?',
-        description: 'Lymphoid neoplasms affect the lymphoid lineage of blood cells, involving B-cells, T-cells, or Natural Killer (NK) cells. This group primarily includes Acute Lymphoblastic Leukemia (ALL) and Chronic Lymphocytic Leukemia (CLL).',
-        educationalTopics: SHARED_EDUCATIONAL_TOPICS,
+        description: 'Lymphoid neoplasms affect the lymphoid lineage of blood cells—the cells that develop into B-cells, T-cells, and Natural Killer (NK) cells, which are critical for immune function.',
+        subDiseases: [
+            {
+                abbrev: 'ALL',
+                name: 'Acute Lymphoblastic Leukemia',
+                description: 'ALL is an aggressive leukemia where immature lymphoid cells (lymphoblasts) multiply rapidly. It\'s the most common childhood cancer but also occurs in adults. Intensive chemotherapy regimens, often lasting 2-3 years, combined with newer therapies like CAR T-cell therapy have dramatically improved outcomes.'
+            },
+            {
+                abbrev: 'CLL',
+                name: 'Chronic Lymphocytic Leukemia',
+                description: 'CLL is a slower-growing leukemia affecting mature B-cells that accumulate in blood, bone marrow, and lymph nodes. Many patients may not need treatment for years ("watch and wait"), while others require targeted therapies like BTK inhibitors. Unlike ALL, CLL primarily affects older adults.'
+            }
+        ],
         treatments: [
             { name: 'Intensive Chemotherapy', url: 'https://bloodcancerunited.org/blood-cancer/leukemia/acute-lymphoblastic-leukemia-all/treatment' },
             { name: 'Immunotherapy (e.g., Blinatumomab)', url: 'https://bloodcancerunited.org/blood-cancer-care/adults/types-blood-cancer-treatment/immunotherapy' },
@@ -96,8 +100,24 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
         id: 'myeloma',
         name: 'Multiple Myeloma',
         headerQuestion: 'What is Multiple Myeloma?',
-        description: 'Multiple Myeloma is a cancer that forms in a type of white blood cell called a plasma cell. Healthy plasma cells help you fight infections by making antibodies that recognize and attack germs. In multiple myeloma, cancerous plasma cells accumulate in the bone marrow and crowd out healthy blood cells.',
-        educationalTopics: SHARED_EDUCATIONAL_TOPICS,
+        description: 'Multiple Myeloma is a cancer of plasma cells—specialized B-cells that produce antibodies. When plasma cells become cancerous, they accumulate in the bone marrow and produce abnormal proteins that can damage organs.',
+        subDiseases: [
+            {
+                abbrev: 'MGUS',
+                name: 'Monoclonal Gammopathy of Undetermined Significance',
+                description: 'MGUS is a precursor condition where abnormal plasma cells produce a small amount of abnormal protein but don\'t yet cause problems. About 1% of MGUS cases progress to myeloma each year, so regular monitoring is important.'
+            },
+            {
+                abbrev: 'SMM',
+                name: 'Smoldering Multiple Myeloma',
+                description: 'SMM is an intermediate stage between MGUS and active myeloma. There are more abnormal plasma cells and protein than in MGUS, but no organ damage yet. Some patients remain stable for years; others progress more quickly to active myeloma.'
+            },
+            {
+                abbrev: 'MM',
+                name: 'Active Multiple Myeloma',
+                description: 'Active myeloma requires treatment when it begins causing "CRAB" symptoms: elevated Calcium, Renal (kidney) problems, Anemia, or Bone lesions. Modern combination therapies have significantly improved survival, and many patients achieve deep remissions.'
+            }
+        ],
         treatments: [
             { name: 'Proteasome Inhibitors', url: 'https://bloodcancerunited.org/blood-cancer/myeloma/treatment#toc-1' },
             { name: 'Immunomodulatory Drugs', url: 'https://bloodcancerunited.org/blood-cancer/myeloma/treatment#toc-1' },
@@ -116,49 +136,6 @@ interface DiseasePageProps {
     onNavigateHome: () => void;
     onStartSearch: (disease?: string) => void;
 }
-
-const EducationalSection: React.FC<{ topics: EducationalTopic[] }> = ({ topics }) => {
-    const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null);
-
-    return (
-        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <span className="text-purple-600">📚</span> For Newly Diagnosed Patients
-            </h2>
-            <div className="space-y-3">
-                {topics.map((topic, idx) => (
-                    <div key={idx} className="border border-gray-100 rounded-xl overflow-hidden">
-                        <button
-                            onClick={() => setExpandedIndex(expandedIndex === idx ? null : idx)}
-                            className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-purple-50 transition-colors text-left"
-                        >
-                            <div className="flex items-center gap-3">
-                                <span className="text-2xl">{topic.icon}</span>
-                                <span className="font-semibold text-gray-800">{topic.title}</span>
-                            </div>
-                            <span className={`text-gray-400 transition-transform ${expandedIndex === idx ? 'rotate-180' : ''}`}>
-                                ▼
-                            </span>
-                        </button>
-                        {expandedIndex === idx && (
-                            <div className="p-4 bg-white border-t border-gray-100">
-                                <p className="text-gray-700 mb-4 leading-relaxed">{topic.content}</p>
-                                <a
-                                    href={topic.learnMoreUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-800 font-medium text-sm"
-                                >
-                                    Learn more →
-                                </a>
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-        </section>
-    );
-};
 
 export const DiseasePage: React.FC<DiseasePageProps> = ({ groupId, apiBaseUrl, onNavigateHome, onStartSearch }) => {
     const info = DISEASE_GROUPS[groupId];
@@ -198,16 +175,24 @@ export const DiseasePage: React.FC<DiseasePageProps> = ({ groupId, apiBaseUrl, o
                             <p className="text-gray-700 text-lg leading-relaxed">
                                 {info.description}
                             </p>
-                            <div className="mt-6 flex flex-wrap gap-2">
-                                {info.diseases.map(d => (
-                                    <span key={d} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-semibold border border-blue-100">
-                                        {d}
-                                    </span>
+
+                            {/* Sub-disease breakout */}
+                            <div className="mt-8 space-y-4">
+                                {info.subDiseases.map((sd) => (
+                                    <div key={sd.abbrev} className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <span className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm font-bold">
+                                                {sd.abbrev}
+                                            </span>
+                                            <h3 className="font-bold text-gray-900">{sd.name}</h3>
+                                        </div>
+                                        <p className="text-gray-700 text-sm leading-relaxed">
+                                            {sd.description}
+                                        </p>
+                                    </div>
                                 ))}
                             </div>
                         </section>
-
-                        <EducationalSection topics={info.educationalTopics} />
 
                         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                             <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
