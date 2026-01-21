@@ -14,20 +14,58 @@ interface TreatmentInfo {
     url: string;
 }
 
+interface EducationalTopic {
+    icon: string;
+    title: string;
+    content: string;
+    learnMoreUrl: string;
+}
+
 interface DiseaseInfo {
     id: string;
     name: string;
+    headerQuestion: string;
     description: string;
+    educationalTopics: EducationalTopic[];
     treatments: TreatmentInfo[];
     diseases: string[]; // Sub-diseases in this group
     clinicalTrialsQuery: string;
 }
 
+const SHARED_EDUCATIONAL_TOPICS: EducationalTopic[] = [
+    {
+        icon: '🩸',
+        title: 'Understanding Blood Cell Production',
+        content: 'Your bone marrow contains stem cells that develop into all blood cells: red cells (carry oxygen), white cells (fight infection), and platelets (stop bleeding). In blood cancers, this process is disrupted when abnormal cells crowd out healthy ones.',
+        learnMoreUrl: 'https://www.lls.org/leukemia/acute-myeloid-leukemia/understanding-aml'
+    },
+    {
+        icon: '🧬',
+        title: 'What are Mutations?',
+        content: 'Mutations are changes in the DNA of blood cells. Some mutations drive cancer growth, while others affect how well treatments work. Your doctor may test for specific mutations (like FLT3, NPM1, or TP53) to guide treatment decisions.',
+        learnMoreUrl: 'https://www.lls.org/leukemia/acute-myeloid-leukemia/diagnosis/genetics-aml'
+    },
+    {
+        icon: '📊',
+        title: 'Risk Stratification',
+        content: 'Doctors classify patients into risk groups (favorable, intermediate, or adverse) based on genetic features, age, and response to initial treatment. This helps predict outcomes and choose the most appropriate therapy.',
+        learnMoreUrl: 'https://www.lls.org/leukemia/acute-myeloid-leukemia/treatment/treatment-outcomes'
+    },
+    {
+        icon: '🏥',
+        title: 'Stem Cell Transplants',
+        content: 'A stem cell transplant replaces diseased bone marrow with healthy stem cells. In an allogeneic transplant, cells come from a donor. In an autologous transplant, your own cells are collected and returned after high-dose chemotherapy.',
+        learnMoreUrl: 'https://www.lls.org/treatment/types-treatment/stem-cell-transplantation'
+    }
+];
+
 const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
     myeloid: {
         id: 'myeloid',
         name: 'Myeloid Neoplasms',
+        headerQuestion: 'What are Myeloid Neoplasms?',
         description: 'Myeloid neoplasms are a group of cancers that affect the myeloid lineage of blood cells. This includes conditions like Acute Myeloid Leukemia (AML), Myelodysplastic Syndromes (MDS), Chronic Myeloid Leukemia (CML), and Myeloproliferative Neoplasms (MPN).',
+        educationalTopics: SHARED_EDUCATIONAL_TOPICS,
         treatments: [
             { name: 'Chemotherapy (e.g., 7+3 regimen)', url: 'https://bloodcancerunited.org/blood-cancer/leukemia/acute-myeloid-leukemia-aml/treatment#toc-1' },
             { name: 'Targeted Therapies (e.g., FLT3, IDH inhibitors)', url: 'https://bloodcancerunited.org/blood-cancer-care/adults/types-blood-cancer-treatment/drug-therapies' },
@@ -41,7 +79,9 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
     lymphoid: {
         id: 'lymphoid',
         name: 'Lymphoid Neoplasms',
+        headerQuestion: 'What are Lymphoid Neoplasms?',
         description: 'Lymphoid neoplasms affect the lymphoid lineage of blood cells, involving B-cells, T-cells, or Natural Killer (NK) cells. This group primarily includes Acute Lymphoblastic Leukemia (ALL) and Chronic Lymphocytic Leukemia (CLL).',
+        educationalTopics: SHARED_EDUCATIONAL_TOPICS,
         treatments: [
             { name: 'Intensive Chemotherapy', url: 'https://bloodcancerunited.org/blood-cancer/leukemia/acute-lymphoblastic-leukemia-all/treatment' },
             { name: 'Immunotherapy (e.g., Blinatumomab)', url: 'https://bloodcancerunited.org/blood-cancer-care/adults/types-blood-cancer-treatment/immunotherapy' },
@@ -55,7 +95,9 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
     myeloma: {
         id: 'myeloma',
         name: 'Multiple Myeloma',
+        headerQuestion: 'What is Multiple Myeloma?',
         description: 'Multiple Myeloma is a cancer that forms in a type of white blood cell called a plasma cell. Healthy plasma cells help you fight infections by making antibodies that recognize and attack germs. In multiple myeloma, cancerous plasma cells accumulate in the bone marrow and crowd out healthy blood cells.',
+        educationalTopics: SHARED_EDUCATIONAL_TOPICS,
         treatments: [
             { name: 'Proteasome Inhibitors', url: 'https://bloodcancerunited.org/blood-cancer/myeloma/treatment#toc-1' },
             { name: 'Immunomodulatory Drugs', url: 'https://bloodcancerunited.org/blood-cancer/myeloma/treatment#toc-1' },
@@ -74,6 +116,49 @@ interface DiseasePageProps {
     onNavigateHome: () => void;
     onStartSearch: (disease?: string) => void;
 }
+
+const EducationalSection: React.FC<{ topics: EducationalTopic[] }> = ({ topics }) => {
+    const [expandedIndex, setExpandedIndex] = React.useState<number | null>(null);
+
+    return (
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <span className="text-purple-600">📚</span> For Newly Diagnosed Patients
+            </h2>
+            <div className="space-y-3">
+                {topics.map((topic, idx) => (
+                    <div key={idx} className="border border-gray-100 rounded-xl overflow-hidden">
+                        <button
+                            onClick={() => setExpandedIndex(expandedIndex === idx ? null : idx)}
+                            className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-purple-50 transition-colors text-left"
+                        >
+                            <div className="flex items-center gap-3">
+                                <span className="text-2xl">{topic.icon}</span>
+                                <span className="font-semibold text-gray-800">{topic.title}</span>
+                            </div>
+                            <span className={`text-gray-400 transition-transform ${expandedIndex === idx ? 'rotate-180' : ''}`}>
+                                ▼
+                            </span>
+                        </button>
+                        {expandedIndex === idx && (
+                            <div className="p-4 bg-white border-t border-gray-100">
+                                <p className="text-gray-700 mb-4 leading-relaxed">{topic.content}</p>
+                                <a
+                                    href={topic.learnMoreUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-purple-600 hover:text-purple-800 font-medium text-sm"
+                                >
+                                    Learn more →
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+};
 
 export const DiseasePage: React.FC<DiseasePageProps> = ({ groupId, apiBaseUrl, onNavigateHome, onStartSearch }) => {
     const info = DISEASE_GROUPS[groupId];
@@ -108,7 +193,7 @@ export const DiseasePage: React.FC<DiseasePageProps> = ({ groupId, apiBaseUrl, o
                     <div className="lg:col-span-2 space-y-8">
                         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                             <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                <span className="text-blue-600">ℹ️</span> What are {info.name}?
+                                <span className="text-blue-600">ℹ️</span> {info.headerQuestion}
                             </h2>
                             <p className="text-gray-700 text-lg leading-relaxed">
                                 {info.description}
@@ -121,6 +206,8 @@ export const DiseasePage: React.FC<DiseasePageProps> = ({ groupId, apiBaseUrl, o
                                 ))}
                             </div>
                         </section>
+
+                        <EducationalSection topics={info.educationalTopics} />
 
                         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                             <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">

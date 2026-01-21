@@ -355,7 +355,7 @@ Guidelines:
             system: systemPrompt,
         });
 
-        const textContent = response.content.find(block => block.type === 'text');
+        const textContent = response.content.find((block: any) => block.type === 'text');
         if (!textContent || textContent.type !== 'text') {
             throw new Error('No text response from Claude');
         }
