@@ -16,13 +16,18 @@ export const AboutPage = ({ onNavigateHome }: PageProps) => {
                     <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Mission</h2>
                     <div className="prose prose-lg max-w-none">
                         <p className="text-gray-700 leading-relaxed mb-4">
-                            LeukemiaLens empowers researchers and clinicians by aggregating the latest scientific findings from PubMed.
+                            LeukemiaLens is intended to empower researchers and clinicians by aggregating the latest scientific findings from PubMed.
                             We categorize articles by mutations, diseases, and topics to help you discover insights faster.
+                            Along with that, we also want to provide additional resources to the leukemia and bone marrow transplant community.
                         </p>
                         <p className="text-gray-700 leading-relaxed">
-                            As a leukemia and bone marrow transplant survivor, I wanted to provide leukemia researchers and transplant teams
-                            with a tool that helps them focus in on complex karyotypes and cutting-edge research in their specific realm.
-                            There didn't seem to be a free tool out there, so this tool was born.
+                            My name is Josh Rhinehart, and I am the creator of LeukemiaLens.
+                            As an AML patient and bone marrow transplant survivor myself, I wanted to provide additional resources to the leukemia and bone marrow transplant community.
+                            I found it hard to navigate the vast amount of information available during my journey, and I have been studying biology for years.
+                        </p>
+                        <p className="text-gray-700 leading-relaxed">I created LeukemiaLens in order to help others along this journey, whether it be patients and caregivers navigating a new diagnosis, or researchers and transplant physicians that need to constantly stay up to date with the latest research and treatment options.
+                            Looking around the web, there didn't seem to be a good solution for filtering the large amount of information available on PubMed and other sources in ways that made sense for leukemia and bone marrow transplant research.
+                            With that in mind, I thought that current breakthroughs in AI and cloud infrastructure would allow me to create a solution that would be both fast and scalable, and most importantly, helpful to the community.
                         </p>
                     </div>
                 </section>
@@ -49,6 +54,30 @@ export const AboutPage = ({ onNavigateHome }: PageProps) => {
                             <p className="text-sm text-gray-600 leading-relaxed mt-3">
                                 All PubMed article data is sourced from the National Library of Medicine and is subject to their respective
                                 copyright and usage terms.
+                            </p>
+                        </div>
+
+                        {/* Medical Disclaimer */}
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 mt-6">
+                            <h3 className="text-lg font-semibold text-amber-900 mb-3 flex items-center gap-2">
+                                <span>⚠️</span> Medical Disclaimer
+                            </h3>
+                            <p className="text-sm text-amber-800 leading-relaxed mb-3">
+                                <strong>LeukemiaLens is for informational and educational purposes only.</strong> The content provided on this website,
+                                including but not limited to research summaries, AI-generated insights, and educational materials, does not constitute
+                                medical advice, diagnosis, or treatment recommendations.
+                            </p>
+                            <p className="text-sm text-amber-800 leading-relaxed mb-3">
+                                I am not a physician, licensed healthcare provider, or medical professional. The information presented here is
+                                intended to supplement—not replace—the relationship between you and your qualified healthcare providers.
+                            </p>
+                            <p className="text-sm text-amber-800 leading-relaxed mb-3">
+                                <strong>Always consult with your doctor, oncologist, or other qualified medical professional</strong> before making
+                                any decisions regarding your health or treatment options. Never disregard professional medical advice or delay
+                                seeking it because of something you have read on this website.
+                            </p>
+                            <p className="text-sm text-amber-800 leading-relaxed">
+                                If you are experiencing a medical emergency, please call your local emergency services immediately.
                             </p>
                         </div>
                     </div>

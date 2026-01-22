@@ -97,16 +97,30 @@ export const BloodCellProductionPage: React.FC<EducationPageProps> = ({ onNaviga
 
                         <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4">What Goes Wrong in Blood Cancer?</h2>
                         <p>
-                            In blood cancers like leukemia, abnormal cells develop and multiply uncontrollably. These abnormal cells crowd out
-                            healthy blood cells in the bone marrow, leading to the symptoms you may experience.
+                            Normal stem cells form healthy blood cells such as red and white cells and platelets. AML starts with a mutation in the DNA of a single stem cell in the bone marrow. This changed cell becomes a leukemic cell and multiplies into billions of cells called <strong>leukemic blasts</strong>.
                         </p>
+                        <p>Leukemic blasts:</p>
+                        <ul className="list-disc pl-6 space-y-2 my-4">
+                            <li>Do not function normally</li>
+                            <li>Block the production of normal cells</li>
+                            <li>Grow and survive better than normal cells</li>
+                        </ul>
+                        <p>
+                            As a result, the number of healthy blood cells is usually lower than normal, and can result in the following conditions:
+                        </p>
+                        <ul className="list-disc pl-6 space-y-2 my-4">
+                            <li><strong>Anemia</strong>: a low number of red cells in the blood, causing fatigue and shortness of breath</li>
+                            <li><strong>Neutropenia</strong>: a low number of neutrophils (a type of white blood cell), preventing the immune system from effectively guarding against infection</li>
+                            <li><strong>Thrombocytopenia</strong>: a low number of platelets, causing bleeding and easy bruising</li>
+                            <li><strong>Pancytopenia</strong>: low numbers of all three blood cell types</li>
+                        </ul>
 
                         <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 mt-8">
                             <h3 className="font-bold text-blue-900 mb-2">📚 Learn More</h3>
                             <p className="text-blue-800 mb-4">
                                 Blood Cancer United provides detailed resources about blood cell production and blood cancers.
                             </p>
-                            <ExternalLink href="https://bloodcancerunited.org/blood-cancer-care/adults/understanding-blood-cancer">
+                            <ExternalLink href="https://bloodcancerunited.org/blood-cancer-care">
                                 Understanding Blood Cancer at Blood Cancer United
                             </ExternalLink>
                         </div>

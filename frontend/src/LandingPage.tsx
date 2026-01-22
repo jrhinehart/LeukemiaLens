@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import bannerImage from './assets/LL-logo-banner.jpg';
+import nmdpLogo from './assets/nmdp-logo.png';
+import redcrossLogo from './assets/redcross-logo.png';
 
 interface LandingPageProps {
     onNavigateToDisease: (id: string) => void;
@@ -228,6 +230,66 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToDisease, o
                                 Launch Search Tools
                             </button>
                         </div>
+                    </div>
+                </section>
+
+                {/* Give the Gift of Life - Donor Section */}
+                <section className="mt-16 bg-gradient-to-br from-red-50 via-white to-rose-50 rounded-[2.5rem] p-8 border border-red-100">
+                    <div className="text-center mb-8">
+                        <span className="text-5xl mb-4 block">❤️</span>
+                        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">Give the Gift of Life</h2>
+                        <p className="text-gray-700 text-lg leading-relaxed max-w-2xl mx-auto">
+                            Blood cancer patients often rely on bone marrow transplants and blood transfusions to survive.
+                            You can make a difference by joining the donor registry or donating blood.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                        {/* NMDP Card */}
+                        <a
+                            href="https://www.nmdp.org/get-involved/join-the-registry"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 flex flex-col items-center text-center"
+                        >
+                            <img src={nmdpLogo} alt="NMDP - Be The Match" className="h-16 object-contain mb-4" />
+                            <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors">
+                                Join the Bone Marrow Registry
+                            </h3>
+                            <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                                Every 3 minutes, someone is diagnosed with a blood cancer. For many, a bone marrow transplant is their best chance at survival.
+                                Joining the registry is simple—just a quick cheek swab.
+                            </p>
+                            <span className="mt-auto inline-flex items-center gap-2 text-orange-600 font-bold group-hover:gap-3 transition-all">
+                                Register Now
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                </svg>
+                            </span>
+                        </a>
+
+                        {/* Red Cross Card */}
+                        <a
+                            href="https://www.redcrossblood.org"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all transform hover:-translate-y-1 flex flex-col items-center text-center"
+                        >
+                            <img src={redcrossLogo} alt="American Red Cross" className="h-16 object-contain mb-4" />
+                            <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-red-600 transition-colors">
+                                Donate Blood
+                            </h3>
+                            <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                                Blood transfusions are critical for patients undergoing chemotherapy and transplant procedures.
+                                A single donation can save up to 3 lives.
+                            </p>
+                            <span className="mt-auto inline-flex items-center gap-2 text-red-600 font-bold group-hover:gap-3 transition-all">
+                                Find a Blood Drive
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                </svg>
+                            </span>
+                        </a>
                     </div>
                 </section>
             </main>
