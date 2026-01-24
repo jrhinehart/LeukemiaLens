@@ -70,7 +70,7 @@ These files are shared across all agents and require extra care:
 |------|-------|
 | `frontend/src/App.tsx` | Routing, state management - coordinate changes |
 | `frontend/src/components/index.ts` | Shared component exports |
-| `schema.sql` | Database schema - major changes need coordination |
+| `db/schema.sql` | Database schema - major changes need coordination |
 | `ROADMAP.md` | Track all features and architectural decisions |
 | `README.md` | Public documentation - update after major features |
 

@@ -151,7 +151,7 @@ The application uses a relational schema with ontology tables for consistent cla
 - **`ref_treatments`** - Catalog of normalized treatments (drugs and clinical protocols)
 - **`ref_treatment_components`** - Mapping of clinical protocols to their individual drug components
 
-See [`schema.sql`](schema.sql), [`schema_mutations.sql`](schema_mutations.sql), and [`schema_treatments.sql`](schema_treatments.sql) for complete definitions.
+See [`schema.sql`](db/schema.sql), [`schema_mutations.sql`](db/schema_mutations.sql), and [`schema_treatments.sql`](db/schema_treatments.sql) for complete definitions.
 
 ## Setup & Deployment
 
