@@ -3,7 +3,21 @@
 LeukemiaLens is a specialized research tracker designed to help researchers and clinicians stay updated with the latest scientific developments in leukemia. It aggregates articles from PubMed and enriches them with intelligent tagging for specific gene mutations, disease subtypes, research topics, and clinical treatments.
 
 ## Screenshots
+
+### Landing Page & Disease Navigation
+The redesigned landing page welcomes patients, caregivers, and researchers with intuitive navigation to disease-specific resources.
+![Landing Page](assets/images/landing-page.png)
+
+### Disease-Specific Resource Pages
+Each disease group (Myeloid, Lymphoid, Myeloma) has dedicated pages with curated information, treatment options, live news feeds, and clinical trial links.
+![Disease Page](assets/images/disease-page.png)
+
+### Educational Content for Newly Diagnosed Patients
+Patient-friendly educational pages explain complex topics like blood cell production, mutations, risk stratification, and stem cell transplants.
+![Education Page](assets/images/education-page.png)
+
 ### Advanced Filtering & Study Topics
+Powerful filtering for scientific articles with multi-select mutations, diseases, treatments, and research topics.
 ![LeukemiaLens UI](assets/images/filter-screenshot.png)
 
 ### Responsive Mobile Design
@@ -15,6 +29,7 @@ LeukemiaLens is fully optimized for mobile devices, featuring a collapsible filt
 
 ## Features
 
+### For Researchers & Clinicians
 - **Automated Data Ingestion**: Scheduled workers fetch recent scientific articles from PubMed (NCBI) matching leukemia-related queries.
 - **Smart Tagging**:
   - **Mutations**: Automatically detects 65+ gene mutations based on ELN 2022 (AML) and WHO 2022 (ALL) standards, including risk-stratifying markers (NPM1, FLT3-ITD, TP53), MDS-related genes (ASXL1, BCOR, SF3B1), fusion genes (BCR-ABL1, PML-RARA, KMT2A), and ALL-specific alterations.
@@ -34,10 +49,27 @@ LeukemiaLens is fully optimized for mobile devices, featuring a collapsible filt
 - **Interactive Dashboards**:
   - **Real-time Research Stats**: Visual statistics of trending mutations, topics, and treatments.
   - **Database Statistics**: Specialized dashboard showing database growth, diversity, and coverage.
-- **Modern UI**:
-  - Responsive layout with specialized filtering components.
-  - Client-side pagination for smooth and responsive browsing.
-  - One-click filtering and resetting.
+
+### For Patients & Caregivers
+- **Disease-Specific Resource Pages**: Dedicated pages for Myeloid Neoplasms (AML, MDS, CML, MPN), Lymphoid Neoplasms (ALL, CLL), and Multiple Myeloma with:
+  - Clear explanations of each disease type
+  - Common treatment options with links to authoritative resources
+  - Live news feeds from relevant sources
+  - Quick links to clinical trials on ClinicalTrials.gov
+  - Support and financial assistance resources
+- **Educational Hub for Newly Diagnosed Patients**:
+  - **Blood Cell Production**: Understanding hematopoiesis and how blood cancers develop
+  - **Mutations**: What genetic mutations mean for your diagnosis
+  - **Risk Stratification**: How doctors classify disease risk and treatment intensity
+  - **Stem Cell Transplants**: An introduction to transplant procedures and donor matching
+- **Donor Resources**: Direct links to NMDP (Be The Match) bone marrow registry and American Red Cross blood donation
+
+### Modern UI & Navigation
+- **Landing Page**: Compassionate, patient-centered homepage with disease group navigation
+- **Page-Level Routing**: Dedicated routes for About, Contact, Resources, and Statistics pages
+- **Responsive Layout**: Specialized filtering components with mobile-optimized collapsible drawers
+- **Client-side Pagination**: Smooth and responsive browsing of large result sets
+- **One-click Filtering**: Easy filter selection and reset functionality
 
 ## Architecture
 
