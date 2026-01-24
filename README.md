@@ -127,12 +127,127 @@ LeukemiaLens is built on a serverless Cloudflare Workers architecture:
 ## Tech Stack
 
 - **API**: Cloudflare Workers + Hono framework (TypeScript)
-- **AI**: Cloudflare Workers AI (LLaMA 3, LLaMA 2 models)
+- **AI**: Cloudflare Workers AI (LLaMA 3, LLaMA 2 models) + Claude 3.5 Sonnet
 - **Ingestion**: Cloudflare Workers with scheduled CRON jobs
 - **Database**: Cloudflare D1 (SQLite)
+- **Vector Search**: Cloudflare Vectorize (384-dim embeddings)
+- **Document Storage**: Cloudflare R2 (PMC full-text PDFs)
 - **Frontend**: React + Vite + TailwindCSS
 - **Hosting**: Cloudflare Pages
-- **Data Source**: PubMed Entrez E-utilities API
+- **Data Source**: PubMed Entrez E-utilities API + PMC Open Access
+- **Local Processing**: Docker (Unraid) for PDF parsing and embeddings
+
+---
+
+## RAG Pipeline (Document Q&A)
+
+LeukemiaLens includes a Retrieval-Augmented Generation (RAG) pipeline for intelligent document querying. This enables researchers to ask questions about the full-text content of research papers.
+
+### Architecture
+
+```
+Document Sources              Local Processing               Cloud Services
+      │                            │                              │
+      ▼                            ▼                              ▼
+┌──────────────┐           ┌───────────────┐            ┌─────────────────┐
+│ PMC Open     │──────────▶│ Unraid Docker │───────────▶│ Cloudflare R2   │
+│ Access PDFs  │           │ Stack         │            │ (Document Store)│
+└──────────────┘           │               │            └─────────────────┘
+                           │ • PDF Parser  │                    │
+                           │ • Chunker     │                    ▼
+                           │ • Embeddings  │            ┌─────────────────┐
+                           │   (CPU-only)  │            │ Cloudflare D1   │
+                           └───────────────┘            │ (Chunks)        │
+                                   │                    └─────────────────┘
+                                   │                            │
+                                   ▼                            ▼
+                           ┌───────────────┐            ┌─────────────────┐
+                           │ Vectorize     │◀──────────▶│ Query Worker    │
+                           │ (384-dim)     │            │ + Claude API    │
+                           └───────────────┘            └─────────────────┘
+```
+
+### Phase 1: Document Fetching
+
+Fetch full-text PDFs from PMC Open Access:
+
+```bash
+cd workers/ingest
+
+# Dry run - check PMC availability for articles
+npx tsx scripts/fetch-pmc-fulltext.ts --dry-run --limit 50
+
+# Fetch PDFs from PMC Open Access
+npx tsx scripts/fetch-pmc-fulltext.ts --limit 100 --format pdf
+
+# Check RAG stats
+curl https://leukemialens-api.jr-rhinehart.workers.dev/api/rag/stats
+```
+
+**Note**: Only ~20-30% of PubMed articles are available in PMC Open Access.
+
+### Phase 2: Document Processing (Unraid Docker)
+
+Process PDFs into searchable chunks with embeddings:
+
+```bash
+# 1. Copy rag-processing to Unraid
+scp -r rag-processing/ unraid:/mnt/user/appdata/leukemialens-rag/
+
+# 2. Configure environment
+cd /mnt/user/appdata/leukemialens-rag
+cp .env.example .env
+nano .env  # Add Cloudflare credentials
+
+# 3. Build and run processor
+docker-compose build
+docker-compose run --rm processor
+
+# 4. Enable scheduled processing (2 AM daily)
+docker-compose up -d scheduler
+```
+
+**Environment Variables** (`.env`):
+```
+CLOUDFLARE_ACCOUNT_ID=your_account_id
+CLOUDFLARE_API_TOKEN=your_api_token
+DATABASE_ID=your_database_id
+API_BASE_URL=https://leukemialens-api.jr-rhinehart.workers.dev
+BATCH_SIZE=10
+```
+
+**Resource Requirements**:
+- Memory: 4GB
+- CPU: 4 cores
+- Processing rate: ~10-20 documents/hour
+
+### RAG API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/pmc/check/:pmcid` | GET | Check PMC Open Access availability |
+| `/api/pmc/convert/:pmid` | GET | Convert PMID to PMCID |
+| `/api/documents` | GET | List documents with filtering |
+| `/api/documents/upload` | POST | Upload document to R2 |
+| `/api/documents/:id/chunks` | GET | Get chunks for a document |
+| `/api/chunks/batch` | POST | Batch create chunks with embeddings |
+| `/api/rag/stats` | GET | RAG pipeline statistics |
+| `/api/rag/search` | POST | Vector similarity search |
+
+### Docker Stack Files
+
+The `rag-processing/` directory contains:
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Container orchestration with scheduler |
+| `Dockerfile` | Python 3.11 + dependencies |
+| `process_documents.py` | Main orchestrator script |
+| `pdf_parser.py` | PDF text extraction (PyMuPDF) |
+| `chunker.py` | Semantic text chunking |
+| `embedder.py` | Embedding generation (all-MiniLM-L6-v2) |
+
+---
 
 ## Database Schema
 

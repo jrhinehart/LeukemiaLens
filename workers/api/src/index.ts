@@ -1,11 +1,25 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import Anthropic from '@anthropic-ai/sdk';
+import type {
+    Document,
+    DocumentUploadRequest,
+    DocumentUploadResponse,
+    PMCOARecord,
+    PMCOACheckResponse,
+    DocumentListQuery,
+    DocumentListResponse,
+    DocumentChunk,
+    BatchChunkRequest,
+    BatchChunkResponse
+} from './rag-types';
 
 type Bindings = {
     DB: D1Database;
     AI: Ai;
     ANTHROPIC_API_KEY: string;
+    DOCUMENTS: R2Bucket;
+    VECTORIZE: VectorizeIndex;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -912,6 +926,660 @@ app.get('/api/news/:disease', async (c) => {
             'Cache-Control': 'public, max-age=3600' // Cache news for 1 hour
         });
     } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// ==========================================
+// RAG PIPELINE ENDPOINTS
+// ==========================================
+
+// Check if a PMC article is available in Open Access
+app.get('/api/pmc/check/:pmcid', async (c) => {
+    const pmcid = c.req.param('pmcid');
+
+    // Normalize PMCID format (accept with or without 'PMC' prefix)
+    const normalizedPmcid = pmcid.toUpperCase().startsWith('PMC')
+        ? pmcid.toUpperCase()
+        : `PMC${pmcid}`;
+
+    try {
+        // Call PMC OA Web Service API
+        const response = await fetch(
+            `https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi?id=${normalizedPmcid}`
+        );
+
+        if (!response.ok) {
+            return c.json<PMCOACheckResponse>({
+                available: false,
+                error: `PMC API returned status ${response.status}`
+            });
+        }
+
+        const xmlText = await response.text();
+
+        // Check for error in response
+        if (xmlText.includes('<error')) {
+            const errorMatch = xmlText.match(/<error[^>]*>([^<]*)<\/error>/);
+            return c.json<PMCOACheckResponse>({
+                available: false,
+                pmcid: normalizedPmcid,
+                error: errorMatch?.[1] || 'Article not found in PMC Open Access'
+            });
+        }
+
+        // Parse the XML response to extract record info
+        const recordMatch = xmlText.match(
+            /<record[^>]*id="([^"]+)"[^>]*citation="([^"]+)"[^>]*license="([^"]+)"[^>]*retracted="([^"]+)"[^>]*>/
+        );
+
+        if (!recordMatch) {
+            return c.json<PMCOACheckResponse>({
+                available: false,
+                pmcid: normalizedPmcid,
+                error: 'Could not parse PMC response'
+            });
+        }
+
+        // Extract links
+        const links: PMCOARecord['links'] = [];
+        const linkRegex = /<link[^>]*format="([^"]+)"[^>]*updated="([^"]+)"[^>]*href="([^"]+)"[^>]*\/>/g;
+        let linkMatch;
+        while ((linkMatch = linkRegex.exec(xmlText)) !== null) {
+            links.push({
+                format: linkMatch[1] as 'pdf' | 'tgz',
+                updated: linkMatch[2],
+                href: linkMatch[3]
+            });
+        }
+
+        const record: PMCOARecord = {
+            pmcid: recordMatch[1],
+            citation: recordMatch[2],
+            license: recordMatch[3],
+            retracted: recordMatch[4] === 'yes',
+            links
+        };
+
+        return c.json<PMCOACheckResponse>({
+            available: true,
+            pmcid: normalizedPmcid,
+            record
+        });
+    } catch (e: any) {
+        return c.json<PMCOACheckResponse>({
+            available: false,
+            pmcid: normalizedPmcid,
+            error: e.message
+        }, 500);
+    }
+});
+
+// Convert PMID to PMCID using E-utilities
+app.get('/api/pmc/convert/:pmid', async (c) => {
+    const pmid = c.req.param('pmid');
+
+    try {
+        // Use NCBI ID Converter API
+        const response = await fetch(
+            `https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/?ids=${pmid}&format=json`
+        );
+
+        if (!response.ok) {
+            return c.json({ pmid, error: 'Conversion API error' }, 500);
+        }
+
+        const data = await response.json() as any;
+        const record = data.records?.[0];
+
+        if (!record || record.status === 'error') {
+            return c.json({
+                pmid,
+                pmcid: null,
+                error: record?.errmsg || 'No PMC ID found for this PMID'
+            });
+        }
+
+        return c.json({
+            pmid: record.pmid,
+            pmcid: record.pmcid || null,
+            doi: record.doi || null
+        });
+    } catch (e: any) {
+        return c.json({ pmid, error: e.message }, 500);
+    }
+});
+
+// Upload a document to R2 and create metadata record
+app.post('/api/documents/upload', async (c) => {
+    try {
+        const contentType = c.req.header('content-type') || '';
+
+        let documentData: DocumentUploadRequest;
+        let fileBuffer: ArrayBuffer | null = null;
+
+        if (contentType.includes('multipart/form-data')) {
+            // Handle multipart form data (file upload)
+            const formData = await c.req.formData();
+            const file = formData.get('file') as File | null;
+            const metadata = formData.get('metadata') as string | null;
+
+            if (!file) {
+                return c.json<DocumentUploadResponse>({
+                    success: false,
+                    error: 'No file provided'
+                }, 400);
+            }
+
+            fileBuffer = await file.arrayBuffer();
+            documentData = metadata ? JSON.parse(metadata) : {};
+            documentData.filename = documentData.filename || file.name;
+            documentData.fileSize = fileBuffer.byteLength;
+
+            // Detect format from file extension
+            if (!documentData.format) {
+                const ext = file.name.split('.').pop()?.toLowerCase();
+                if (ext === 'pdf') documentData.format = 'pdf';
+                else if (ext === 'xml') documentData.format = 'xml';
+                else if (ext === 'txt') documentData.format = 'txt';
+                else documentData.format = 'pdf'; // default
+            }
+        } else {
+            // Handle JSON body with base64 content
+            documentData = await c.req.json();
+
+            if (documentData.content) {
+                // Decode base64 content
+                const binaryString = atob(documentData.content);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                fileBuffer = bytes.buffer;
+                documentData.fileSize = fileBuffer.byteLength;
+            }
+        }
+
+        if (!documentData.filename) {
+            return c.json<DocumentUploadResponse>({
+                success: false,
+                error: 'Filename is required'
+            }, 400);
+        }
+
+        if (!documentData.source) {
+            documentData.source = 'manual';
+        }
+
+        if (!documentData.format) {
+            documentData.format = 'pdf';
+        }
+
+        // Generate document ID
+        const docId = crypto.randomUUID();
+
+        // Determine R2 key path
+        const r2Key = documentData.pmcid
+            ? `pmc/${documentData.pmcid}/${documentData.filename}`
+            : `uploads/${docId}/${documentData.filename}`;
+
+        // Upload to R2 if we have file content
+        if (fileBuffer) {
+            await c.env.DOCUMENTS.put(r2Key, fileBuffer, {
+                customMetadata: {
+                    pmcid: documentData.pmcid || '',
+                    pmid: documentData.pmid || '',
+                    format: documentData.format,
+                    source: documentData.source
+                }
+            });
+        }
+
+        // Create document record in D1
+        await c.env.DB.prepare(`
+            INSERT INTO documents (
+                id, pmcid, pmid, study_id, filename, source, format, 
+                license, r2_key, file_size, status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `).bind(
+            docId,
+            documentData.pmcid || null,
+            documentData.pmid || null,
+            documentData.studyId || null,
+            documentData.filename,
+            documentData.source,
+            documentData.format,
+            documentData.license || null,
+            r2Key,
+            documentData.fileSize || null,
+            fileBuffer ? 'pending' : 'awaiting_upload'
+        ).run();
+
+        // Fetch the created document
+        const doc = await c.env.DB.prepare(
+            'SELECT * FROM documents WHERE id = ?'
+        ).bind(docId).first();
+
+        return c.json<DocumentUploadResponse>({
+            success: true,
+            document: doc as unknown as Document
+        });
+    } catch (e: any) {
+        console.error('Document upload error:', e);
+        return c.json<DocumentUploadResponse>({
+            success: false,
+            error: e.message
+        }, 500);
+    }
+});
+
+// List documents with optional filtering
+app.get('/api/documents', async (c) => {
+    const { status, source, limit = '50', offset = '0' } = c.req.query();
+
+    try {
+        let query = 'SELECT * FROM documents';
+        const constraints: string[] = [];
+        const params: any[] = [];
+
+        if (status) {
+            constraints.push('status = ?');
+            params.push(status);
+        }
+
+        if (source) {
+            constraints.push('source = ?');
+            params.push(source);
+        }
+
+        if (constraints.length > 0) {
+            query += ' WHERE ' + constraints.join(' AND ');
+        }
+
+        query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+        params.push(parseInt(limit), parseInt(offset));
+
+        const { results } = await c.env.DB.prepare(query).bind(...params).run();
+
+        // Get total count
+        let countQuery = 'SELECT COUNT(*) as total FROM documents';
+        if (constraints.length > 0) {
+            countQuery += ' WHERE ' + constraints.join(' AND ');
+        }
+        const countResult = await c.env.DB.prepare(countQuery)
+            .bind(...params.slice(0, -2))
+            .first<{ total: number }>();
+
+        return c.json<DocumentListResponse>({
+            documents: results as unknown as Document[],
+            total: countResult?.total || 0,
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+        });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// Get a specific document with pre-signed URL
+app.get('/api/documents/:id', async (c) => {
+    const id = c.req.param('id');
+
+    try {
+        const doc = await c.env.DB.prepare(
+            'SELECT * FROM documents WHERE id = ?'
+        ).bind(id).first();
+
+        if (!doc) {
+            return c.json({ error: 'Document not found' }, 404);
+        }
+
+        // Check if file exists in R2 and get metadata
+        const r2Object = await c.env.DOCUMENTS.head(doc.r2_key as string);
+
+        return c.json({
+            document: doc,
+            fileExists: !!r2Object,
+            httpMetadata: r2Object?.httpMetadata,
+            size: r2Object?.size
+        });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// Get document content (for local processing)
+app.get('/api/documents/:id/content', async (c) => {
+    const id = c.req.param('id');
+
+    try {
+        const doc = await c.env.DB.prepare(
+            'SELECT * FROM documents WHERE id = ?'
+        ).bind(id).first();
+
+        if (!doc) {
+            return c.json({ error: 'Document not found' }, 404);
+        }
+
+        const r2Object = await c.env.DOCUMENTS.get(doc.r2_key as string);
+
+        if (!r2Object) {
+            return c.json({ error: 'File not found in storage' }, 404);
+        }
+
+        // Return the file with appropriate content type
+        const contentType = doc.format === 'pdf'
+            ? 'application/pdf'
+            : doc.format === 'xml'
+                ? 'application/xml'
+                : 'text/plain';
+
+        return new Response(r2Object.body, {
+            headers: {
+                'Content-Type': contentType,
+                'Content-Disposition': `attachment; filename="${doc.filename}"`
+            }
+        });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// Update document status (for processing pipeline)
+app.patch('/api/documents/:id/status', async (c) => {
+    const id = c.req.param('id');
+    const body = await c.req.json<{ status: string; errorMessage?: string; chunkCount?: number }>().catch(() => null);
+
+    if (!body || !body.status) {
+        return c.json({ error: 'Status is required' }, 400);
+    }
+
+    try {
+        const updates: string[] = ['status = ?'];
+        const params: any[] = [body.status];
+
+        if (body.status === 'ready') {
+            updates.push("processed_at = datetime('now')");
+        }
+
+        if (body.errorMessage !== undefined) {
+            updates.push('error_message = ?');
+            params.push(body.errorMessage);
+        }
+
+        if (body.chunkCount !== undefined) {
+            updates.push('chunk_count = ?');
+            params.push(body.chunkCount);
+        }
+
+        params.push(id);
+
+        await c.env.DB.prepare(
+            `UPDATE documents SET ${updates.join(', ')} WHERE id = ?`
+        ).bind(...params).run();
+
+        const doc = await c.env.DB.prepare(
+            'SELECT * FROM documents WHERE id = ?'
+        ).bind(id).first();
+
+        return c.json({ success: true, document: doc });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// RAG Pipeline stats
+app.get('/api/rag/stats', async (c) => {
+    try {
+        const [totalDocs, byStatus, bySource, byFormat] = await Promise.all([
+            c.env.DB.prepare('SELECT COUNT(*) as count FROM documents').first<{ count: number }>(),
+            c.env.DB.prepare(`
+                SELECT status, COUNT(*) as count 
+                FROM documents 
+                GROUP BY status
+            `).all(),
+            c.env.DB.prepare(`
+                SELECT source, COUNT(*) as count 
+                FROM documents 
+                GROUP BY source
+            `).all(),
+            c.env.DB.prepare(`
+                SELECT format, COUNT(*) as count 
+                FROM documents 
+                GROUP BY format
+            `).all()
+        ]);
+
+        const statusCounts: Record<string, number> = {};
+        byStatus.results?.forEach((r: any) => statusCounts[r.status] = r.count);
+
+        const sourceCounts: Record<string, number> = {};
+        bySource.results?.forEach((r: any) => sourceCounts[r.source] = r.count);
+
+        const formatCounts: Record<string, number> = {};
+        byFormat.results?.forEach((r: any) => formatCounts[r.format] = r.count);
+
+        return c.json({
+            totalDocuments: totalDocs?.count || 0,
+            byStatus: statusCounts,
+            bySource: sourceCounts,
+            byFormat: formatCounts,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// ==========================================
+// CHUNK ENDPOINTS (Phase 2)
+// ==========================================
+
+// Get chunks for a document
+app.get('/api/documents/:id/chunks', async (c) => {
+    const docId = c.req.param('id');
+    const { limit = '100', offset = '0' } = c.req.query();
+
+    try {
+        const { results } = await c.env.DB.prepare(`
+            SELECT * FROM chunks 
+            WHERE document_id = ? 
+            ORDER BY chunk_index 
+            LIMIT ? OFFSET ?
+        `).bind(docId, parseInt(limit), parseInt(offset)).run();
+
+        const countResult = await c.env.DB.prepare(
+            'SELECT COUNT(*) as total FROM chunks WHERE document_id = ?'
+        ).bind(docId).first<{ total: number }>();
+
+        return c.json({
+            chunks: results,
+            total: countResult?.total || 0,
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+        });
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// Batch create chunks with embeddings
+app.post('/api/chunks/batch', async (c) => {
+    try {
+        const body = await c.req.json<BatchChunkRequest>();
+
+        if (!body.documentId || !body.chunks || body.chunks.length === 0) {
+            return c.json<BatchChunkResponse>({
+                success: false,
+                chunksCreated: 0,
+                vectorsUpserted: 0,
+                error: 'documentId and chunks are required'
+            }, 400);
+        }
+
+        // Verify document exists
+        const doc = await c.env.DB.prepare(
+            'SELECT id FROM documents WHERE id = ?'
+        ).bind(body.documentId).first();
+
+        if (!doc) {
+            return c.json<BatchChunkResponse>({
+                success: false,
+                chunksCreated: 0,
+                vectorsUpserted: 0,
+                error: 'Document not found'
+            }, 404);
+        }
+
+        let chunksCreated = 0;
+        let vectorsUpserted = 0;
+
+        // Process chunks in batches (D1 has 100 param limit)
+        const batchSize = 10;
+
+        for (let i = 0; i < body.chunks.length; i += batchSize) {
+            const batch = body.chunks.slice(i, i + batchSize);
+
+            // Insert chunks into D1
+            for (const chunk of batch) {
+                await c.env.DB.prepare(`
+                    INSERT INTO chunks (
+                        id, document_id, chunk_index, content,
+                        start_page, end_page, section_header, token_count,
+                        embedding_id, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                `).bind(
+                    chunk.id,
+                    body.documentId,
+                    chunk.chunkIndex,
+                    chunk.content,
+                    chunk.startPage || null,
+                    chunk.endPage || null,
+                    chunk.sectionHeader || null,
+                    chunk.tokenCount || null,
+                    chunk.id  // Use chunk ID as embedding ID
+                ).run();
+
+                chunksCreated++;
+            }
+
+            // Upsert embeddings to Vectorize
+            const vectors = batch.map(chunk => ({
+                id: chunk.id,
+                values: chunk.embedding,
+                metadata: {
+                    documentId: body.documentId,
+                    chunkIndex: chunk.chunkIndex,
+                    sectionHeader: chunk.sectionHeader || ''
+                }
+            }));
+
+            await c.env.VECTORIZE.upsert(vectors);
+            vectorsUpserted += vectors.length;
+        }
+
+        // Update document chunk count
+        await c.env.DB.prepare(
+            'UPDATE documents SET chunk_count = ? WHERE id = ?'
+        ).bind(chunksCreated, body.documentId).run();
+
+        return c.json<BatchChunkResponse>({
+            success: true,
+            chunksCreated,
+            vectorsUpserted
+        });
+    } catch (e: any) {
+        console.error('Batch chunk error:', e);
+        return c.json<BatchChunkResponse>({
+            success: false,
+            chunksCreated: 0,
+            vectorsUpserted: 0,
+            error: e.message
+        }, 500);
+    }
+});
+
+// Get a single chunk
+app.get('/api/chunks/:id', async (c) => {
+    const id = c.req.param('id');
+
+    try {
+        const chunk = await c.env.DB.prepare(
+            'SELECT * FROM chunks WHERE id = ?'
+        ).bind(id).first();
+
+        if (!chunk) {
+            return c.json({ error: 'Chunk not found' }, 404);
+        }
+
+        return c.json(chunk);
+    } catch (e: any) {
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// Vector similarity search
+app.post('/api/rag/search', async (c) => {
+    try {
+        const body = await c.req.json<{ query: string; topK?: number; documentIds?: string[] }>();
+
+        if (!body.query) {
+            return c.json({ error: 'Query is required' }, 400);
+        }
+
+        const topK = body.topK || 5;
+
+        // Generate query embedding using Workers AI
+        const embeddingResult = await c.env.AI.run('@cf/baai/bge-base-en-v1.5', {
+            text: body.query
+        }) as { data: number[][] };
+
+        if (!embeddingResult.data || !embeddingResult.data[0]) {
+            return c.json({ error: 'Failed to generate query embedding' }, 500);
+        }
+
+        // Note: The BGE model produces 768-dim vectors, but our index is 384-dim
+        // For now, we'll need to use the same model as the local processor
+        // Or regenerate embeddings with BGE
+
+        // Search Vectorize
+        const searchResults = await c.env.VECTORIZE.query(
+            embeddingResult.data[0],
+            { topK, returnValues: false, returnMetadata: 'all' }
+        );
+
+        // Fetch chunk content from D1
+        const chunkIds = searchResults.matches.map(m => m.id);
+
+        if (chunkIds.length === 0) {
+            return c.json({ matches: [], query: body.query });
+        }
+
+        const placeholders = chunkIds.map(() => '?').join(',');
+        const { results: chunks } = await c.env.DB.prepare(`
+            SELECT c.*, d.filename, d.pmcid
+            FROM chunks c
+            JOIN documents d ON c.document_id = d.id
+            WHERE c.id IN (${placeholders})
+        `).bind(...chunkIds).run();
+
+        // Combine with scores
+        const matches = searchResults.matches.map(match => {
+            const chunk = chunks?.find((c: any) => c.id === match.id);
+            return {
+                id: match.id,
+                score: match.score,
+                chunk,
+                metadata: match.metadata
+            };
+        });
+
+        return c.json({
+            query: body.query,
+            matches
+        });
+    } catch (e: any) {
+        console.error('RAG search error:', e);
         return c.json({ error: e.message }, 500);
     }
 });

@@ -142,3 +142,55 @@ CREATE TABLE IF NOT EXISTS api_usage (
   count INTEGER DEFAULT 0,
   last_reset INTEGER
 );
+
+-- ==========================================
+-- RAG PIPELINE TABLES
+-- ==========================================
+
+-- Documents table for RAG pipeline
+-- Stores metadata for documents uploaded to R2 for RAG processing
+CREATE TABLE IF NOT EXISTS documents (
+    id TEXT PRIMARY KEY,              -- UUID
+    pmcid TEXT,                       -- PMC ID if from PMC Open Access
+    pmid TEXT,                        -- PubMed ID reference (links to studies.source_id)
+    study_id INTEGER,                 -- FK to studies table if linked
+    user_id TEXT,                     -- For user-uploaded docs (future Clerk integration)
+    filename TEXT NOT NULL,
+    source TEXT NOT NULL,             -- 'pmc_oa', 'user_upload', 'manual'
+    format TEXT NOT NULL,             -- 'pdf', 'xml', 'txt'
+    license TEXT,                     -- CC BY, CC BY-NC, etc.
+    r2_key TEXT NOT NULL,             -- Path in R2 bucket
+    file_size INTEGER,
+    page_count INTEGER,
+    chunk_count INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'pending',    -- 'pending', 'processing', 'ready', 'error'
+    error_message TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    processed_at TEXT,
+    FOREIGN KEY(study_id) REFERENCES studies(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_pmcid ON documents(pmcid);
+CREATE INDEX IF NOT EXISTS idx_documents_pmid ON documents(pmid);
+CREATE INDEX IF NOT EXISTS idx_documents_study ON documents(study_id);
+CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status);
+CREATE INDEX IF NOT EXISTS idx_documents_source ON documents(source);
+
+-- Chunks table for RAG pipeline
+-- Stores text chunks from documents with references to vector embeddings
+CREATE TABLE IF NOT EXISTS chunks (
+    id TEXT PRIMARY KEY,              -- UUID
+    document_id TEXT NOT NULL,        -- FK to documents
+    chunk_index INTEGER NOT NULL,     -- Order within document
+    content TEXT NOT NULL,            -- Chunk text content
+    start_page INTEGER,               -- Starting page in source doc
+    end_page INTEGER,                 -- Ending page in source doc
+    section_header TEXT,              -- Section header if detected
+    token_count INTEGER,              -- Estimated token count
+    embedding_id TEXT,                -- Reference to Vectorize index
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id);
+CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks(embedding_id);

@@ -9,3 +9,11 @@ binding = "AI"
 binding = "DB"
 database_name = "leukemia-lens-db"
 database_id = "6f7d8bb5-1a41-428d-8692-4bc39384a08d"
+
+[[r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "leukemialens-documents"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "rag-chunks"
