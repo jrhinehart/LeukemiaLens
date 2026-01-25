@@ -1,16 +1,15 @@
-# PDF processing
-pymupdf>=1.24.0
+# RAG Processing Dependencies
+# For GPU support, install PyTorch first:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+#   (or cu118 for CUDA 11.8, or cpu for CPU-only)
 
-# Text processing
-nltk>=3.8.0
-
-# Embeddings
+# Core dependencies
 sentence-transformers>=2.2.0
-onnxruntime>=1.16.0
-
-# HTTP client
+PyMuPDF>=1.23.0
 requests>=2.31.0
-
-# Utilities
 python-dotenv>=1.0.0
-tqdm>=4.66.0
+tqdm>=4.65.0
+numpy>=1.24.0
+
+# Optional: For faster tokenization
+tokenizers>=0.15.0

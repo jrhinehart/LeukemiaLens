@@ -1,10 +1,13 @@
 import { extractMetadata, extractMetadataAI, ExtractedMetadata } from './parsers';
 import { RateLimiter } from './rate-limiter';
+import { chunkArticle, Chunk } from './chunker';
 import * as cheerio from 'cheerio';
 
 export interface Env {
     DB: D1Database;
     AI: any; // Cloudflare Workers AI
+    DOCUMENTS: R2Bucket; // R2 bucket for PDF storage
+    VECTORIZE: VectorizeIndex; // Vectorize index for semantic search
     NCBI_API_KEY?: string; // Stored as Cloudflare secret
     NCBI_EMAIL: string; // Stored as environment variable
 }
@@ -404,6 +407,45 @@ export default {
                     // 5. Links
                     await env.DB.prepare("INSERT OR IGNORE INTO links (study_id, url, link_type) VALUES (?, ?, ?)")
                         .bind(studyId, `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`, 'pubmed').run();
+
+                    // 6. RAG Embeddings - Generate embeddings for semantic search
+                    try {
+                        // Chunk the article for embedding
+                        const chunks = chunkArticle(title, abstract);
+
+                        if (chunks.length > 0) {
+                            // Generate embeddings via Workers AI (bge-base-en-v1.5, 768-dim)
+                            const chunkTexts = chunks.map(c => c.content);
+                            const embeddingResult = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
+                                text: chunkTexts
+                            }) as { data: number[][] };
+
+                            if (embeddingResult.data && embeddingResult.data.length === chunks.length) {
+                                // Prepare vectors for Vectorize
+                                const vectors = chunks.map((chunk, i) => ({
+                                    id: `study-${studyId}-chunk-${chunk.chunkIndex}`,
+                                    values: embeddingResult.data[i],
+                                    metadata: {
+                                        studyId: studyId,
+                                        pmid: pmid,
+                                        chunkIndex: chunk.chunkIndex,
+                                        title: title.substring(0, 200),
+                                        diseaseSubtypes: metadata.diseaseSubtypes.join(','),
+                                        mutations: metadata.mutations.slice(0, 10).join(',')
+                                    }
+                                }));
+
+                                // Upsert to Vectorize
+                                await env.VECTORIZE.upsert(vectors);
+                                console.log(`[PMID:${pmid}] Indexed ${vectors.length} chunks to Vectorize`);
+                            } else {
+                                console.warn(`[PMID:${pmid}] Embedding count mismatch: got ${embeddingResult.data?.length}, expected ${chunks.length}`);
+                            }
+                        }
+                    } catch (ragError: any) {
+                        // Don't fail the whole ingestion if RAG fails
+                        console.warn(`[PMID:${pmid}] RAG embedding failed:`, ragError.message);
+                    }
 
                 } catch (e: any) { // Use 'any' type for error to access 'message'
                     console.error(`Error saving PMID:${pmid}:`, e.message);

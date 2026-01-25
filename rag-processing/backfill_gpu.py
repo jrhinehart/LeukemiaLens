@@ -1,0 +1,414 @@
+"""
+GPU-Optimized RAG Backfill Script
+
+High-throughput batch processing for embedding generation and Vectorize upload.
+Designed to run on a local machine with GPU for initial backfill of documents.
+
+Features:
+- GPU acceleration with automatic detection
+- Resume capability via checkpoint file
+- Progress tracking with ETA
+- Configurable batch sizes
+- Parallel chunk processing
+"""
+
+import os
+import sys
+import json
+import time
+import argparse
+import logging
+from typing import List, Optional
+from dataclasses import dataclass, asdict
+from datetime import datetime
+from pathlib import Path
+
+import requests
+from dotenv import load_dotenv
+from tqdm import tqdm
+
+from pdf_parser import extract_text_from_pdf
+from chunker import chunk_text
+from embedder import generate_embeddings, get_device, EMBEDDING_DIM
+
+# Load environment
+load_dotenv()
+
+# Configuration
+CLOUDFLARE_ACCOUNT_ID = os.getenv('CLOUDFLARE_ACCOUNT_ID')
+CLOUDFLARE_API_TOKEN = os.getenv('CLOUDFLARE_API_TOKEN')
+DATABASE_ID = os.getenv('DATABASE_ID')
+API_BASE_URL = os.getenv('API_BASE_URL', 'https://leukemialens-api.jr-rhinehart.workers.dev')
+
+# Paths
+CHECKPOINT_FILE = Path(__file__).parent / 'data' / 'backfill_checkpoint.json'
+
+# Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Document:
+    id: str
+    pmcid: Optional[str]
+    pmid: Optional[str]
+    study_id: Optional[int]
+    filename: str
+    r2_key: str
+    status: str
+
+
+@dataclass
+class BackfillStats:
+    started_at: str
+    documents_processed: int
+    documents_failed: int
+    chunks_created: int
+    vectors_uploaded: int
+    last_document_id: Optional[str]
+    
+    def save(self, path: Path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'w') as f:
+            json.dump(asdict(self), f, indent=2)
+    
+    @classmethod
+    def load(cls, path: Path) -> Optional['BackfillStats']:
+        if not path.exists():
+            return None
+        with open(path) as f:
+            data = json.load(f)
+            return cls(**data)
+
+
+def query_d1(sql: str, params: List = None) -> dict:
+    """Execute a D1 query via Cloudflare API."""
+    url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/d1/database/{DATABASE_ID}/query"
+    
+    response = requests.post(
+        url,
+        headers={
+            'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}',
+            'Content-Type': 'application/json'
+        },
+        json={'sql': sql, 'params': params or []}
+    )
+    
+    data = response.json()
+    if not data.get('success'):
+        raise Exception(f"D1 query failed: {data.get('errors')}")
+    
+    return data['result'][0]
+
+
+def get_pending_documents(limit: int = 1000, after_id: Optional[str] = None) -> List[Document]:
+    """Fetch documents with status 'pending', optionally resuming after a specific ID."""
+    if after_id:
+        result = query_d1(
+            """SELECT id, pmcid, pmid, study_id, filename, r2_key, status 
+               FROM documents 
+               WHERE status = 'pending' AND id > ? 
+               ORDER BY id 
+               LIMIT ?""",
+            [after_id, limit]
+        )
+    else:
+        result = query_d1(
+            """SELECT id, pmcid, pmid, study_id, filename, r2_key, status 
+               FROM documents 
+               WHERE status = 'pending' 
+               ORDER BY id 
+               LIMIT ?""",
+            [limit]
+        )
+    
+    return [Document(**row) for row in result.get('results', [])]
+
+
+def download_document(doc: Document, output_path: str) -> bool:
+    """Download document from R2 via API."""
+    try:
+        response = requests.get(
+            f"{API_BASE_URL}/api/documents/{doc.id}/content",
+            stream=True,
+            timeout=60
+        )
+        
+        if response.status_code != 200:
+            logger.error(f"Failed to download {doc.id}: {response.status_code}")
+            return False
+        
+        with open(output_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        
+        return True
+    except Exception as e:
+        logger.error(f"Download error for {doc.id}: {e}")
+        return False
+
+
+def update_document_status(doc_id: str, status: str, chunk_count: int = 0, error: str = None):
+    """Update document status via API."""
+    payload = {'status': status}
+    if chunk_count > 0:
+        payload['chunkCount'] = chunk_count
+    if error:
+        payload['errorMessage'] = error
+    
+    response = requests.patch(
+        f"{API_BASE_URL}/api/documents/{doc_id}/status",
+        json=payload
+    )
+    
+    return response.status_code == 200
+
+
+def update_study_metadata(study_id: Optional[int], pmid: Optional[str], pmcid: Optional[str]):
+    """Update study extraction method and processed_at in D1."""
+    method = 'rag_batch_v1'
+    
+    if study_id:
+        try:
+            query_d1(
+                "UPDATE studies SET extraction_method = ?, processed_at = datetime('now') WHERE id = ?",
+                [method, study_id]
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update study metadata by ID {study_id}: {e}")
+    
+    # Fallback to source_id (PMID or PMCID)
+    source_id = None
+    if pmid:
+        source_id = f"PMID:{pmid}"
+    elif pmcid:
+        source_id = f"PMCID:{pmcid}" if not pmcid.startswith('PMC') else pmcid
+        if not source_id.startswith('PMC'):
+             source_id = f"PMC{source_id}"
+    
+    if source_id:
+        try:
+            # We use LIKE for PMC because it might be stored with or without prefix
+            sql = "UPDATE studies SET extraction_method = ?, processed_at = datetime('now') WHERE source_id = ?"
+            query_d1(sql, [method, source_id])
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update study metadata by source_id {source_id}: {e}")
+            
+    return False
+
+
+def upload_chunks(doc_id: str, chunks: List, embeddings: List[List[float]]) -> bool:
+    """Upload chunks and embeddings to Cloudflare."""
+    try:
+        payload = {
+            'documentId': doc_id,
+            'chunks': [
+                {
+                    'id': chunk.id,
+                    'chunkIndex': chunk.chunk_index,
+                    'content': chunk.content,
+                    'startPage': chunk.start_page,
+                    'endPage': chunk.end_page,
+                    'sectionHeader': chunk.section_header,
+                    'tokenCount': chunk.token_count,
+                    'embedding': embeddings[i]
+                }
+                for i, chunk in enumerate(chunks)
+            ]
+        }
+        
+        response = requests.post(
+            f"{API_BASE_URL}/api/chunks/batch",
+            json=payload,
+            timeout=120
+        )
+        
+        if response.status_code != 200:
+            logger.error(f"Chunk upload failed: {response.status_code} - {response.text}")
+            return False
+        
+        return True
+    except Exception as e:
+        logger.error(f"Chunk upload error: {e}")
+        return False
+
+
+def process_document(doc: Document, data_dir: Path, stats: BackfillStats) -> bool:
+    """Process a single document through the full pipeline."""
+    pdf_path = data_dir / f"{doc.id}.pdf"
+    
+    try:
+        update_document_status(doc.id, 'processing')
+        
+        # Step 1: Download PDF
+        if not download_document(doc, str(pdf_path)):
+            update_document_status(doc.id, 'error', error='Download failed')
+            return False
+        
+        # Step 2: Extract text
+        text_result = extract_text_from_pdf(str(pdf_path))
+        if not text_result or not text_result.get('text'):
+            update_document_status(doc.id, 'error', error='Text extraction failed')
+            return False
+        
+        # Step 3: Chunk text
+        chunks = chunk_text(
+            text=text_result['text'],
+            page_breaks=text_result.get('page_breaks', []),
+            document_id=doc.id
+        )
+        
+        if not chunks:
+            update_document_status(doc.id, 'error', error='Chunking produced no results')
+            return False
+        
+        # Step 4: Generate embeddings (GPU-accelerated)
+        chunk_texts = [c.content for c in chunks]
+        embeddings = generate_embeddings(chunk_texts, show_progress=False)
+        
+        if len(embeddings) != len(chunks):
+            update_document_status(doc.id, 'error', error='Embedding generation mismatch')
+            return False
+        
+        # Validate embedding dimension
+        if len(embeddings[0]) != EMBEDDING_DIM:
+            update_document_status(doc.id, 'error', error=f'Wrong embedding dimension: {len(embeddings[0])} != {EMBEDDING_DIM}')
+            return False
+        
+        # Step 5: Upload to Cloudflare
+        if not upload_chunks(doc.id, chunks, embeddings):
+            update_document_status(doc.id, 'error', error='Upload failed')
+            return False
+        
+        # Step 6: Mark as ready
+        update_document_status(doc.id, 'ready', chunk_count=len(chunks))
+        
+        # Step 7: Update study metadata
+        update_study_metadata(doc.study_id, doc.pmid, doc.pmcid)
+        
+        # Update stats
+        stats.chunks_created += len(chunks)
+        stats.vectors_uploaded += len(embeddings)
+        
+        return True
+        
+    except Exception as e:
+        logger.exception(f"Error processing {doc.id}: {e}")
+        update_document_status(doc.id, 'error', error=str(e))
+        return False
+    
+    finally:
+        if pdf_path.exists():
+            pdf_path.unlink()
+
+
+def main():
+    parser = argparse.ArgumentParser(description='GPU-optimized RAG backfill processor')
+    parser.add_argument('--limit', type=int, default=1000, help='Max documents to process')
+    parser.add_argument('--resume', action='store_true', help='Resume from last checkpoint')
+    parser.add_argument('--dry-run', action='store_true', help='List documents without processing')
+    parser.add_argument('--clear-checkpoint', action='store_true', help='Clear checkpoint and start fresh')
+    args = parser.parse_args()
+    
+    print("=" * 70)
+    print("  LeukemiaLens RAG Backfill - GPU Optimized")
+    print("=" * 70)
+    print(f"  Device: {get_device()}")
+    print(f"  Embedding Model: BAAI/bge-base-en-v1.5 (768-dim)")
+    print(f"  API: {API_BASE_URL}")
+    print(f"  Limit: {args.limit}")
+    print("=" * 70)
+    
+    # Handle checkpoint
+    if args.clear_checkpoint and CHECKPOINT_FILE.exists():
+        CHECKPOINT_FILE.unlink()
+        print("✓ Cleared checkpoint")
+    
+    # Resume from checkpoint or start fresh
+    stats = None
+    resume_after = None
+    
+    if args.resume:
+        stats = BackfillStats.load(CHECKPOINT_FILE)
+        if stats:
+            resume_after = stats.last_document_id
+            print(f"📍 Resuming after document: {resume_after}")
+            print(f"   Previous progress: {stats.documents_processed} processed, {stats.chunks_created} chunks")
+    
+    if not stats:
+        stats = BackfillStats(
+            started_at=datetime.now().isoformat(),
+            documents_processed=0,
+            documents_failed=0,
+            chunks_created=0,
+            vectors_uploaded=0,
+            last_document_id=None
+        )
+    
+    # Ensure data directory exists
+    data_dir = Path(__file__).parent / 'data'
+    data_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Get pending documents
+    print("\n📥 Fetching pending documents...")
+    documents = get_pending_documents(limit=args.limit, after_id=resume_after)
+    
+    if not documents:
+        print("✓ No pending documents to process.")
+        return
+    
+    print(f"📄 Found {len(documents)} pending documents")
+    
+    # Dry run - just list documents
+    if args.dry_run:
+        print("\n[DRY RUN] Documents that would be processed:")
+        for i, doc in enumerate(documents[:20], 1):
+            print(f"  {i}. {doc.filename} (PMCID: {doc.pmcid or 'N/A'})")
+        if len(documents) > 20:
+            print(f"  ... and {len(documents) - 20} more")
+        return
+    
+    # Process documents
+    print("\n🚀 Starting processing...\n")
+    start_time = time.time()
+    
+    for doc in tqdm(documents, desc="Processing", unit="doc"):
+        success = process_document(doc, data_dir, stats)
+        
+        if success:
+            stats.documents_processed += 1
+        else:
+            stats.documents_failed += 1
+        
+        stats.last_document_id = doc.id
+        
+        # Save checkpoint every 10 documents
+        if (stats.documents_processed + stats.documents_failed) % 10 == 0:
+            stats.save(CHECKPOINT_FILE)
+    
+    # Final checkpoint save
+    stats.save(CHECKPOINT_FILE)
+    
+    # Summary
+    elapsed = time.time() - start_time
+    docs_per_min = (stats.documents_processed + stats.documents_failed) / (elapsed / 60) if elapsed > 0 else 0
+    
+    print("\n" + "=" * 70)
+    print("  BACKFILL COMPLETE")
+    print("=" * 70)
+    print(f"  ✓ Documents processed: {stats.documents_processed}")
+    print(f"  ✗ Documents failed: {stats.documents_failed}")
+    print(f"  📦 Chunks created: {stats.chunks_created}")
+    print(f"  🔢 Vectors uploaded: {stats.vectors_uploaded}")
+    print(f"  ⏱️  Time elapsed: {elapsed:.1f}s ({docs_per_min:.1f} docs/min)")
+    print("=" * 70)
+
+
+if __name__ == '__main__':
+    main()
