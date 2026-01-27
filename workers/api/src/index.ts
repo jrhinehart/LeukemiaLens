@@ -1328,10 +1328,18 @@ app.patch('/api/documents/:id/status', async (c) => {
     }
 });
 
-// RAG Pipeline stats
+// RAG Pipeline stats (enhanced for Stats page)
 app.get('/api/rag/stats', async (c) => {
     try {
-        const [totalDocs, byStatus, bySource, byFormat] = await Promise.all([
+        const [
+            totalDocs,
+            byStatus,
+            bySource,
+            byFormat,
+            totalChunks,
+            totalStudies,
+            recentDocs
+        ] = await Promise.all([
             c.env.DB.prepare('SELECT COUNT(*) as count FROM documents').first<{ count: number }>(),
             c.env.DB.prepare(`
                 SELECT status, COUNT(*) as count 
@@ -1347,6 +1355,17 @@ app.get('/api/rag/stats', async (c) => {
                 SELECT format, COUNT(*) as count 
                 FROM documents 
                 GROUP BY format
+            `).all(),
+            c.env.DB.prepare('SELECT COUNT(*) as count FROM chunks').first<{ count: number }>(),
+            c.env.DB.prepare('SELECT COUNT(*) as count FROM studies').first<{ count: number }>(),
+            c.env.DB.prepare(`
+                SELECT d.id, d.pmcid, d.filename, d.format, d.chunk_count, d.processed_at,
+                       s.title
+                FROM documents d
+                LEFT JOIN studies s ON s.source_id = 'PMID:' || d.pmid OR s.source_id = d.pmcid
+                WHERE d.status = 'ready'
+                ORDER BY d.processed_at DESC
+                LIMIT 5
             `).all()
         ]);
 
@@ -1359,11 +1378,30 @@ app.get('/api/rag/stats', async (c) => {
         const formatCounts: Record<string, number> = {};
         byFormat.results?.forEach((r: any) => formatCounts[r.format] = r.count);
 
+        const readyDocs = statusCounts['ready'] || 0;
+        const totalStudiesCount = totalStudies?.count || 0;
+        const coveragePercent = totalStudiesCount > 0
+            ? Math.round((readyDocs / totalStudiesCount) * 10000) / 100
+            : 0;
+
         return c.json({
             totalDocuments: totalDocs?.count || 0,
+            readyDocuments: readyDocs,
+            totalChunks: totalChunks?.count || 0,
+            totalStudies: totalStudiesCount,
+            ragCoveragePercent: coveragePercent,
             byStatus: statusCounts,
             bySource: sourceCounts,
             byFormat: formatCounts,
+            recentlyProcessed: recentDocs.results?.map((d: any) => ({
+                id: d.id,
+                pmcid: d.pmcid,
+                filename: d.filename,
+                format: d.format,
+                chunkCount: d.chunk_count,
+                processedAt: d.processed_at,
+                title: d.title
+            })) || [],
             generatedAt: new Date().toISOString()
         });
     } catch (e: any) {
@@ -1577,6 +1615,200 @@ app.post('/api/rag/search', async (c) => {
         });
     } catch (e: any) {
         console.error('RAG search error:', e);
+        return c.json({ error: e.message }, 500);
+    }
+});
+
+// ==========================================
+// RAG QUERY WITH CLAUDE (Phase 4)
+// ==========================================
+
+// Token estimation: ~4 chars per token for English text
+function estimateTokens(text: string): number {
+    return Math.ceil(text.length / 4);
+}
+
+// Build context from chunks with token limit
+function buildContext(
+    chunks: Array<{
+        id: string;
+        content: string;
+        filename: string;
+        pmcid?: string;
+        start_page?: number;
+        end_page?: number;
+        score: number;
+    }>,
+    maxTokens: number
+): { context: string; sources: any[]; tokensUsed: number } {
+    const sources: any[] = [];
+    const contextBlocks: string[] = [];
+    let tokensUsed = 0;
+    let index = 1;
+
+    for (const chunk of chunks) {
+        const pageRange = chunk.start_page && chunk.end_page
+            ? `(pp. ${chunk.start_page}-${chunk.end_page})`
+            : '';
+
+        const block = `[${index}] From: "${chunk.filename}" ${chunk.pmcid ? `(${chunk.pmcid})` : ''} ${pageRange}
+${chunk.content}
+`;
+        const blockTokens = estimateTokens(block);
+
+        if (tokensUsed + blockTokens > maxTokens) {
+            break; // Stop if we'd exceed the limit
+        }
+
+        contextBlocks.push(block);
+        sources.push({
+            index,
+            documentId: chunk.id.split('-chunk-')[0] || chunk.id,
+            chunkId: chunk.id,
+            pmcid: chunk.pmcid,
+            filename: chunk.filename,
+            content: chunk.content.substring(0, 200) + '...',
+            relevanceScore: chunk.score,
+            pageRange: pageRange || undefined
+        });
+
+        tokensUsed += blockTokens;
+        index++;
+    }
+
+    return {
+        context: contextBlocks.join('\n---\n\n'),
+        sources,
+        tokensUsed
+    };
+}
+
+// RAG Query endpoint with Claude synthesis
+app.post('/api/rag/query', async (c) => {
+    try {
+        const body = await c.req.json<{
+            query: string;
+            topK?: number;
+            maxContextTokens?: number;
+            documentIds?: string[];
+        }>();
+
+        if (!body.query) {
+            return c.json({ error: 'Query is required' }, 400);
+        }
+
+        const topK = Math.min(body.topK || 15, 50);
+        const maxContextTokens = body.maxContextTokens || 150000;
+
+        // Step 1: Generate query embedding
+        const embeddingResult = await c.env.AI.run('@cf/baai/bge-base-en-v1.5', {
+            text: body.query
+        }) as { data: number[][] };
+
+        if (!embeddingResult.data?.[0]) {
+            return c.json({ error: 'Failed to generate query embedding' }, 500);
+        }
+
+        // Step 2: Vector search
+        const searchResults = await c.env.VECTORIZE.query(
+            embeddingResult.data[0],
+            { topK, returnValues: false, returnMetadata: 'all' }
+        );
+
+        if (searchResults.matches.length === 0) {
+            return c.json({
+                answer: "I couldn't find any relevant information in the research database for your query. Please try rephrasing your question or using different terms.",
+                sources: [],
+                usage: { contextTokens: 0, responseTokens: 0, totalTokens: 0, chunksUsed: 0 }
+            });
+        }
+
+        // Step 3: Fetch chunk content from D1
+        const chunkIds = searchResults.matches.map(m => m.id);
+        const placeholders = chunkIds.map(() => '?').join(',');
+
+        const { results: dbChunks } = await c.env.DB.prepare(`
+            SELECT c.id, c.content, c.start_page, c.end_page, c.document_id,
+                   d.filename, d.pmcid
+            FROM chunks c
+            JOIN documents d ON c.document_id = d.id
+            WHERE c.id IN (${placeholders})
+        `).bind(...chunkIds).run();
+
+        // Combine with scores and sort by score
+        const scoredChunks = searchResults.matches.map(match => {
+            const chunk = dbChunks?.find((c: any) => c.id === match.id) as any;
+            return {
+                id: match.id,
+                content: chunk?.content || '',
+                filename: chunk?.filename || 'Unknown',
+                pmcid: chunk?.pmcid,
+                start_page: chunk?.start_page,
+                end_page: chunk?.end_page,
+                score: match.score
+            };
+        }).filter(c => c.content);
+
+        // Step 4: Build context with token limit
+        const { context, sources, tokensUsed } = buildContext(scoredChunks, maxContextTokens);
+
+        // Step 5: Call Claude
+        const anthropic = new Anthropic({ apiKey: c.env.ANTHROPIC_API_KEY });
+
+        const systemPrompt = `You are a knowledgeable medical research assistant specializing in hematologic malignancies (leukemia, lymphoma, myeloma). You help patients, caregivers, and researchers understand scientific literature.
+
+IMPORTANT GUIDELINES:
+- Synthesize information from the provided research excerpts to answer the user's question
+- Always cite your sources using [1], [2], etc. to reference the numbered excerpts
+- Be accurate and precise - if information isn't in the sources, say so
+- Use clear, accessible language while maintaining scientific accuracy
+- For treatment information, emphasize that decisions should be made with healthcare providers
+- If the sources contain conflicting information, acknowledge this
+- Organize your response with appropriate structure (paragraphs, bullet points) for readability`;
+
+        const userPrompt = `Based on the following research excerpts, please answer this question:
+
+**Question:** ${body.query}
+
+---
+
+**Research Excerpts:**
+
+${context}
+
+---
+
+Please provide a comprehensive answer based on these sources, citing them with [1], [2], etc. as appropriate.`;
+
+        const response = await anthropic.messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 4096,
+            messages: [
+                { role: 'user', content: userPrompt }
+            ],
+            system: systemPrompt
+        });
+
+        // Extract text from response
+        const answer = response.content
+            .filter(block => block.type === 'text')
+            .map(block => (block as { type: 'text'; text: string }).text)
+            .join('\n');
+
+        return c.json({
+            answer,
+            sources,
+            usage: {
+                contextTokens: tokensUsed,
+                responseTokens: response.usage?.output_tokens || 0,
+                totalTokens: tokensUsed + (response.usage?.output_tokens || 0),
+                chunksUsed: sources.length
+            },
+            model: response.model
+        });
+
+    } catch (e: any) {
+        console.error('RAG query error:', e);
         return c.json({ error: e.message }, 500);
     }
 });

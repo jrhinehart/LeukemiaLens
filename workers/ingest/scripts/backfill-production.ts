@@ -29,6 +29,9 @@
  *   # Limit total articles per segment
  *   npx tsx scripts/backfill-production.ts --local --start-year 2024 --month 1 --limit 500
  * 
+ *   # Enable RAG: Also fetch PMC full-text docs for newly ingested articles
+ *   npx tsx scripts/backfill-production.ts --local --start-year 2024 --month 1 --with-rag
+ * 
  * Environment variables (required for --local mode, in .env):
  *   CLOUDFLARE_ACCOUNT_ID
  *   CLOUDFLARE_API_TOKEN  
@@ -68,6 +71,7 @@ interface BackfillOptions {
     limit?: number;
     useAI: boolean;
     local: boolean;
+    withRag: boolean;  // Trigger RAG document fetch after backfill
 }
 
 interface BackfillProgress {
@@ -594,6 +598,31 @@ async function backfillProduction(options: BackfillOptions) {
         console.log(`\n📝 Failed PMIDs written to: ${logFile}`);
         console.log(`   Re-ingest with: npx tsx scripts/reingest-failed.ts ${progress.failedPmids.join(' ')}`);
     }
+
+    // ============================================
+    // RAG DOCUMENT FETCH (Optional)
+    // ============================================
+    if (options.withRag && !options.dryRun) {
+        console.log('\n' + '='.repeat(60));
+        console.log('TRIGGERING RAG DOCUMENT FETCH');
+        console.log('='.repeat(60));
+        console.log('Running PMC full-text fetch for newly ingested articles...');
+
+        const { execSync } = await import('child_process');
+        try {
+            // Run the fetch-pmc-fulltext script with a reasonable limit
+            const fetchLimit = Math.min(progress.articlesIngested, 100);
+            execSync(`npx tsx scripts/fetch-pmc-fulltext.ts --limit ${fetchLimit} --format pdf`, {
+                cwd: path.join(__dirname, '..'),
+                stdio: 'inherit'
+            });
+            console.log('\n✅ RAG document fetch complete!');
+            console.log('   Run backfill_gpu.py to process pending documents.');
+        } catch (err: any) {
+            console.error('\n⚠️ RAG document fetch failed:', err.message);
+            console.log('   You can run manually: npx tsx scripts/fetch-pmc-fulltext.ts --limit 100');
+        }
+    }
 }
 
 // ==========================================
@@ -608,7 +637,8 @@ const options: BackfillOptions = {
     dryRun: false,
     granular: false,
     useAI: false,
-    local: false
+    local: false,
+    withRag: false
 };
 
 for (let i = 0; i < args.length; i++) {
@@ -622,6 +652,7 @@ for (let i = 0; i < args.length; i++) {
     if (args[i] === '--granular') options.granular = true;
     if (args[i] === '--use-ai') options.useAI = true;
     if (args[i] === '--local') options.local = true;
+    if (args[i] === '--with-rag') options.withRag = true;
 }
 
 // Handle defaults

@@ -42,6 +42,25 @@ interface CoverageData {
     generated_at: string
 }
 
+interface RAGStats {
+    totalDocuments: number
+    readyDocuments: number
+    totalChunks: number
+    totalStudies: number
+    ragCoveragePercent: number
+    byFormat: Record<string, number>
+    recentlyProcessed: Array<{
+        id: string
+        pmcid: string
+        filename: string
+        format: string
+        chunkCount: number
+        processedAt: string
+        title?: string
+    }>
+    generatedAt: string
+}
+
 export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) => {
     const [stats, setStats] = useState<DatabaseStats | null>(null)
     const [loading, setLoading] = useState(true)
@@ -52,6 +71,9 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
     const [coverageLoading, setCoverageLoading] = useState(false)
     const [currentPage, setCurrentPage] = useState(0)
     const yearsPerPage = 5
+
+    // RAG stats state
+    const [ragStats, setRagStats] = useState<RAGStats | null>(null)
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -81,8 +103,18 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
             }
         }
 
+        const fetchRAGStats = async () => {
+            try {
+                const res = await axios.get('https://leukemialens-api.jr-rhinehart.workers.dev/api/rag/stats')
+                setRagStats(res.data)
+            } catch (err: any) {
+                console.error('RAG stats fetch error:', err)
+            }
+        }
+
         fetchStats()
         fetchAllCoverage()
+        fetchRAGStats()
     }, [])
 
     const getMonthColor = (count: number) => {
@@ -224,6 +256,97 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
                             />
                         </div>
                     </div>
+
+                    {/* AI-Ready Documents (RAG) */}
+                    {ragStats && (
+                        <div className="mb-12">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                                <span>🤖</span> AI-Ready Documents
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                                <StatCard
+                                    title="Full-Text Documents"
+                                    value={ragStats.readyDocuments.toLocaleString()}
+                                    icon="📄"
+                                    color="blue"
+                                />
+                                <StatCard
+                                    title="Text Chunks"
+                                    value={ragStats.totalChunks.toLocaleString()}
+                                    icon="🧩"
+                                    color="green"
+                                />
+                                <StatCard
+                                    title="PDF Documents"
+                                    value={(ragStats.byFormat.pdf || 0).toLocaleString()}
+                                    icon="📕"
+                                    color="red"
+                                />
+                                <StatCard
+                                    title="XML Documents"
+                                    value={(ragStats.byFormat.xml || 0).toLocaleString()}
+                                    icon="📘"
+                                    color="indigo"
+                                />
+                            </div>
+
+                            {/* Coverage Progress */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 className="font-bold text-gray-800">RAG Coverage</h3>
+                                        <p className="text-sm text-gray-500">
+                                            {ragStats.readyDocuments} of {ragStats.totalStudies.toLocaleString()} articles have full-text AI analysis
+                                        </p>
+                                    </div>
+                                    <span className="text-2xl font-black text-blue-600">
+                                        {ragStats.ragCoveragePercent}%
+                                    </span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                    <div
+                                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500"
+                                        style={{ width: `${Math.min(ragStats.ragCoveragePercent, 100)}%` }}
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-400 mt-2">
+                                    Only PMC Open Access articles (~20-30% of PubMed) have full-text available for AI analysis
+                                </p>
+                            </div>
+
+                            {/* Recently Processed */}
+                            {ragStats.recentlyProcessed.length > 0 && (
+                                <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                                    <h3 className="font-bold text-gray-800 mb-4">Recently Processed</h3>
+                                    <div className="space-y-3">
+                                        {ragStats.recentlyProcessed.slice(0, 3).map((doc) => (
+                                            <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`text-lg ${doc.format === 'pdf' ? '📕' : '📘'}`}>
+                                                        {doc.format === 'pdf' ? '📕' : '📘'}
+                                                    </span>
+                                                    <div>
+                                                        <p className="font-medium text-gray-800 text-sm">
+                                                            {doc.pmcid}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 truncate max-w-[300px]">
+                                                            {doc.title || doc.filename}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-medium text-blue-600">{doc.chunkCount} chunks</p>
+                                                    <p className="text-xs text-gray-400">
+                                                        {doc.processedAt ? new Date(doc.processedAt).toLocaleDateString() : 'Processing'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Date Range */}
                     <div className="mb-12">

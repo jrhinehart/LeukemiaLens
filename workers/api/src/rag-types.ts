@@ -147,24 +147,36 @@ export interface BatchChunkResponse {
 }
 
 // ==========================================
-// Future: RAG Query Types (Phase 4)
+// RAG Query Types (Phase 4 - Claude Integration)
 // ==========================================
 
 export interface RAGQueryRequest {
     query: string;
     documentIds?: string[];  // Scope to specific docs
-    topK?: number;           // Number of chunks to retrieve
+    topK?: number;           // Number of chunks to retrieve (default 10, max 50)
+    maxContextTokens?: number; // Max tokens for context (default 150000)
 }
 
 export interface RAGQueryResponse {
     answer: string;
     sources: RAGSource[];
+    usage?: {
+        contextTokens: number;
+        responseTokens: number;
+        totalTokens: number;
+        chunksUsed: number;
+    };
+    model?: string;
 }
 
 export interface RAGSource {
+    index: number;           // Citation number [1], [2], etc.
     documentId: string;
     chunkId: string;
-    content: string;
+    pmcid?: string;
+    filename: string;
+    content: string;         // Truncated content preview
     relevanceScore: number;
-    citation?: string;
+    pageRange?: string;      // e.g., "pp. 3-4"
 }
+

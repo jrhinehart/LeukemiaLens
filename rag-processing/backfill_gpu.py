@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 
 from pdf_parser import extract_text_from_pdf
+from xml_parser import extract_text_from_xml
 from chunker import chunk_text
 from embedder import generate_embeddings, get_device, EMBEDDING_DIM
 
@@ -58,6 +59,7 @@ class Document:
     pmid: Optional[str]
     study_id: Optional[int]
     filename: str
+    format: str  # 'pdf' or 'xml'
     r2_key: str
     status: str
 
@@ -109,7 +111,7 @@ def get_pending_documents(limit: int = 1000, after_id: Optional[str] = None) -> 
     """Fetch documents with status 'pending', optionally resuming after a specific ID."""
     if after_id:
         result = query_d1(
-            """SELECT id, pmcid, pmid, study_id, filename, r2_key, status 
+            """SELECT id, pmcid, pmid, study_id, filename, format, r2_key, status 
                FROM documents 
                WHERE status = 'pending' AND id > ? 
                ORDER BY id 
@@ -118,7 +120,7 @@ def get_pending_documents(limit: int = 1000, after_id: Optional[str] = None) -> 
         )
     else:
         result = query_d1(
-            """SELECT id, pmcid, pmid, study_id, filename, r2_key, status 
+            """SELECT id, pmcid, pmid, study_id, filename, format, r2_key, status 
                FROM documents 
                WHERE status = 'pending' 
                ORDER BY id 
@@ -241,20 +243,26 @@ def upload_chunks(doc_id: str, chunks: List, embeddings: List[List[float]]) -> b
 
 def process_document(doc: Document, data_dir: Path, stats: BackfillStats) -> bool:
     """Process a single document through the full pipeline."""
-    pdf_path = data_dir / f"{doc.id}.pdf"
+    # Determine file extension based on format
+    file_ext = '.tgz' if doc.format == 'xml' else '.pdf'
+    file_path = data_dir / f"{doc.id}{file_ext}"
     
     try:
         update_document_status(doc.id, 'processing')
         
-        # Step 1: Download PDF
-        if not download_document(doc, str(pdf_path)):
+        # Step 1: Download document
+        if not download_document(doc, str(file_path)):
             update_document_status(doc.id, 'error', error='Download failed')
             return False
         
-        # Step 2: Extract text
-        text_result = extract_text_from_pdf(str(pdf_path))
+        # Step 2: Extract text (route based on format)
+        if doc.format == 'xml':
+            text_result = extract_text_from_xml(str(file_path))
+        else:
+            text_result = extract_text_from_pdf(str(file_path))
+            
         if not text_result or not text_result.get('text'):
-            update_document_status(doc.id, 'error', error='Text extraction failed')
+            update_document_status(doc.id, 'error', error=f'Text extraction failed ({doc.format})')
             return False
         
         # Step 3: Chunk text
@@ -304,8 +312,8 @@ def process_document(doc: Document, data_dir: Path, stats: BackfillStats) -> boo
         return False
     
     finally:
-        if pdf_path.exists():
-            pdf_path.unlink()
+        if file_path.exists():
+            file_path.unlink()
 
 
 def main():
