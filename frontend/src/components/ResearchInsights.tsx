@@ -23,12 +23,20 @@ interface AnalyzedArticle {
 
 interface InsightEntry {
     id: string
+    backendId?: string
     timestamp: number
     filterSummary: string
     summary: string
     analyzedArticles: AnalyzedArticle[]
     articleCount: number
     totalArticles: number
+    isRagEnhanced?: boolean
+    fullTextDocCount?: number
+}
+
+interface Message {
+    role: 'user' | 'assistant'
+    content: string
 }
 
 export interface ResearchInsightsProps {
@@ -108,6 +116,15 @@ export function ResearchInsights({
     const [viewingHistoryEntry, setViewingHistoryEntry] = useState<InsightEntry | null>(null)
     const [isCached, setIsCached] = useState(false)
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false)
+    const [isRagEnhanced, setIsRagEnhanced] = useState(false)
+    const [fullTextDocCount, setFullTextDocCount] = useState(0)
+
+    // Follow-up chat state
+    const [chatMessages, setChatMessages] = useState<Message[]>([])
+    const [chatInput, setChatInput] = useState('')
+    const [isChatLoading, setIsChatLoading] = useState(false)
+    const [showChat, setShowChat] = useState(false)
+    const [backendId, setBackendId] = useState<string | null>(null)
 
     // Load history on mount
     useEffect(() => {
@@ -124,10 +141,15 @@ export function ResearchInsights({
         setIsOpen(true)
         setIsLoading(true)
         setError(null)
-        setSummary(null)
         setAnalyzedArticles([])
         setViewingHistoryEntry(null)
         setIsCached(false)
+        setIsRagEnhanced(false)
+        setFullTextDocCount(0)
+        setChatMessages([])
+        setChatInput('')
+        setShowChat(false)
+        setBackendId(null)
 
         const maxArticles = 50
         const articlesToAnalyze = articles.slice(0, maxArticles).map((a) => ({
@@ -155,16 +177,22 @@ export function ResearchInsights({
                 setSummary(response.data.summary)
                 setArticleCount(response.data.articleCount)
                 setAnalyzedArticles(analyzedList)
+                setIsRagEnhanced(response.data.isRagEnhanced || false)
+                setFullTextDocCount(response.data.fullTextDocCount || 0)
+                setBackendId(response.data.insightId)
 
                 // Save to history
                 const newEntry: InsightEntry = {
                     id: generateId(),
+                    backendId: response.data.insightId,
                     timestamp: Date.now(),
                     filterSummary: generateFilterSummary(searchQuery, selectedFilters),
                     summary: response.data.summary,
                     analyzedArticles: analyzedList,
                     articleCount: response.data.articleCount,
-                    totalArticles: articles.length
+                    totalArticles: articles.length,
+                    isRagEnhanced: response.data.isRagEnhanced,
+                    fullTextDocCount: response.data.fullTextDocCount
                 }
                 const updatedHistory = [newEntry, ...history]
                 setHistory(updatedHistory)
@@ -179,15 +207,50 @@ export function ResearchInsights({
         }
     }
 
+    const handleSendFollowUp = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!chatInput.trim() || isChatLoading) return
+
+        const userMessage = chatInput.trim()
+        setChatMessages(prev => [...prev, { role: 'user', content: userMessage }])
+        setChatInput('')
+        setIsChatLoading(true)
+
+        try {
+            // Use the RAG query endpoint
+            const response = await axios.post(`${apiBaseUrl}/api/rag/query`, {
+                query: userMessage,
+                topK: 15
+            })
+
+            if (response.data.answer) {
+                setChatMessages(prev => [...prev, { role: 'assistant', content: response.data.answer }])
+            } else {
+                setChatMessages(prev => [...prev, { role: 'assistant', content: 'I encountered an error while searching the research database. Please try again.' }])
+            }
+        } catch (err: any) {
+            console.error('Follow-up error:', err)
+            setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I failed to connect to the research database. Please try again later.' }])
+        } finally {
+            setIsChatLoading(false)
+        }
+    }
+
     const handleViewHistoryEntry = (entry: InsightEntry) => {
         setViewingHistoryEntry(entry)
         setSummary(entry.summary)
         setAnalyzedArticles(entry.analyzedArticles)
         setArticleCount(entry.articleCount)
+        setIsRagEnhanced(entry.isRagEnhanced || false)
+        setFullTextDocCount(entry.fullTextDocCount || 0)
+        setBackendId(entry.backendId || null)
         setError(null)
         setIsCached(true)
         setIsHistoryOpen(false)
         setIsOpen(true)
+        setChatMessages([])
+        setChatInput('')
+        setShowChat(false)
     }
 
     const handleClearHistory = () => {
@@ -212,7 +275,7 @@ export function ResearchInsights({
         const filterSummary = viewingHistoryEntry?.filterSummary || generateFilterSummary(searchQuery, selectedFilters)
         const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 
-        let content = `LEUKEMIALENS RESEARCH INSIGHTS\nGenerated: ${date}\nQuery: ${filterSummary}\n\n${'─'.repeat(50)}\nINSIGHTS SUMMARY\n${'─'.repeat(50)}\n\n${summary}\n\n${'─'.repeat(50)}\nARTICLES ANALYZED (${analyzedArticles.length})\n${'─'.repeat(50)}\n`
+        let content = `LEUKEMIALENS RESEARCH INSIGHTS\nGenerated: ${date}\nInsight ID: ${backendId || 'Local-only'}\nQuery: ${filterSummary}\n\n${'─'.repeat(50)}\nINSIGHTS SUMMARY\n${'─'.repeat(50)}\n\n${summary}\n\n${'─'.repeat(50)}\nARTICLES ANALYZED (${analyzedArticles.length})\n${'─'.repeat(50)}\n`
         analyzedArticles.forEach(a => {
             content += `#${a.num}: ${a.title} (${a.year})\n`
         })
@@ -279,12 +342,27 @@ export function ResearchInsights({
             })
         }
 
+        if (backendId) {
+            textToCopy += `\n\nReference ID: ${backendId}`
+        }
+
         try {
             await navigator.clipboard.writeText(textToCopy)
             setCopied(true)
             setTimeout(() => setCopied(false), 2000)
         } catch (err) {
             console.error('Failed to copy:', err)
+        }
+    }
+
+    const handleShareLink = async () => {
+        if (!backendId) return
+        const shareUrl = `${window.location.origin}/insights/${backendId}`
+        try {
+            await navigator.clipboard.writeText(shareUrl)
+            alert('Share link copied to clipboard!')
+        } catch (err) {
+            console.error('Failed to copy share link:', err)
         }
     }
 
@@ -296,6 +374,12 @@ export function ResearchInsights({
         setShowArticleList(false)
         setViewingHistoryEntry(null)
         setIsCached(false)
+        setIsRagEnhanced(false)
+        setFullTextDocCount(0)
+        setChatMessages([])
+        setChatInput('')
+        setShowChat(false)
+        setBackendId(null)
     }
 
     // Render markdown-like content
@@ -452,7 +536,13 @@ export function ResearchInsights({
                                     <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
                                         <span>{new Date(entry.timestamp).toLocaleDateString()}</span>
                                         <span>•</span>
-                                        <span>{entry.articleCount} articles analyzed</span>
+                                        <span>{entry.articleCount} articles</span>
+                                        {entry.isRagEnhanced && (
+                                            <>
+                                                <span>•</span>
+                                                <span className="text-blue-600 font-medium italic">RAG+</span>
+                                            </>
+                                        )}
                                     </div>
                                 </button>
                             ))}
@@ -492,17 +582,23 @@ export function ResearchInsights({
                                         )}
                                     </div>
                                     {summary && (
-                                        <div className="flex items-center gap-1.5">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
                                             <p className="text-xs text-gray-500">
                                                 Based on {articleCount} of {viewingHistoryEntry?.totalArticles || articles.length} articles
                                             </p>
+                                            {isRagEnhanced && (
+                                                <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tight flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
+                                                    Deep Search Active ({fullTextDocCount} Full-Text)
+                                                </span>
+                                            )}
                                             <div className="relative group">
                                                 <button type="button" className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-xs font-medium flex items-center justify-center hover:bg-gray-300 transition-colors" aria-label="Sample size info">
                                                     ?
                                                 </button>
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[70]">
                                                     <p className="font-medium mb-1">Advanced AI Synthesis</p>
-                                                    <p className="text-gray-300">Analysis powered by Claude 3.5 Sonnet. The 50-article sample size is a beta balance between depth and performance.</p>
+                                                    <p className="text-gray-300">Analysis powered by Claude 3.5 Sonnet. {isRagEnhanced ? "This search incorporated full-text RAG data for available papers." : "The 50-article sample size is a beta balance between depth and performance."}</p>
                                                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                                                 </div>
                                             </div>
@@ -554,6 +650,15 @@ export function ResearchInsights({
                                                     </div>
                                                     <span className="text-xs text-gray-500">Text only for quick pasting</span>
                                                 </button>
+                                                {backendId && (
+                                                    <button
+                                                        onClick={handleShareLink}
+                                                        className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 flex flex-col border-t border-gray-100"
+                                                    >
+                                                        <span className="font-medium">Copy Share Link</span>
+                                                        <span className="text-xs text-blue-500/70">Unique link to this analysis</span>
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -603,7 +708,7 @@ export function ResearchInsights({
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 transition-transform ${showArticleList ? 'rotate-90' : ''}`}>
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                                                 </svg>
-                                                Articles Analyzed ({analyzedArticles.length})
+                                                Articles Analyzed ({analyzedArticles.length}) {isRagEnhanced && <span className="text-blue-600 font-normal italic">(inc. {fullTextDocCount} full-text)</span>}
                                             </button>
 
                                             {showArticleList && (
@@ -640,15 +745,81 @@ export function ResearchInsights({
                                         </div>
                                     )}
 
-                                    {/* Ask a Question (Coming Soon) */}
-                                    <div className="mt-6 border-t border-gray-200 pt-4">
-                                        <button disabled className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed" title="Coming soon in a future release">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
-                                            </svg>
-                                            <span>Ask a Follow-up Question</span>
-                                            <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">Coming Soon</span>
-                                        </button>
+                                    {/* Ask a Question */}
+                                    <div className="mt-6 border-t border-gray-200 pt-6">
+                                        {!showChat ? (
+                                            <button
+                                                onClick={() => setShowChat(true)}
+                                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200 rounded-lg hover:from-blue-100 hover:to-indigo-100 transition-all font-medium group"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 group-hover:scale-110 transition-transform">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+                                                </svg>
+                                                <span>Ask a Follow-up Question</span>
+                                            </button>
+                                        ) : (
+                                            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                                        <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                                                        Deep Research Chat
+                                                    </h4>
+                                                    <button onClick={() => setShowChat(false)} className="text-xs text-gray-500 hover:text-gray-700">Close Chat</button>
+                                                </div>
+
+                                                {/* Chat Messages */}
+                                                <div className="space-y-4 max-h-64 overflow-y-auto mb-4 pr-2 custom-scrollbar">
+                                                    {chatMessages.length === 0 && (
+                                                        <div className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded-lg">
+                                                            Ask anything about the research papers in this insight...
+                                                        </div>
+                                                    )}
+                                                    {chatMessages.map((msg, i) => (
+                                                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                                            <div className={`max-w-[85%] rounded-lg px-4 py-2 text-sm ${msg.role === 'user'
+                                                                ? 'bg-blue-600 text-white rounded-br-none'
+                                                                : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200'
+                                                                }`}>
+                                                                {msg.content}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {isChatLoading && (
+                                                        <div className="flex justify-start">
+                                                            <div className="bg-gray-100 border border-gray-200 rounded-lg rounded-bl-none px-4 py-2 flex items-center gap-2">
+                                                                <div className="flex gap-1">
+                                                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+                                                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                                                                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                                                                </div>
+                                                                <span className="text-xs text-gray-500">Searching full-text database...</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Chat Input */}
+                                                <form onSubmit={handleSendFollowUp} className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={chatInput}
+                                                        onChange={(e) => setChatInput(e.target.value)}
+                                                        placeholder="e.g. What were the specific mutation-driven responses?"
+                                                        className="flex-1 bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all shadow-inner"
+                                                        disabled={isChatLoading}
+                                                    />
+                                                    <button
+                                                        type="submit"
+                                                        disabled={!chatInput.trim() || isChatLoading}
+                                                        className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                                                        </svg>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}

@@ -1,0 +1,14 @@
+[2026-01-26_18-20-34] [INFO] ==========================================
+[2026-01-26_18-20-34] [INFO] LeukemiaLens RAG Nightly Batch
+[2026-01-26_18-20-34] [INFO] ==========================================
+[2026-01-26_18-20-34] [INFO] Limit: 10 documents
+[2026-01-26_18-20-34] [INFO] DryRun: True
+[2026-01-26_18-20-34] [INFO] --- PHASE 1: Document Discovery ---
+[2026-01-26_18-20-34] [INFO] Running PMC full-text fetch...
+[2026-01-26_18-20-34] [INFO] Document fetch completed in 0.2 minutes
+[2026-01-26_18-20-34] [INFO] --- PHASE 2: GPU Processing ---
+[2026-01-26_18-20-34] [INFO] Pending documents: 0
+[2026-01-26_18-20-34] [INFO] No pending documents to process.
+[2026-01-26_18-20-34] [INFO] ==========================================
+[2026-01-26_18-20-34] [INFO] Nightly batch complete
+[2026-01-26_18-20-34] [INFO] ==========================================

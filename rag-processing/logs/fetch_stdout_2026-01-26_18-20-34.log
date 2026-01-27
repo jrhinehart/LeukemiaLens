@@ -1,0 +1,61 @@
+============================================================
+PMC FULL-TEXT FETCH
+============================================================
+Limit: 10
+Preferred format: pdf
+Dry run: false
+
+Fetching studies without documents...
+Found 10 studies to process
+
+
+[1/10] PMID:41399202
+  Title: Fluorescence in situ hybridization supplements to convention...
+  ❌ No PMCID found
+
+[2/10] PMID:41417855
+  Title: Correlation between epigenetic modifier gene mutations and p...
+  ❌ No PMCID found
+
+[3/10] PMID:41454883
+  Title: A real-world study evaluating drug tolerability and health c...
+  ❌ No PMCID found
+
+[4/10] PMID:41508414
+  Title: CIRC_0000075 targeting MIR-218-5P is involved in the prognos...
+  ❌ No PMCID found
+
+[5/10] PMID:41368921
+  Title: Targeted therapy in KMT2Ar AML....
+  ❌ No PMCID found
+
+[6/10] PMID:41448254
+  Title: Development of sensitive and specific indirect ELISA tests f...
+  ❌ No PMCID found
+
+[7/10] PMID:41240694
+  Title: A circular crRNA-triggered CRISPR/Cas12a fluorescent platfor...
+  ❌ No PMCID found
+
+[8/10] PMID:41106102
+  Title: Flexible electrochemical biochip for multianalyte detection ...
+  ❌ No PMCID found
+
+[9/10] PMID:41443284
+  Title: Roxadustat induces erythroid differentiation of erythroleuke...
+  ❌ No PMCID found
+
+[10/10] PMID:41442825
+  Title: Pharmacoinformatic discovery of plant-derived BRD4 inhibitor...
+  ❌ No PMCID found
+
+============================================================
+SUMMARY
+============================================================
+Studies processed: 10
+With PMCID: 0 (0%)
+In Open Access: 0 (0%)
+Has PDF: 0
+Has XML: 0
+Downloaded: 0
+Uploaded: 0

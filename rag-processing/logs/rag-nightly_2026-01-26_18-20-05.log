@@ -1,0 +1,10 @@
+[2026-01-26_18-20-05] [INFO] ==========================================
+[2026-01-26_18-20-05] [INFO] LeukemiaLens RAG Nightly Batch
+[2026-01-26_18-20-05] [INFO] ==========================================
+[2026-01-26_18-20-05] [INFO] Limit: 10 documents
+[2026-01-26_18-20-05] [INFO] DryRun: True
+[2026-01-26_18-20-05] [INFO] --- PHASE 1: Document Discovery ---
+[2026-01-26_18-20-05] [INFO] Running PMC full-text fetch...
+[2026-01-26_18-20-05] [ERROR] Error: This command cannot be run due to the error: %1 is not a valid Win32 application.
+[2026-01-26_18-20-05] [ERROR] at <ScriptBlock>, D:\Antigrav workspace\LeukemiaLens\rag-processing\rag-nightly.ps1: line 74
+at <ScriptBlock>, <No file>: line 1

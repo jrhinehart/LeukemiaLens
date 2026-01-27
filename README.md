@@ -38,9 +38,11 @@ LeukemiaLens is fully optimized for mobile devices, featuring a collapsible filt
   - **Treatments**: Detects specific pharmacological treatments and established protocols (e.g., 7+3, VEN-AZA, FLAG-IDA).
 - **Grouped Mutation Filter**: Toggle between functional category view (Kinase, Epigenetic, Fusion, etc.) or ELN 2022 risk classification (Favorable, Intermediate, Adverse) with collapsible sections and help tooltip.
 - **Ontology-Based Filtering**: Reference tables ensure consistent disease, mutation, and treatment classification.
-- **AI-Powered Features** (Cloudflare Workers AI):
+- **AI-Powered Features**:
   - **Smart Search**: Natural language query parsing - type queries like "FLT3 mutations in AML from 2023" and automatically populate the appropriate filters.
-  - **Research Insights**: AI-generated synthesis of filtered articles, providing Key Findings, Treatment Trends, and Research Gaps with one-click copy.
+  - **Research Insights**: RAG-enhanced scientific synthesis. Analyzes abstracts and available full-text PDF data using Claude 3.5 Sonnet.
+  - **Durable History**: Insights are saved to D1 for persistent reference and sharing via unique IDs.
+  - **Deep Research Chat**: Interactive follow-up chat functionality allows users to "talk to" the papers in their search results using the RAG pipeline.
 - **Advanced Search**: 
   - Filter by mutations, diseases, topics, and treatments.
   - Search by author, journal, institution, and complex karyotype status.
@@ -94,8 +96,10 @@ LeukemiaLens is built on a serverless Cloudflare Workers architecture:
 │  • GET /api/database-stats              │
 │  • GET /api/ontology                    │
 │  • GET /api/study/:id                   │
+│  • GET /api/insights/:id                │
 │  • POST /api/parse-query (AI)           │
-│  • POST /api/summarize (AI)             │
+│  • POST /api/summarize (RAG/AI)         │
+│  • POST /api/rag/query (RAG Chat)       │
 └───────┬─────────────────┬───────────────┘
         │                 │
         │                 │
@@ -103,12 +107,12 @@ LeukemiaLens is built on a serverless Cloudflare Workers architecture:
 ┌───────────────┐  ┌─────────────────────┐
 │  Cloudflare   │  │   Cloudflare        │
 │  D1 Database  │  │   Workers AI        │
-│   (SQLite)    │  │  (LLM Inference)    │
+│   (SQLite)    │  │  + Claude API       │
 │               │  │                     │
-│  Tables:      │  │  • llama-3-8b       │
-│  • studies    │  │  • llama-2-7b       │
-│  • mutations  │  │                     │
-│  • treatments │  └─────────────────────┘
+│  Tables:      │  │  • Claude 3.5 Sonnet│
+│  • studies    │  │  • llama-3.1-8b     │
+│  • insights   │  │  • bge-embeddings   │
+│  • documents  │  └─────────────────────┘
 │  • ref_*      │
 └───────────────┘
         ▲
@@ -128,14 +132,14 @@ LeukemiaLens is built on a serverless Cloudflare Workers architecture:
 
 - **API**: Cloudflare Workers + Hono framework (TypeScript)
 - **AI**: Cloudflare Workers AI (LLaMA 3, LLaMA 2 models) + Claude 3.5 Sonnet
-- **Ingestion**: Cloudflare Workers with scheduled CRON jobs
-- **Database**: Cloudflare D1 (SQLite)
+- **Ingestion**: Cloudflare Workers (Scheduled) + Local Unified Orchestration script (`backfill-production.ts`)
+- **Database**: Cloudflare D1 (SQLite) - Now stores persistent Research Insights
 - **Vector Search**: Cloudflare Vectorize (384-dim embeddings)
 - **Document Storage**: Cloudflare R2 (PMC full-text PDFs)
 - **Frontend**: React + Vite + TailwindCSS
 - **Hosting**: Cloudflare Pages
 - **Data Source**: PubMed Entrez E-utilities API + PMC Open Access
-- **Local Processing**: Docker (Unraid) for PDF parsing and embeddings
+- **Local Processing**: Local Workstation with **GPU-acceleration** (PyTorch/Transformers)
 
 ---
 
@@ -150,14 +154,14 @@ Document Sources              Local Processing               Cloud Services
       │                            │                              │
       ▼                            ▼                              ▼
 ┌──────────────┐           ┌───────────────┐            ┌─────────────────┐
-│ PMC Open     │──────────▶│ Unraid Docker │───────────▶│ Cloudflare R2   │
-│ Access PDFs  │           │ Stack         │            │ (Document Store)│
+│ PMC Open     │──────────▶│ Local Python  │───────────▶│ Cloudflare R2   │
+│ Access PDFs  │           │ Processing    │            │ (Document Store)│
 └──────────────┘           │               │            └─────────────────┘
                            │ • PDF Parser  │                    │
                            │ • Chunker     │                    ▼
-                           │ • Embeddings  │            ┌─────────────────┐
-                           │   (CPU-only)  │            │ Cloudflare D1   │
-                           └───────────────┘            │ (Chunks)        │
+                           │ • GPU Embed   │            ┌─────────────────┐
+                           │   (PyTorch)   │            │ Cloudflare D1   │
+                           └───────────────┘            │ (Chunks/History)│
                                    │                    └─────────────────┘
                                    │                            │
                                    ▼                            ▼
@@ -184,42 +188,44 @@ npx tsx scripts/fetch-pmc-fulltext.ts --limit 100 --format pdf
 curl https://leukemialens-api.jr-rhinehart.workers.dev/api/rag/stats
 ```
 
-**Note**: Only ~20-30% of PubMed articles are available in PMC Open Access.
+**Note**: Only ~50-60% of modern leukemia research is available in PMC Open Access. The system automatically records "skips" for non-OA articles to optimize future runs.
 
-### Phase 2: Document Processing (Unraid Docker)
+### Phase 2: Unified Processing (Remote & Local)
 
-Process PDFs into searchable chunks with embeddings:
+Process articles, fetch full-text, and vectorize in one command:
 
 ```bash
-# 1. Copy rag-processing to Unraid
-scp -r rag-processing/ unraid:/mnt/user/appdata/leukemialens-rag/
+cd workers/ingest
 
-# 2. Configure environment
-cd /mnt/user/appdata/leukemialens-rag
-cp .env.example .env
-nano .env  # Add Cloudflare credentials
-
-# 3. Build and run processor
-docker-compose build
-docker-compose run --rm processor
-
-# 4. Enable scheduled processing (2 AM daily)
-docker-compose up -d scheduler
+# Process 2025 Jan data with full RAG & GPU vectorization
+npx tsx scripts/backfill-production.ts --year 2025 --month 1 --local --with-rag --gpu
 ```
 
-**Environment Variables** (`.env`):
-```
-CLOUDFLARE_ACCOUNT_ID=your_account_id
-CLOUDFLARE_API_TOKEN=your_api_token
-DATABASE_ID=your_database_id
-API_BASE_URL=https://leukemialens-api.jr-rhinehart.workers.dev
-BATCH_SIZE=10
+**Features**:
+- **Automated Deduplication**: Skips already-processed or explicitly non-OA articles.
+- **GPU Acceleration**: Uses NVIDIA GPUs for 10x faster embedding generation.
+- **Self-Healing**: Automatically resets errors and retries failed extractions.
+
+### Phase 3: GPU-Accelerated Processing (Local)
+
+LeukemiaLens uses a Python-based processing stack optimized for NVIDIA GPUs to handle document chunking and embedding generation.
+
+```bash
+cd rag-processing
+
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Configure .env with Cloudflare credentials
+# 3. Use the unified orchestrator (from workers/ingest)
+npx tsx scripts/backfill-production.ts --year 2025 --month 1 --local --gpu
 ```
 
 **Resource Requirements**:
-- Memory: 4GB
-- CPU: 4 cores
-- Processing rate: ~10-20 documents/hour
+- **GPU**: NVIDIA GPU (8GB+ VRAM recommended)
+- **Framework**: PyTorch + Sentence-Transformers
+- **Model**: `all-MiniLM-L6-v2` (384-dim)
+- **Performance**: ~150-200 documents/hour with GPU enablement
 
 ### RAG API Endpoints
 
@@ -233,6 +239,8 @@ BATCH_SIZE=10
 | `/api/chunks/batch` | POST | Batch create chunks with embeddings |
 | `/api/rag/stats` | GET | RAG pipeline statistics |
 | `/api/rag/search` | POST | Vector similarity search |
+| `/api/rag/query` | POST | Full RAG synthesis (used for Follow-up Chat) |
+| `/api/insights/:id` | GET | Retrieve a specific persistent research insight |
 
 ### Docker Stack Files
 
@@ -473,11 +481,19 @@ Generate research insights from a set of articles.
 ```json
 {
   "success": true,
+  "insightId": "uuid-v4",
   "summary": "## Key Findings\n- ...",
-  "articleCount": 15,
-  "totalArticles": 47
+  "articleCount": 50,
+  "isRagEnhanced": true,
+  "fullTextDocCount": 12
 }
 ```
+
+### `GET /api/insights/:id`
+Fetch a previously generated insight from D1.
+
+### `POST /api/rag/query` (AI)
+Interactive research chat. Performs vector search across the entire full-text database to answer specific scientific questions.
 
 ## UI Components
 

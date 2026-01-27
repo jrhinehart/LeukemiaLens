@@ -36,18 +36,14 @@ This document tracks planned features, architectural decisions, and design instr
 ## Roadmap
 
 ### 🚀 In Progress
-- [ ] 
-- [ ] 
+- [ ] User Authentication with Clerk
+- [ ] PDF Generation and R2 Storage for Research Insights (Downloadable Reports)
 
 ### 📋 Planned (High Priority)
-- [ ] 
-- [ ] 
+- [ ] Enhanced Patient Knowledge Graph
+- [ ] Real-time Clinical Trial matching
 
 ### 💡 Future Ideas
-- [ ] User Authentication with Clerk
-- [ ] RAG Query Pipeline via Claude
-- [ ] RAG Document Ingestion Pipeline - local hosting of embedding and chunking services on NAS UnRAID server?
-- [ ] PDF parsing for document ingestion
 - [ ] 
 
 ### ✅ Completed
@@ -55,6 +51,12 @@ This document tracks planned features, architectural decisions, and design instr
 - [x] Disease-specific resource pages with treatments and live news
 - [x] Educational hub for newly diagnosed patients (Blood Cell Production, Mutations, Risk Stratification, Stem Cell Transplants)
 - [x] AI-powered Smart Search and Research Insights
+- [x] RAG-enhanced Research Insights with full-text synthesis (Claude 3.5 Sonnet)
+- [x] Persistent Research Insights history (D1 storage) with shareable links
+- [x] Interactive Deep Research follow-up chat via /api/rag/query
+- [x] Unified RAG orchestration pipeline (`backfill-production.ts`) with GPU acceleration
+- [x] High-density Stats page redesign with mobile optimization and compact metrics
+- [x] Automatic deduplication and "Skip Recording" for non-OA/incompatible articles
 - [x] Grouped mutation filtering (Functional Categories / ELN 2022 Risk)
 - [x] Treatment filtering with protocol component resolution
 - [x] Responsive mobile design with collapsible filter drawer

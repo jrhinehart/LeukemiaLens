@@ -312,6 +312,62 @@ app.post('/api/summarize', async (c) => {
     const maxArticles = 50;
     const maxAbstractLength = 3000;
 
+    // Check for available full-text documents in D1
+    const pmids = articles.slice(0, maxArticles).map((a: any) => a.pubmed_id || a.pmid || '').filter(Boolean);
+    const pmidHolders = pmids.map(() => '?').join(',');
+
+    let fullTextDocs: any[] = [];
+    if (pmids.length > 0) {
+        try {
+            const { results } = await c.env.DB.prepare(`
+                SELECT id, pmcid, pmid, filename 
+                FROM documents 
+                WHERE (pmid IN (${pmidHolders}) OR pmcid IN (${pmidHolders})) 
+                AND status = 'ready'
+            `).bind(...pmids, ...pmids).run();
+            fullTextDocs = results || [];
+        } catch (e) {
+            console.error('Error checking full-text docs:', e);
+        }
+    }
+
+    // Fetch chunks for available full-text docs (up to 5 per doc to avoid blowing context)
+    let fullTextContext = '';
+    const docsWithFullText = fullTextDocs.length;
+
+    if (fullTextDocs.length > 0) {
+        const docIds = fullTextDocs.map(d => d.id);
+        const docIdHolders = docIds.map(() => '?').join(',');
+
+        try {
+            const { results: chunks } = await c.env.DB.prepare(`
+                SELECT document_id, content 
+                FROM chunks 
+                WHERE document_id IN (${docIdHolders})
+                AND chunk_index < 5
+                ORDER BY document_id, chunk_index
+            `).bind(...docIds).run();
+
+            if (chunks && chunks.length > 0) {
+                fullTextContext = "\n\n### FULL-TEXT RESEARCH DATA\n" +
+                    "The following excerpts are from the full-text of available articles. Use these for deeper scientific insights than provided in abstracts alone:\n\n";
+
+                fullTextDocs.forEach(doc => {
+                    const docChunks = chunks.filter((ch: any) => ch.document_id === doc.id);
+                    if (docChunks.length > 0) {
+                        fullTextContext += `[Article Ref: ${pmids.indexOf(doc.pmid || doc.pmcid) + 1}] Title: ${doc.filename}\n`;
+                        docChunks.forEach((ch: any) => {
+                            fullTextContext += `${ch.content}\n`;
+                        });
+                        fullTextContext += "---\n";
+                    }
+                });
+            }
+        } catch (e) {
+            console.error('Error fetching RAG chunks for summary:', e);
+        }
+    }
+
     const truncatedArticles = articles.slice(0, maxArticles).map((a: any, idx: number) => ({
         num: idx + 1,
         title: a.title || 'Untitled',
@@ -352,8 +408,8 @@ Guidelines:
 - Use markdown formatting: ## for headers, **bold** for emphasis, and - for bullets.`;
 
     const userContent = query
-        ? `Research query context: "${query}"\n\nPlease synthesize insights from the following ${truncatedArticles.length} articles:\n\n${JSON.stringify(truncatedArticles, null, 2)}`
-        : `Please synthesize insights from the following ${truncatedArticles.length} articles:\n\n${JSON.stringify(truncatedArticles, null, 2)}`;
+        ? `Research query context: "${query}"\n\nPlease synthesize insights from the following ${truncatedArticles.length} articles:\n\n${JSON.stringify(truncatedArticles, null, 2)}${fullTextContext}`
+        : `Please synthesize insights from the following ${truncatedArticles.length} articles:\n\n${JSON.stringify(truncatedArticles, null, 2)}${fullTextContext}`;
 
     try {
         const anthropic = new Anthropic({
@@ -374,11 +430,37 @@ Guidelines:
             throw new Error('No text response from Claude');
         }
 
+        const summary = textContent.text;
+        const insightId = crypto.randomUUID();
+
+        // Save to D1
+        try {
+            await c.env.DB.prepare(`
+                INSERT INTO insights (
+                    id, query, filter_summary, summary, 
+                    article_count, analyzed_articles_json, is_rag_enhanced
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+                insightId,
+                query || 'General Search',
+                '', // Store filter summary if needed
+                summary,
+                truncatedArticles.length,
+                JSON.stringify(truncatedArticles.map(a => ({ title: a.title, diseases: a.diseases, mutations: a.mutations, year: a.year }))),
+                docsWithFullText > 0
+            ).run();
+        } catch (dbError) {
+            console.error('Failed to save insight to DB:', dbError);
+        }
+
         return c.json({
             success: true,
-            summary: textContent.text,
+            insightId,
+            summary,
             articleCount: truncatedArticles.length,
             totalArticles: articles.length,
+            isRagEnhanced: docsWithFullText > 0,
+            fullTextDocCount: docsWithFullText,
             model: 'claude-3-5-sonnet-latest'
         });
     } catch (e: any) {
@@ -419,6 +501,34 @@ Guidelines:
             success: false,
             error: 'Failed to generate summary. Please try again.'
         }, 500);
+    } finally {
+        // Attempt to save to persistence if we have a summary (even if fallback)
+        // This is done after the response is ready to not block the user, 
+        // but since we need the ID in the response, we actually need to do it BEFORE returning.
+        // I will move the return inside the try/catch and handle saving there.
+    }
+});
+
+app.get('/api/insights/:id', async (c) => {
+    const id = c.req.param('id');
+    try {
+        const insight = await c.env.DB.prepare(
+            'SELECT * FROM insights WHERE id = ?'
+        ).bind(id).first();
+
+        if (!insight) {
+            return c.json({ success: false, error: 'Insight not found' }, 404);
+        }
+
+        return c.json({
+            success: true,
+            insight: {
+                ...insight,
+                analyzedArticles: JSON.parse((insight as any).analyzed_articles_json || '[]')
+            }
+        });
+    } catch (e: any) {
+        return c.json({ success: false, error: e.message }, 500);
     }
 });
 
