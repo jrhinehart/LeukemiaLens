@@ -131,6 +131,65 @@ export function ResearchInsights({
         setHistory(loadHistory())
     }, [])
 
+    // Persist history whenever it changes
+    useEffect(() => {
+        if (history.length > 0) {
+            saveHistory(history)
+        }
+    }, [history])
+
+    const pollInsightStatus = async (id: string, totalArticles: number) => {
+        let attempts = 0
+        const maxAttempts = 60 // 2 minutes
+
+        const interval = setInterval(async () => {
+            attempts++
+            if (attempts > maxAttempts) {
+                clearInterval(interval)
+                setError('Technical request timed out. High-depth reports may take longer during peak times. You can check again in a few minutes via History.')
+                setIsLoading(false)
+                return
+            }
+
+            try {
+                const response = await axios.get(`${apiBaseUrl}/api/insights/${id}`)
+                if (response.data.success) {
+                    const insight = response.data.insight
+                    if (insight.status === 'completed') {
+                        clearInterval(interval)
+                        setSummary(insight.summary)
+                        setArticleCount(insight.article_count)
+                        const analyzed = JSON.parse(insight.analyzed_articles_json || '[]')
+                        setAnalyzedArticles(analyzed)
+                        setIsRagEnhanced(insight.is_rag_enhanced || false)
+                        setBackendId(id)
+
+                        // Update local history
+                        const newEntry: InsightEntry = {
+                            id: generateId(),
+                            backendId: id,
+                            timestamp: Date.now(),
+                            filterSummary: generateFilterSummary(searchQuery, selectedFilters),
+                            summary: insight.summary,
+                            analyzedArticles: analyzed,
+                            articleCount: insight.article_count,
+                            totalArticles: totalArticles,
+                            isRagEnhanced: insight.is_rag_enhanced
+                        }
+                        setHistory(prev => [newEntry, ...prev.slice(0, 19)])
+                        setIsLoading(false)
+                    } else if (insight.status === 'error') {
+                        clearInterval(interval)
+                        setError(insight.error || 'The technical analysis encountered an error.')
+                        setIsLoading(false)
+                    }
+                }
+            } catch (err) {
+                console.error('Polling error:', err)
+            }
+        }, 2000)
+    }
+
     const handleGetInsights = async () => {
         if (articles.length === 0) {
             setError('No articles to analyze. Try adjusting your filters.')
@@ -156,53 +215,34 @@ export function ResearchInsights({
             title: a.title,
             abstract: a.abstract,
             pub_date: a.pub_date,
-            mutations: a.mutations,
-            diseases: a.diseases
-        }))
-
-        const analyzedList: AnalyzedArticle[] = articles.slice(0, maxArticles).map((a, idx) => ({
-            num: idx + 1,
-            title: a.title || 'Untitled',
-            year: a.pub_date?.substring(0, 4) || 'Unknown',
-            url: (a as any).url // Try to get url from article object
+            mutations: Array.isArray(a.mutations) ? a.mutations : [],
+            diseases: Array.isArray(a.diseases) ? a.diseases : [],
+            pubmed_id: a.pubmed_id
         }))
 
         try {
             const response = await axios.post(`${apiBaseUrl}/api/summarize`, {
                 articles: articlesToAnalyze,
-                query: searchQuery
+                query: searchQuery,
+                filter_summary: generateFilterSummary(searchQuery, selectedFilters)
             })
 
-            if (response.data.success) {
-                setSummary(response.data.summary)
-                setArticleCount(response.data.articleCount)
-                setAnalyzedArticles(analyzedList)
-                setIsRagEnhanced(response.data.isRagEnhanced || false)
-                setFullTextDocCount(response.data.fullTextDocCount || 0)
-                setBackendId(response.data.insightId)
-
-                // Save to history
-                const newEntry: InsightEntry = {
-                    id: generateId(),
-                    backendId: response.data.insightId,
-                    timestamp: Date.now(),
-                    filterSummary: generateFilterSummary(searchQuery, selectedFilters),
-                    summary: response.data.summary,
-                    analyzedArticles: analyzedList,
-                    articleCount: response.data.articleCount,
-                    totalArticles: articles.length,
-                    isRagEnhanced: response.data.isRagEnhanced,
-                    fullTextDocCount: response.data.fullTextDocCount
+            if (response.data.success && response.data.insightId) {
+                if (response.data.status === 'processing') {
+                    // Start polling
+                    pollInsightStatus(response.data.insightId, articles.length)
+                } else if (response.data.summary) {
+                    // Immediate response (unlikely with new Map-Reduce)
+                    setSummary(response.data.summary)
+                    setIsLoading(false)
+                    setBackendId(response.data.insightId)
                 }
-                const updatedHistory = [newEntry, ...history]
-                setHistory(updatedHistory)
-                saveHistory(updatedHistory)
             } else {
-                setError(response.data.error || 'Failed to generate insights')
+                setError(response.data.error || 'Failed to initiate insights analysis')
+                setIsLoading(false)
             }
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Failed to generate insights. Please try again.')
-        } finally {
+            setError(err.response?.data?.error || 'Failed to start analysis. The server might be busy.')
             setIsLoading(false)
         }
     }
@@ -676,8 +716,14 @@ export function ResearchInsights({
                             {isLoading && (
                                 <div className="flex flex-col items-center justify-center py-12">
                                     <div className="w-12 h-12 border-4 border-purple-200 rounded-full animate-spin border-t-purple-600"></div>
-                                    <p className="mt-4 text-gray-600 font-medium">Analyzing {Math.min(50, articles.length)} articles with Claude...</p>
-                                    <p className="text-sm text-gray-400 mt-1">This may take a few seconds</p>
+                                    <p className="mt-4 text-gray-900 font-bold">Deep Research Analysis in progress...</p>
+                                    <p className="text-sm text-gray-500 mt-2 text-center max-w-sm px-4">
+                                        Claude is performing multi-stage technical synthesis across {Math.min(50, articles.length)} articles, including full-text RAG context where available.
+                                    </p>
+                                    <div className="mt-6 w-full max-w-xs bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                        <div className="bg-purple-600 h-full animate-pulse w-full"></div>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-4 uppercase tracking-widest font-semibold">Stage: Map-Reduce Synthesis</p>
                                 </div>
                             )}
 
