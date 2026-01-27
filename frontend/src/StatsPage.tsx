@@ -176,169 +176,144 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
                         <p className="text-sm text-gray-500 mt-2">Last updated: {new Date(stats.generated_at).toLocaleString()}</p>
                     </div>
 
-                    {/* Main Tables Stats */}
+                    {/* Compact Metrics Grid */}
                     <div className="mb-12">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                            <span>📚</span> Main Database
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                             <StatCard
-                                title="Total Articles"
+                                title="Articles"
                                 value={stats.main_tables.studies.toLocaleString()}
                                 icon="📄"
                                 color="blue"
                             />
                             <StatCard
-                                title="Mutation Records"
+                                title="Mutations"
                                 value={stats.main_tables.mutation_records.toLocaleString()}
                                 icon="🧬"
                                 color="green"
                             />
                             <StatCard
-                                title="Study Topics"
+                                title="Topics"
                                 value={stats.main_tables.topic_records.toLocaleString()}
                                 icon="🏷️"
                                 color="purple"
                             />
                             <StatCard
-                                title="Treatment Records"
-                                value={stats.main_tables.treatment_records.toLocaleString()}
+                                title="Ready RAG"
+                                value={ragStats?.readyDocuments.toLocaleString() || '0'}
+                                icon="🤖"
+                                color="blue"
+                            />
+                            <StatCard
+                                title="Diseases"
+                                value={stats.ontology_tables.reference_diseases.toLocaleString()}
+                                icon="🦠"
+                                color="red"
+                            />
+                            <StatCard
+                                title="Treatments"
+                                value={stats.ontology_tables.reference_treatments.toLocaleString()}
                                 icon="💊"
                                 color="pink"
                             />
                         </div>
                     </div>
 
-                    {/* Ontology Tables Stats */}
-                    <div className="mb-12">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                            <span>📖</span> Reference Tables
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <StatCard
-                                title="Disease Types"
-                                value={stats.ontology_tables.reference_diseases.toLocaleString()}
-                                icon="🦠"
-                                color="red"
-                            />
-                            <StatCard
-                                title="Tracked Mutations"
-                                value={stats.ontology_tables.reference_mutations.toLocaleString()}
-                                icon="🔬"
-                                color="indigo"
-                            />
-                            <StatCard
-                                title="Treatment Options"
-                                value={stats.ontology_tables.reference_treatments.toLocaleString()}
-                                icon="💉"
-                                color="teal"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Unique Values */}
-                    <div className="mb-12">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                            <span>🔍</span> Unique Values Found
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <StatCard
-                                title="Unique Mutations Found"
-                                value={stats.unique_values.unique_mutations.toLocaleString()}
-                                icon="🧬"
-                                color="emerald"
-                            />
-                            <StatCard
-                                title="Unique Topics"
-                                value={stats.unique_values.unique_topics.toLocaleString()}
-                                icon="📌"
-                                color="violet"
-                            />
-                        </div>
-                    </div>
-
-                    {/* AI-Ready Documents (RAG) */}
-                    {ragStats && (
-                        <div className="mb-12">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                                <span>🤖</span> AI-Ready Documents
-                            </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                                <StatCard
-                                    title="Full-Text Documents"
-                                    value={ragStats.readyDocuments.toLocaleString()}
-                                    icon="📄"
-                                    color="blue"
-                                />
-                                <StatCard
-                                    title="Text Chunks"
-                                    value={ragStats.totalChunks.toLocaleString()}
-                                    icon="🧩"
-                                    color="green"
-                                />
-                                <StatCard
-                                    title="PDF Documents"
-                                    value={(ragStats.byFormat.pdf || 0).toLocaleString()}
-                                    icon="📕"
-                                    color="red"
-                                />
-                                <StatCard
-                                    title="XML Documents"
-                                    value={(ragStats.byFormat.xml || 0).toLocaleString()}
-                                    icon="📘"
-                                    color="indigo"
-                                />
-                            </div>
-
-                            {/* Coverage Progress */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Column 1: Date Range & Insights */}
+                        <div className="space-y-8">
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div>
-                                        <h3 className="font-bold text-gray-800">RAG Coverage</h3>
-                                        <p className="text-sm text-gray-500">
-                                            {ragStats.readyDocuments} of {ragStats.totalStudies.toLocaleString()} articles have full-text AI analysis
-                                        </p>
+                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Coverage Timeline</h3>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-end">
+                                        <span className="text-[10px] font-bold text-gray-500 uppercase">Oldest</span>
+                                        <span className="text-2xl font-black text-blue-600 tracking-tighter">{stats.date_range.oldest_article || 'N/A'}</span>
                                     </div>
-                                    <span className="text-2xl font-black text-blue-600">
-                                        {ragStats.ragCoveragePercent}%
-                                    </span>
+                                    <div className="h-1 bg-gray-100 rounded-full relative">
+                                        <div className="absolute inset-0 bg-blue-500/20 rounded-full"></div>
+                                    </div>
+                                    <div className="flex justify-between items-start">
+                                        <span className="text-[10px] font-bold text-gray-500 uppercase">Newest</span>
+                                        <span className="text-2xl font-black text-blue-600 tracking-tighter">{stats.date_range.newest_article || 'N/A'}</span>
+                                    </div>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                                    <div
-                                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500"
-                                        style={{ width: `${Math.min(ragStats.ragCoveragePercent, 100)}%` }}
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-400 mt-2">
-                                    Only PMC Open Access articles (~50-60% of modern leukemia research) have full-text available for AI analysis
-                                </p>
                             </div>
 
-                            {/* Recently Processed */}
-                            {ragStats.recentlyProcessed.length > 0 && (
-                                <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                    <h3 className="font-bold text-gray-800 mb-4">Recently Processed</h3>
-                                    <div className="space-y-3">
-                                        {ragStats.recentlyProcessed.slice(0, 3).map((doc) => (
-                                            <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                                <div className="flex items-center gap-3">
-                                                    <span className={`text-lg ${doc.format === 'pdf' ? '📕' : '📘'}`}>
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Ontology Density</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Unique Mutations</p>
+                                        <p className="text-xl font-black text-gray-800">{stats.unique_values.unique_mutations.toLocaleString()}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase">Unique Topics</p>
+                                        <p className="text-xl font-black text-gray-800">{stats.unique_values.unique_topics.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Column 2 & 3: RAG & Coverage Progress */}
+                        <div className="lg:col-span-2 space-y-8">
+                            {ragStats && (
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div>
+                                            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">RAG Engine Stats</h3>
+                                            <p className="text-lg font-black text-gray-800">
+                                                {ragStats.ragCoveragePercent}% Research Analyzed
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <div className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-[10px] font-black uppercase">PDF: {ragStats.byFormat.pdf || 0}</div>
+                                            <div className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-[10px] font-black uppercase">XML: {ragStats.byFormat.xml || 0}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
+                                        <div
+                                            className="bg-blue-600 h-2 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.4)]"
+                                            style={{ width: `${ragStats.ragCoveragePercent}%` }}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center border-t border-gray-50 pt-4">
+                                        <div>
+                                            <p className="text-lg font-black text-gray-800">{ragStats.readyDocuments.toLocaleString()}</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase">Docs Ready</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-lg font-black text-gray-800">{ragStats.totalChunks.toLocaleString()}</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase">AI Chunks</p>
+                                        </div>
+                                        <div className="col-span-2 text-left md:text-right">
+                                            <p className="text-[10px] text-gray-500 italic leading-tight">
+                                                ~50-60% of modern leukemia research currently has PMC full-text available.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Recently Processed - Compact */}
+                            {ragStats && ragStats.recentlyProcessed.length > 0 && (
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Latest AI Vectorization</h3>
+                                    <div className="divide-y divide-gray-50">
+                                        {ragStats.recentlyProcessed.slice(0, 4).map((doc) => (
+                                            <div key={doc.id} className="py-2 flex items-center justify-between gap-4">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={`w-8 h-8 rounded flex items-center justify-center text-sm ${doc.format === 'pdf' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'}`}>
                                                         {doc.format === 'pdf' ? '📕' : '📘'}
-                                                    </span>
-                                                    <div>
-                                                        <p className="font-medium text-gray-800 text-sm">
-                                                            {doc.pmcid}
-                                                        </p>
-                                                        <p className="text-xs text-gray-500 truncate max-w-[300px]">
-                                                            {doc.title || doc.filename}
-                                                        </p>
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-bold text-gray-800 truncate">{doc.title || doc.filename}</p>
+                                                        <p className="text-[10px] text-gray-500 uppercase font-black">{doc.pmcid}</p>
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm font-medium text-blue-600">{doc.chunkCount} chunks</p>
-                                                    <p className="text-xs text-gray-400">
-                                                        {doc.processedAt ? new Date(doc.processedAt).toLocaleDateString() : 'Processing'}
-                                                    </p>
+                                                <div className="shrink-0 text-right">
+                                                    <span className="text-[10px] font-black text-blue-600 block">{doc.chunkCount} Chunks</span>
+                                                    <span className="text-[9px] text-gray-400 uppercase">{doc.processedAt ? new Date(doc.processedAt).toLocaleDateString() : ''}</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -346,7 +321,9 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
                                 </div>
                             )}
                         </div>
-                    )}
+                    </div>
+
+                    <div className="h-12" />
 
                     {/* Date Range */}
                     <div className="mb-12">
@@ -516,28 +493,29 @@ interface StatCardProps {
 }
 
 const StatCard = ({ title, value, icon, color }: StatCardProps) => {
-    const colorClasses = {
-        blue: 'from-blue-500 to-blue-600',
-        green: 'from-green-500 to-green-600',
-        purple: 'from-purple-500 to-purple-600',
-        pink: 'from-pink-500 to-pink-600',
-        red: 'from-red-500 to-red-600',
-        indigo: 'from-indigo-500 to-indigo-600',
-        teal: 'from-teal-500 to-teal-600',
-        emerald: 'from-emerald-500 to-emerald-600',
-        violet: 'from-violet-500 to-violet-600'
+    const colorDots = {
+        blue: 'bg-blue-500',
+        green: 'bg-green-500',
+        purple: 'bg-purple-500',
+        pink: 'bg-pink-500',
+        red: 'bg-red-500',
+        indigo: 'bg-indigo-500',
+        teal: 'bg-teal-500',
+        emerald: 'bg-emerald-500',
+        violet: 'bg-violet-500'
     }
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transform hover:scale-[1.02] transition-all hover:shadow-md">
-            <div className={`bg-gradient-to-r ${colorClasses[color as keyof typeof colorClasses]} p-4 text-white`}>
-                <div className="flex items-center justify-between">
-                    <span className="text-3xl">{icon}</span>
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-white/90">{title}</h3>
-                </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 transition-all hover:shadow-md flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl bg-gray-50 border border-gray-100 shrink-0">
+                {icon}
             </div>
-            <div className="p-8">
-                <p className="text-4xl font-black text-gray-900 text-center tracking-tight">{value}</p>
+            <div className="min-w-0">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight truncate">{title}</p>
+                <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${colorDots[color as keyof typeof colorDots]} shrink-0`} />
+                    <p className="text-lg font-black text-gray-900 tracking-tighter truncate">{value}</p>
+                </div>
             </div>
         </div>
     )
