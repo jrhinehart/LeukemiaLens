@@ -310,7 +310,7 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
                                     />
                                 </div>
                                 <p className="text-xs text-gray-400 mt-2">
-                                    Only PMC Open Access articles (~20-30% of PubMed) have full-text available for AI analysis
+                                    Only PMC Open Access articles (~50-60% of modern leukemia research) have full-text available for AI analysis
                                 </p>
                             </div>
 
