@@ -1,2 +1,4 @@
 # Sensitive environment variables - DO NOT COMMIT
 .env
+temp_downloads/
+data/

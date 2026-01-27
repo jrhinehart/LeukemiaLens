@@ -6,3 +6,13 @@ dist/
 # Editor
 .vscode/
 .idea/
+
+# Temp & Downloads
+temp_downloads/
+tmp/
+temp/
+*.log
+.env
+.dev.vars
+.capnp/
+.wrangler/
