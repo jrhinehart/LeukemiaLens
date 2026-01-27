@@ -14,15 +14,15 @@ logger = logging.getLogger(__name__)
 
 def clean_text(text: str) -> str:
     """Clean extracted text."""
-    # Remove excessive whitespace
-    text = re.sub(r'\s+', ' ', text)
-    
     # Remove page headers/footers (common patterns)
     # Remove lines that are just page numbers
     text = re.sub(r'^\s*\d+\s*$', '', text, flags=re.MULTILINE)
     
     # Remove common header/footer patterns
     text = re.sub(r'^\s*(Page \d+ of \d+|www\..+|https?://.+)\s*$', '', text, flags=re.MULTILINE)
+    
+    # Remove excessive whitespace and merge into one line
+    text = re.sub(r'\s+', ' ', text)
     
     return text.strip()
 
@@ -65,6 +65,7 @@ def extract_text_from_pdf(pdf_path: str) -> Optional[Dict]:
     """
     try:
         doc = fitz.open(pdf_path)
+        logger.info(f"PDF opened: {pdf_path}, Page count: {len(doc)}")
         
         full_text = []
         page_breaks = []
