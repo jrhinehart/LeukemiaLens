@@ -325,25 +325,6 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
 
                     <div className="h-12" />
 
-                    {/* Date Range */}
-                    <div className="mb-12">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                            <span>📅</span> Publication Date Range
-                        </h2>
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                            <div className="flex flex-col md:flex-row justify-around items-center gap-8">
-                                <div className="text-center">
-                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Oldest Article</p>
-                                    <p className="text-4xl font-black text-blue-600 tracking-tight">{stats.date_range.oldest_article || 'N/A'}</p>
-                                </div>
-                                <div className="hidden md:block text-5xl text-gray-200 font-light">→</div>
-                                <div className="text-center">
-                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Newest Article</p>
-                                    <p className="text-4xl font-black text-blue-600 tracking-tight">{stats.date_range.newest_article || 'N/A'}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     {/* Coverage Explorer */}
                     <div className="mb-12">
