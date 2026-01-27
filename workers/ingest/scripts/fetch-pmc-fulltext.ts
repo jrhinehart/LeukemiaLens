@@ -9,8 +9,9 @@
  *   npx tsx scripts/fetch-pmc-fulltext.ts [options]
  * 
  * Options:
- *   --limit N        Maximum number of articles to process (default: 10)
- *   --format pdf|xml Preferred format (default: pdf, falls back to xml if not available)
+ *   --limit N        Maximum number of articles to process (default: 100)
+ *   --year YYYY      Filter by publication year
+ *   --month M        Filter by publication month (1-12, requires --year)
  *   --dry-run        Check availability without downloading
  *   --from-date      Only process articles from this date (YYYY-MM-DD)
  * 
@@ -32,9 +33,12 @@ const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
 const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 const DATABASE_ID = process.env.DATABASE_ID;
 const API_BASE_URL = process.env.API_BASE_URL || 'https://leukemialens-api.jr-rhinehart.workers.dev';
+const NCBI_EMAIL = process.env.NCBI_EMAIL || 'jr.rhinehart@gmail.com';
+const NCBI_API_KEY = process.env.NCBI_API_KEY || '';
+const TOOL_NAME = 'LeukemiaLens';
 
 // Rate limiting
-const RATE_LIMIT_DELAY = 500; // ms between requests to avoid overwhelming PMC
+const RATE_LIMIT_DELAY = NCBI_API_KEY ? 100 : 350; // ms between requests
 
 if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN || !DATABASE_ID) {
     console.error('Missing environment variables. Required: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, DATABASE_ID');
@@ -47,7 +51,8 @@ function delay(ms: number): Promise<void> {
 
 interface Options {
     limit: number;
-    format: 'pdf' | 'xml';
+    year?: number;
+    month?: number;
     dryRun: boolean;
     fromDate?: string;
 }
@@ -55,8 +60,7 @@ interface Options {
 function parseArgs(): Options {
     const args = process.argv.slice(2);
     const options: Options = {
-        limit: 10,
-        format: 'pdf',
+        limit: 100,
         dryRun: false
     };
 
@@ -64,8 +68,11 @@ function parseArgs(): Options {
         if (args[i] === '--limit' && args[i + 1]) {
             options.limit = parseInt(args[i + 1]);
             i++;
-        } else if (args[i] === '--format' && args[i + 1]) {
-            options.format = args[i + 1] as 'pdf' | 'xml';
+        } else if (args[i] === '--year' && args[i + 1]) {
+            options.year = parseInt(args[i + 1]);
+            i++;
+        } else if (args[i] === '--month' && args[i + 1]) {
+            options.month = parseInt(args[i + 1]);
             i++;
         } else if (args[i] === '--dry-run') {
             options.dryRun = true;
@@ -131,37 +138,77 @@ interface PMCOACheckResult {
     error?: string;
 }
 
-// Convert PMID to PMCID using local API or direct NCBI call
-async function convertPmidToPmcid(pmid: string): Promise<PMCConversionResult> {
-    try {
-        // Use NCBI ID Converter API directly
-        const response = await fetch(
-            `https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/?ids=${pmid}&format=json`
-        );
+// Batch convert PMIDs to PMCIDs using NCBI ID Converter API
+// API supports up to 200 IDs per request
+async function batchConvertPmidsToPmcids(pmids: string[]): Promise<Map<string, PMCConversionResult>> {
+    const results = new Map<string, PMCConversionResult>();
 
-        if (!response.ok) {
-            return { pmid, pmcid: null, error: 'Conversion API error' };
+    // Process in chunks of 200 (API limit)
+    const chunkSize = 200;
+    for (let i = 0; i < pmids.length; i += chunkSize) {
+        const chunk = pmids.slice(i, i + chunkSize);
+
+        try {
+            // Build URL with NCBI credentials
+            let url = `https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1/articles/?ids=${chunk.join(',')}&format=json&email=${encodeURIComponent(NCBI_EMAIL)}&tool=${TOOL_NAME}`;
+            if (NCBI_API_KEY) {
+                url += `&api_key=${NCBI_API_KEY}`;
+            }
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                // Mark all as failed
+                chunk.forEach(pmid => results.set(pmid, { pmid, pmcid: null, error: 'API error' }));
+                continue;
+            }
+
+            const responseText = await response.text();
+
+            // API returns concatenated JSON objects: {status}{record1}{record2}
+            // Split on }{ and reconstruct valid JSON objects
+            const jsonObjects = responseText.split('}{').map((part, index, arr) => {
+                if (index === 0) return part + '}';  // First object
+                if (index === arr.length - 1) return '{' + part;  // Last object
+                return '{' + part + '}';  // Middle objects
+            });
+
+            for (const jsonStr of jsonObjects) {
+                try {
+                    const record = JSON.parse(jsonStr);
+
+                    // Skip the status line
+                    if (record.status === 'ok') continue;
+
+                    const pmid = record['requested-id']?.toString() || record.pmid?.toString();
+                    if (!pmid) continue;
+
+                    if (record.errmsg) {
+                        results.set(pmid, {
+                            pmid,
+                            pmcid: null,
+                            error: record.errmsg
+                        });
+                    } else if (record.pmcid) {
+                        results.set(pmid, {
+                            pmid,
+                            pmcid: record.pmcid,
+                            doi: record.doi
+                        });
+                    }
+                } catch { /* skip unparseable objects */ }
+            }
+
+            // Small delay between chunks to respect rate limits
+            if (i + chunkSize < pmids.length) {
+                await delay(RATE_LIMIT_DELAY);
+            }
+        } catch (e: any) {
+            chunk.forEach(pmid => results.set(pmid, { pmid, pmcid: null, error: e.message }));
         }
-
-        const data = await response.json() as any;
-        const record = data.records?.[0];
-
-        if (!record || record.status === 'error') {
-            return {
-                pmid,
-                pmcid: null,
-                error: record?.errmsg || 'No PMC ID found'
-            };
-        }
-
-        return {
-            pmid: record.pmid,
-            pmcid: record.pmcid || null,
-            doi: record.doi
-        };
-    } catch (e: any) {
-        return { pmid, pmcid: null, error: e.message };
     }
+
+    return results;
 }
 
 // Check PMC OA availability
@@ -300,7 +347,9 @@ async function main() {
     console.log('PMC FULL-TEXT FETCH');
     console.log('='.repeat(60));
     console.log(`Limit: ${options.limit}`);
-    console.log(`Preferred format: ${options.format}`);
+    if (options.year) {
+        console.log(`Year: ${options.year}${options.month ? '-' + options.month.toString().padStart(2, '0') : ''}`);
+    }
     console.log(`Dry run: ${options.dryRun}`);
     if (options.fromDate) {
         console.log(`From date: ${options.fromDate}`);
@@ -317,7 +366,20 @@ async function main() {
     `;
     const params: any[] = [];
 
-    if (options.fromDate) {
+    // Year/month filtering
+    if (options.year) {
+        if (options.month) {
+            const monthStr = options.month.toString().padStart(2, '0');
+            const lastDay = new Date(options.year, options.month, 0).getDate();
+            query += ` AND s.pub_date >= ? AND s.pub_date <= ?`;
+            params.push(`${options.year}-${monthStr}-01`);
+            params.push(`${options.year}-${monthStr}-${lastDay}`);
+        } else {
+            query += ` AND s.pub_date >= ? AND s.pub_date <= ?`;
+            params.push(`${options.year}-01-01`);
+            params.push(`${options.year}-12-31`);
+        }
+    } else if (options.fromDate) {
         query += ` AND s.pub_date >= ?`;
         params.push(options.fromDate);
     }
@@ -346,27 +408,30 @@ async function main() {
         fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    for (const study of studies) {
+    // Step 1: Batch convert all PMIDs to PMCIDs (single API call per 200)
+    console.log('Converting PMIDs to PMCIDs (batch)...');
+    const pmids = studies.map(s => s.source_id.replace('PMID:', ''));
+    const pmcidMap = await batchConvertPmidsToPmcids(pmids);
+    const studiesWithPmcid = studies.filter(s => {
+        const pmid = s.source_id.replace('PMID:', '');
+        return pmcidMap.get(pmid)?.pmcid;
+    });
+    console.log(`Found ${studiesWithPmcid.length}/${studies.length} with PMCIDs\n`);
+
+    for (const study of studiesWithPmcid) {
         processed++;
         const pmid = study.source_id.replace('PMID:', '');
-        console.log(`\n[${processed}/${studies.length}] PMID:${pmid}`);
+        const conversion = pmcidMap.get(pmid)!;
+
+        console.log(`\n[${processed}/${studiesWithPmcid.length}] PMID:${pmid}`);
         console.log(`  Title: ${study.title.substring(0, 60)}...`);
-
-        // Step 1: Convert PMID to PMCID
-        await delay(RATE_LIMIT_DELAY);
-        const conversion = await convertPmidToPmcid(pmid);
-
-        if (!conversion.pmcid) {
-            console.log(`  ❌ No PMCID found`);
-            continue;
-        }
 
         withPmcid++;
         console.log(`  ✓ PMCID: ${conversion.pmcid}`);
 
         // Step 2: Check PMC Open Access
         await delay(RATE_LIMIT_DELAY);
-        const oaCheck = await checkPmcOA(conversion.pmcid);
+        const oaCheck = await checkPmcOA(conversion.pmcid!);
 
         if (!oaCheck.available || !oaCheck.record) {
             console.log(`  ❌ Not in Open Access: ${oaCheck.error}`);
@@ -389,15 +454,9 @@ async function main() {
             continue;
         }
 
-        // Step 3: Download preferred format
-        let downloadLink = options.format === 'pdf' ? pdfLink : tgzLink;
-        let actualFormat: 'pdf' | 'xml' = options.format;
-
-        // Fallback if preferred not available
-        if (!downloadLink) {
-            downloadLink = pdfLink || tgzLink;
-            actualFormat = pdfLink ? 'pdf' : 'xml';
-        }
+        // Step 3: Download - prefer PDF, fallback to XML
+        let downloadLink = pdfLink || tgzLink;
+        let actualFormat: 'pdf' | 'xml' = pdfLink ? 'pdf' : 'xml';
 
         if (!downloadLink) {
             console.log(`  ❌ No download link available`);
@@ -422,7 +481,7 @@ async function main() {
         console.log(`  Uploading to R2...`);
         const uploadSuccess = await uploadDocument(
             tempFile,
-            conversion.pmcid,
+            conversion.pmcid!,
             pmid,
             study.id,
             actualFormat,
@@ -452,9 +511,9 @@ async function main() {
     console.log('\n' + '='.repeat(60));
     console.log('SUMMARY');
     console.log('='.repeat(60));
-    console.log(`Studies processed: ${processed}`);
-    console.log(`With PMCID: ${withPmcid} (${Math.round(withPmcid / processed * 100)}%)`);
-    console.log(`In Open Access: ${inOpenAccess} (${Math.round(inOpenAccess / processed * 100)}%)`);
+    console.log(`Studies processed: ${studies.length}`);
+    console.log(`With PMCID: ${withPmcid} (${Math.round(withPmcid / studies.length * 100)}%)`);
+    console.log(`In Open Access: ${inOpenAccess} (${Math.round(inOpenAccess / studies.length * 100)}%)`);
     console.log(`Has PDF: ${hasPdf}`);
     console.log(`Has XML: ${hasXml}`);
     if (!options.dryRun) {

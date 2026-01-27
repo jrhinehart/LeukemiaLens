@@ -73,7 +73,7 @@ try {
         Set-Location $IngestDir
         
         # Use cmd.exe to run npx (works better on Windows)
-        $FetchArgs = "/c npx tsx scripts/fetch-pmc-fulltext.ts --limit $Limit --format pdf"
+        $FetchArgs = "/c npx tsx scripts/fetch-pmc-fulltext.ts --limit $Limit"
         $FetchProcess = Start-Process -FilePath "cmd.exe" `
             -ArgumentList $FetchArgs `
             -NoNewWindow -Wait -PassThru `

@@ -107,27 +107,46 @@ def query_d1(sql: str, params: List = None) -> dict:
     return data['result'][0]
 
 
-def get_pending_documents(limit: int = 1000, after_id: Optional[str] = None) -> List[Document]:
-    """Fetch documents with status 'pending', optionally resuming after a specific ID."""
-    if after_id:
-        result = query_d1(
-            """SELECT id, pmcid, pmid, study_id, filename, format, r2_key, status 
-               FROM documents 
-               WHERE status = 'pending' AND id > ? 
-               ORDER BY id 
-               LIMIT ?""",
-            [after_id, limit]
-        )
-    else:
-        result = query_d1(
-            """SELECT id, pmcid, pmid, study_id, filename, format, r2_key, status 
-               FROM documents 
-               WHERE status = 'pending' 
-               ORDER BY id 
-               LIMIT ?""",
-            [limit]
-        )
+def get_pending_documents(limit: int = 1000, after_id: Optional[str] = None, 
+                          year: Optional[int] = None, month: Optional[int] = None) -> List[Document]:
+    """Fetch documents with status 'pending', optionally filtered by date."""
     
+    base_query = """
+        SELECT d.id, d.pmcid, d.pmid, d.study_id, d.filename, d.format, d.r2_key, d.status 
+        FROM documents d
+    """
+    
+    # Join with studies if we need date filtering
+    if year:
+        base_query += " LEFT JOIN studies s ON s.id = d.study_id"
+    
+    conditions = ["d.status = 'pending'"]
+    params = []
+    
+    if after_id:
+        conditions.append("d.id > ?")
+        params.append(after_id)
+    
+    # Date filtering via studies table
+    if year:
+        if month:
+            month_str = str(month).zfill(2)
+            import calendar
+            last_day = calendar.monthrange(year, month)[1]
+            conditions.append("s.pub_date >= ?")
+            conditions.append("s.pub_date <= ?")
+            params.append(f"{year}-{month_str}-01")
+            params.append(f"{year}-{month_str}-{last_day}")
+        else:
+            conditions.append("s.pub_date >= ?")
+            conditions.append("s.pub_date <= ?")
+            params.append(f"{year}-01-01")
+            params.append(f"{year}-12-31")
+    
+    query = base_query + " WHERE " + " AND ".join(conditions) + " ORDER BY d.id LIMIT ?"
+    params.append(limit)
+    
+    result = query_d1(query, params)
     return [Document(**row) for row in result.get('results', [])]
 
 
@@ -319,6 +338,8 @@ def process_document(doc: Document, data_dir: Path, stats: BackfillStats) -> boo
 def main():
     parser = argparse.ArgumentParser(description='GPU-optimized RAG backfill processor')
     parser.add_argument('--limit', type=int, default=1000, help='Max documents to process')
+    parser.add_argument('--year', type=int, help='Filter by publication year')
+    parser.add_argument('--month', type=int, help='Filter by publication month (1-12, requires --year)')
     parser.add_argument('--resume', action='store_true', help='Resume from last checkpoint')
     parser.add_argument('--dry-run', action='store_true', help='List documents without processing')
     parser.add_argument('--clear-checkpoint', action='store_true', help='Clear checkpoint and start fresh')
@@ -331,6 +352,9 @@ def main():
     print(f"  Embedding Model: BAAI/bge-base-en-v1.5 (768-dim)")
     print(f"  API: {API_BASE_URL}")
     print(f"  Limit: {args.limit}")
+    if args.year:
+        date_str = f"{args.year}-{str(args.month).zfill(2)}" if args.month else str(args.year)
+        print(f"  Date Filter: {date_str}")
     print("=" * 70)
     
     # Handle checkpoint
@@ -365,7 +389,12 @@ def main():
     
     # Get pending documents
     print("\n📥 Fetching pending documents...")
-    documents = get_pending_documents(limit=args.limit, after_id=resume_after)
+    documents = get_pending_documents(
+        limit=args.limit, 
+        after_id=resume_after,
+        year=args.year,
+        month=args.month
+    )
     
     if not documents:
         print("✓ No pending documents to process.")
