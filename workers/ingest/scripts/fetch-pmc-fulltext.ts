@@ -168,33 +168,37 @@ async function batchConvertPmidsToPmcids(pmids: string[]): Promise<Map<string, P
             // API returns concatenated JSON objects: {status}{record1}{record2}
             // Split on }{ and reconstruct valid JSON objects
             const jsonObjects = responseText.split('}{').map((part, index, arr) => {
+                if (arr.length === 1) return part; // Only one object, already complete
                 if (index === 0) return part + '}';  // First object
                 if (index === arr.length - 1) return '{' + part;  // Last object
                 return '{' + part + '}';  // Middle objects
             });
-
             for (const jsonStr of jsonObjects) {
                 try {
-                    const record = JSON.parse(jsonStr);
+                    const data = JSON.parse(jsonStr);
 
-                    // Skip the status line
-                    if (record.status === 'ok') continue;
+                    // If it's the status object, it might have a 'records' array
+                    if (data.records && Array.isArray(data.records)) {
+                        for (const record of data.records) {
+                            const pmid = record['requested-id']?.toString() || record.pmid?.toString();
+                            if (!pmid) continue;
 
-                    const pmid = record['requested-id']?.toString() || record.pmid?.toString();
-                    if (!pmid) continue;
+                            if (record.errmsg) {
+                                results.set(pmid, { pmid, pmcid: null, error: record.errmsg });
+                            } else if (record.pmcid) {
+                                results.set(pmid, { pmid, pmcid: record.pmcid, doi: record.doi });
+                            }
+                        }
+                    }
 
-                    if (record.errmsg) {
-                        results.set(pmid, {
-                            pmid,
-                            pmcid: null,
-                            error: record.errmsg
-                        });
-                    } else if (record.pmcid) {
-                        results.set(pmid, {
-                            pmid,
-                            pmcid: record.pmcid,
-                            doi: record.doi
-                        });
+                    // Also handle individual record objects (if concatenated)
+                    const pmid = data['requested-id']?.toString() || data.pmid?.toString();
+                    if (pmid && data.status !== 'ok') {
+                        if (data.errmsg) {
+                            results.set(pmid, { pmid, pmcid: null, error: data.errmsg });
+                        } else if (data.pmcid) {
+                            results.set(pmid, { pmid, pmcid: data.pmcid, doi: data.doi });
+                        }
                     }
                 } catch { /* skip unparseable objects */ }
             }
@@ -312,9 +316,56 @@ async function uploadDocument(
 ): Promise<boolean> {
     try {
         const fileContent = fs.readFileSync(filePath);
-        const base64Content = fileContent.toString('base64');
+        const fileSizeMB = fileContent.length / (1024 * 1024);
+
+        if (fileSizeMB > 95) {
+            console.error(`  Skipping upload: file too large for Worker limits (${fileSizeMB.toFixed(2)} MB)`);
+            return false;
+        }
+
         const filename = path.basename(filePath);
 
+        const formData = new FormData();
+        const blob = new Blob([fileContent]);
+
+        formData.append('file', blob, filename);
+        formData.append('metadata', JSON.stringify({
+            pmcid,
+            pmid,
+            studyId,
+            filename,
+            source: 'pmc_oa',
+            format,
+            license
+        }));
+
+        const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`  Upload failed (${response.status}): ${errorText.substring(0, 100)}`);
+            return false;
+        }
+
+        const result = await response.json() as any;
+        return result.success === true;
+    } catch (e: any) {
+        console.error(`  Upload error: ${e.message}`);
+        return false;
+    }
+}
+
+// Record a skipped article in the database to avoid redundant checks
+async function recordSkip(
+    pmid: string | null,
+    pmcid: string | null,
+    studyId: number,
+    reason: string
+): Promise<boolean> {
+    try {
         const response = await fetch(`${API_BASE_URL}/api/documents/upload`, {
             method: 'POST',
             headers: {
@@ -324,18 +375,22 @@ async function uploadDocument(
                 pmcid,
                 pmid,
                 studyId,
-                filename,
+                filename: 'skipped.txt',
                 source: 'pmc_oa',
-                format,
-                license,
-                content: base64Content
+                format: 'txt',
+                license: 'none',
+                status: 'skipped'
             })
         });
 
-        const result = await response.json() as any;
-        return result.success === true;
+        if (!response.ok) {
+            console.error(`  Failed to record skip for ${pmid || pmcid}: ${response.status}`);
+            return false;
+        }
+
+        return true;
     } catch (e: any) {
-        console.error(`  Upload error: ${e.message}`);
+        console.error(`  Error recording skip: ${e.message}`);
         return false;
     }
 }
@@ -357,12 +412,14 @@ async function main() {
     console.log('');
 
     // Get studies that don't have documents yet
+    // Improved query to exclude both study_id matches AND matches on PMID/PMCID in the documents table
     let query = `
         SELECT s.id, s.source_id, s.title, s.pub_date 
         FROM studies s
-        LEFT JOIN documents d ON d.study_id = s.id
-        WHERE d.id IS NULL
-        AND s.source_id LIKE 'PMID:%'
+        WHERE s.source_id LIKE 'PMID:%'
+        AND NOT EXISTS (SELECT 1 FROM documents d WHERE d.study_id = s.id)
+        AND NOT EXISTS (SELECT 1 FROM documents d WHERE d.pmid = REPLACE(s.source_id, 'PMID:', ''))
+        AND NOT EXISTS (SELECT 1 FROM documents d WHERE d.pmcid = s.source_id)
     `;
     const params: any[] = [];
 
@@ -410,21 +467,24 @@ async function main() {
 
     // Step 1: Batch convert all PMIDs to PMCIDs (single API call per 200)
     console.log('Converting PMIDs to PMCIDs (batch)...');
-    const pmids = studies.map(s => s.source_id.replace('PMID:', ''));
+    const pmids = studies.map(s => s.source_id.replace('PMID:', '').trim());
     const pmcidMap = await batchConvertPmidsToPmcids(pmids);
-    const studiesWithPmcid = studies.filter(s => {
-        const pmid = s.source_id.replace('PMID:', '');
-        return pmcidMap.get(pmid)?.pmcid;
-    });
-    console.log(`Found ${studiesWithPmcid.length}/${studies.length} with PMCIDs\n`);
 
-    for (const study of studiesWithPmcid) {
+    for (const study of studies) {
         processed++;
-        const pmid = study.source_id.replace('PMID:', '');
-        const conversion = pmcidMap.get(pmid)!;
+        const pmid = study.source_id.replace('PMID:', '').trim();
+        const conversion = pmcidMap.get(pmid);
 
-        console.log(`\n[${processed}/${studiesWithPmcid.length}] PMID:${pmid}`);
+        console.log(`\n[${processed}/${studies.length}] PMID:${pmid}`);
         console.log(`  Title: ${study.title.substring(0, 60)}...`);
+
+        if (!conversion || !conversion.pmcid) {
+            console.log(`  ❌ No PMCID found: ${conversion?.error || 'No PMCID found'}`);
+            if (!options.dryRun) {
+                await recordSkip(pmid, null, study.id, conversion?.error || 'No PMCID found');
+            }
+            continue;
+        }
 
         withPmcid++;
         console.log(`  ✓ PMCID: ${conversion.pmcid}`);
@@ -435,6 +495,9 @@ async function main() {
 
         if (!oaCheck.available || !oaCheck.record) {
             console.log(`  ❌ Not in Open Access: ${oaCheck.error}`);
+            if (!options.dryRun) {
+                await recordSkip(pmid, conversion.pmcid!, study.id, oaCheck.error || 'Not in Open Access');
+            }
             continue;
         }
 
@@ -460,6 +523,7 @@ async function main() {
 
         if (!downloadLink) {
             console.log(`  ❌ No download link available`);
+            await recordSkip(pmid, conversion.pmcid!, study.id, 'No download links available');
             continue;
         }
 
@@ -493,6 +557,8 @@ async function main() {
             console.log(`  ✓ Uploaded successfully`);
         } else {
             console.log(`  ❌ Upload failed`);
+            // Record as skipped so we don't keep trying to upload oversized/problematic files
+            await recordSkip(pmid, conversion.pmcid!, study.id, 'Upload failed (oversized or server error)');
         }
 
         // Clean up temp file

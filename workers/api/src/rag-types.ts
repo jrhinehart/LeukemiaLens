@@ -29,7 +29,7 @@ export interface Document {
 
 export type DocumentSource = 'pmc_oa' | 'user_upload' | 'manual';
 export type DocumentFormat = 'pdf' | 'xml' | 'txt';
-export type DocumentStatus = 'pending' | 'processing' | 'ready' | 'error';
+export type DocumentStatus = 'pending' | 'processing' | 'ready' | 'error' | 'skipped';
 
 export interface DocumentUploadRequest {
     pmcid?: string;
@@ -40,6 +40,7 @@ export interface DocumentUploadRequest {
     format: DocumentFormat;
     license?: string;
     fileSize?: number;
+    status?: DocumentStatus;
     // Base64-encoded file content for direct upload
     content?: string;
 }

@@ -323,8 +323,30 @@ async function main() {
             break;
         }
 
+        // Deduplicate: Check which PMIDs already exist in our database
+        let filteredIds = ids;
+        try {
+            const placeholders = ids.map(() => '?').join(',');
+            const existing = await queryD1(
+                `SELECT source_id FROM studies WHERE source_id IN (${placeholders})`,
+                ids.map(id => `PMID:${id}`)
+            );
+            const existingPmids = new Set((existing.results || []).map((r: any) => r.source_id.replace('PMID:', '')));
+            filteredIds = ids.filter(id => !existingPmids.has(id));
+
+            if (filteredIds.length < ids.length) {
+                console.log(`  Filtered out ${ids.length - filteredIds.length} already existing articles.`);
+            }
+        } catch (e: any) {
+            console.warn('  ⚠️ Failed to check existing articles, proceeding with all:', e.message);
+        }
+
+        if (filteredIds.length === 0) {
+            continue;
+        }
+
         await delay(RATE_LIMIT_DELAY);
-        const xml = await fetchDetails(ids);
+        const xml = await fetchDetails(filteredIds);
         const articles = parseArticles(xml);
 
         for (const article of articles) {
@@ -340,7 +362,7 @@ async function main() {
             await delay(50); // Rate limit D1 writes
         }
 
-        const progress = Math.round(((offset + articles.length) / maxArticles) * 100);
+        const progress = Math.round(((offset + ids.length) / maxArticles) * 100);
         console.log(`Progress: ${progress}% (${ingested} ingested, ${failed} failed)`);
     }
 

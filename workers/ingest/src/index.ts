@@ -238,10 +238,33 @@ export default {
         console.log(`Starting ingestion... term=${searchTermOverride || "default"} limit=${limit} offset=${offset} useAI=${useAI}`);
         try {
             const { ids, total } = await searchPubmed(env, searchTermOverride, limit, offset);
-            console.log(`Found ${ids.length} articles to ingest (Total matching in PubMed: ${total}).`);
+            console.log(`Found ${ids.length} articles in search batch (Total matching in PubMed: ${total}).`);
             if (ids.length === 0) return { total, ingested: 0 };
 
-            const xmlContent = await fetchDetails(env, ids);
+            // Deduplicate: Check which PMIDs already exist in our database
+            let filteredIds = ids;
+            try {
+                const placeholders = ids.map(() => '?').join(',');
+                const existing = await env.DB.prepare(
+                    `SELECT source_id FROM studies WHERE source_id IN (${placeholders})`
+                ).bind(...ids.map(id => `PMID:${id}`)).all();
+
+                const existingPmids = new Set((existing.results || []).map((r: any) => r.source_id.replace('PMID:', '')));
+                filteredIds = ids.filter(id => !existingPmids.has(id));
+
+                if (filteredIds.length < ids.length) {
+                    console.log(`Filtered out ${ids.length - filteredIds.length} already existing articles.`);
+                }
+            } catch (e: any) {
+                console.warn('Failed to check existing articles, proceeding with all:', e.message);
+            }
+
+            if (filteredIds.length === 0) {
+                console.log('All articles in this batch already exist in DB.');
+                return { total, ingested: 0 };
+            }
+
+            const xmlContent = await fetchDetails(env, filteredIds);
             const $ = cheerio.load(xmlContent, { xmlMode: true });
 
             const articles = $('PubmedArticle');

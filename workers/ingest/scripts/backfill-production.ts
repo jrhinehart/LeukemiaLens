@@ -72,6 +72,7 @@ interface BackfillOptions {
     useAI: boolean;
     local: boolean;
     withRag: boolean;  // Trigger RAG document fetch after backfill
+    withGpu: boolean;  // Trigger GPU backfill after document fetch
 }
 
 interface BackfillProgress {
@@ -389,8 +390,6 @@ async function backfillLocal(options: BackfillOptions, progress: BackfillProgres
 
                 while (currentOffset < maxArticles) {
                     const batchSize = Math.min(options.batchSize, maxArticles - currentOffset);
-                    console.log(`  Batch offset ${currentOffset}: Fetching ${batchSize} articles...`);
-
                     await sleep(RATE_LIMIT_DELAY);
                     const { ids } = await searchPubmed(searchTerm, batchSize, currentOffset);
 
@@ -399,8 +398,33 @@ async function backfillLocal(options: BackfillOptions, progress: BackfillProgres
                         break;
                     }
 
+                    // Deduplicate: Check which PMIDs already exist in our database
+                    let filteredIds = ids;
+                    if (options.local) {
+                        try {
+                            const placeholders = ids.map(() => '?').join(',');
+                            const existing = await queryD1(
+                                `SELECT source_id FROM studies WHERE source_id IN (${placeholders})`,
+                                ids.map(id => `PMID:${id}`)
+                            );
+                            const existingPmids = new Set((existing.results || []).map((r: any) => r.source_id.replace('PMID:', '')));
+                            filteredIds = ids.filter(id => !existingPmids.has(id));
+
+                            if (filteredIds.length < ids.length) {
+                                console.log(`  Filtered out ${ids.length - filteredIds.length} already existing articles.`);
+                            }
+                        } catch (e: any) {
+                            console.warn('  ⚠️ Failed to check existing articles, proceeding with all:', e.message);
+                        }
+                    }
+
+                    if (filteredIds.length === 0) {
+                        currentOffset += ids.length;
+                        continue;
+                    }
+
                     await sleep(RATE_LIMIT_DELAY);
-                    const xml = await fetchDetails(ids);
+                    const xml = await fetchDetails(filteredIds);
                     const articles = parseArticles(xml);
 
                     for (const article of articles) {
@@ -417,7 +441,7 @@ async function backfillLocal(options: BackfillOptions, progress: BackfillProgres
                         await sleep(50); // Rate limit D1 writes
                     }
 
-                    currentOffset += articles.length;
+                    currentOffset += ids.length;
                     const segmentProgress = Math.round((currentOffset / maxArticles) * 100);
                     console.log(`  [${segmentLabel}] ${segmentProgress}% complete (${currentOffset}/${maxArticles})`);
                 }
@@ -557,6 +581,8 @@ async function backfillProduction(options: BackfillOptions) {
     console.log(`Batch Size: ${options.batchSize} articles`);
     if (options.offset > 0) console.log(`Start Offset: ${options.offset}`);
     if (options.limit) console.log(`Limit:      ${options.limit} articles per segment`);
+    console.log(`RAG Fetch:  ${options.withRag ? 'YES' : 'NO'}`);
+    console.log(`GPU Vector: ${options.withGpu ? 'YES' : 'NO'}`);
     console.log(`API Key:    ${NCBI_API_KEY ? 'YES (10 req/s)' : 'NO (3 req/s)'}`);
     console.log('='.repeat(60));
 
@@ -606,21 +632,59 @@ async function backfillProduction(options: BackfillOptions) {
         console.log('\n' + '='.repeat(60));
         console.log('TRIGGERING RAG DOCUMENT FETCH');
         console.log('='.repeat(60));
-        console.log('Running PMC full-text fetch for newly ingested articles...');
+
+        let fetchCmd = `npx tsx scripts/fetch-pmc-fulltext.ts --limit ${Math.max(progress.articlesIngested, 100)}`;
+
+        // Pass date filters if we were running for a specific segment
+        if (options.startYear === options.endYear) {
+            fetchCmd += ` --year ${options.startYear}`;
+            if (options.month) {
+                fetchCmd += ` --month ${options.month}`;
+            }
+        }
+
+        console.log(`Running: ${fetchCmd}`);
 
         const { execSync } = await import('child_process');
         try {
-            // Run the fetch-pmc-fulltext script with a reasonable limit
-            const fetchLimit = Math.min(progress.articlesIngested, 100);
-            execSync(`npx tsx scripts/fetch-pmc-fulltext.ts --limit ${fetchLimit} --format pdf`, {
+            execSync(fetchCmd, {
                 cwd: path.join(__dirname, '..'),
                 stdio: 'inherit'
             });
             console.log('\n✅ RAG document fetch complete!');
-            console.log('   Run backfill_gpu.py to process pending documents.');
         } catch (err: any) {
             console.error('\n⚠️ RAG document fetch failed:', err.message);
-            console.log('   You can run manually: npx tsx scripts/fetch-pmc-fulltext.ts --limit 100');
+        }
+    }
+
+    // ============================================
+    // GPU BACKFILL (Optional)
+    // ============================================
+    if (options.withGpu && !options.dryRun) {
+        console.log('\n' + '='.repeat(60));
+        console.log('TRIGGERING GPU VECTORIZATION');
+        console.log('='.repeat(60));
+
+        let gpuCmd = `python ../../rag-processing/backfill_gpu.py`;
+
+        if (options.startYear === options.endYear) {
+            gpuCmd += ` --year ${options.startYear}`;
+            if (options.month) {
+                gpuCmd += ` --month ${options.month}`;
+            }
+        }
+
+        console.log(`Running: ${gpuCmd}`);
+
+        const { execSync } = await import('child_process');
+        try {
+            execSync(gpuCmd, {
+                cwd: path.join(__dirname, '..'),
+                stdio: 'inherit'
+            });
+            console.log('\n✅ GPU vectorization complete!');
+        } catch (err: any) {
+            console.error('\n⚠️ GPU vectorization failed:', err.message);
         }
     }
 }
@@ -638,7 +702,8 @@ const options: BackfillOptions = {
     granular: false,
     useAI: false,
     local: false,
-    withRag: false
+    withRag: false,
+    withGpu: false
 };
 
 for (let i = 0; i < args.length; i++) {
@@ -653,6 +718,7 @@ for (let i = 0; i < args.length; i++) {
     if (args[i] === '--use-ai') options.useAI = true;
     if (args[i] === '--local') options.local = true;
     if (args[i] === '--with-rag') options.withRag = true;
+    if (args[i] === '--gpu') options.withGpu = true;
 }
 
 // Handle defaults

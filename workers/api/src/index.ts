@@ -1056,29 +1056,31 @@ app.post('/api/documents/upload', async (c) => {
         const contentType = c.req.header('content-type') || '';
 
         let documentData: DocumentUploadRequest;
+        let formData: FormData | null = null;
         let fileBuffer: ArrayBuffer | null = null;
 
         if (contentType.includes('multipart/form-data')) {
             // Handle multipart form data (file upload)
-            const formData = await c.req.formData();
-            const file = formData.get('file') as File | null;
-            const metadata = formData.get('metadata') as string | null;
+            formData = await c.req.formData();
+            const file = formData.get('file');
 
-            if (!file) {
+            if (!file || typeof file === 'string') {
                 return c.json<DocumentUploadResponse>({
                     success: false,
                     error: 'No file provided'
                 }, 400);
             }
 
-            fileBuffer = await file.arrayBuffer();
+            // At this point file is definitely a File object
+            const fileObj = file as unknown as File;
+            const metadata = formData.get('metadata') as string | null;
             documentData = metadata ? JSON.parse(metadata) : {};
-            documentData.filename = documentData.filename || file.name;
-            documentData.fileSize = fileBuffer.byteLength;
+            documentData.filename = documentData.filename || fileObj.name;
+            documentData.fileSize = fileObj.size;
 
             // Detect format from file extension
             if (!documentData.format) {
-                const ext = file.name.split('.').pop()?.toLowerCase();
+                const ext = fileObj.name.split('.').pop()?.toLowerCase();
                 if (ext === 'pdf') documentData.format = 'pdf';
                 else if (ext === 'xml') documentData.format = 'xml';
                 else if (ext === 'txt') documentData.format = 'txt';
@@ -1119,12 +1121,28 @@ app.post('/api/documents/upload', async (c) => {
         const docId = crypto.randomUUID();
 
         // Determine R2 key path
-        const r2Key = documentData.pmcid
+        let r2Key = documentData.pmcid
             ? `pmc/${documentData.pmcid}/${documentData.filename}`
             : `uploads/${docId}/${documentData.filename}`;
 
+        // If status is skipped, use a special key path
+        if (documentData.status === 'skipped') {
+            const id = documentData.pmid || documentData.pmcid || docId;
+            r2Key = `skipped/${id}`;
+        }
+
         // Upload to R2 if we have file content
-        if (fileBuffer) {
+        if (formData) {
+            const file = formData.get('file') as unknown as File;
+            await c.env.DOCUMENTS.put(r2Key, file.stream(), {
+                customMetadata: {
+                    pmcid: documentData.pmcid || '',
+                    pmid: documentData.pmid || '',
+                    format: documentData.format,
+                    source: documentData.source
+                }
+            });
+        } else if (fileBuffer) {
             await c.env.DOCUMENTS.put(r2Key, fileBuffer, {
                 customMetadata: {
                     pmcid: documentData.pmcid || '',
@@ -1152,7 +1170,7 @@ app.post('/api/documents/upload', async (c) => {
             documentData.license || null,
             r2Key,
             documentData.fileSize || null,
-            fileBuffer ? 'pending' : 'awaiting_upload'
+            documentData.status || (fileBuffer || formData ? 'pending' : 'awaiting_upload')
         ).run();
 
         // Fetch the created document
