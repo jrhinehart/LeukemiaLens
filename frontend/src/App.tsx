@@ -41,6 +41,7 @@ interface Article {
   affiliations: string
   tags: string[]
   treatments?: { code: string, name: string, type: string }[]
+  full_text_type?: 'pdf' | 'xml' | null
 }
 
 // Helper component for highlighting text
@@ -242,7 +243,8 @@ function App() {
         authors: r.authors,
         journal: r.journal,
         affiliations: '',
-        tags: []
+        tags: [],
+        full_text_type: r.full_text_type
       }))
       setArticles(mapped)
     } catch (err: any) {
@@ -900,6 +902,22 @@ function App() {
                         <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
                           {article.journal}
                         </span>
+                        {article.full_text_type === 'pdf' && (
+                          <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-red-100 text-red-700 border border-red-200 flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                              <path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.38 2H4.5Zm0 1.5H11v3a1.5 1.5 0 0 0 1.5 1.5h3v8.5h-11v-13Zm10.121 3.5H12.5V3.879L14.621 7Z" clipRule="evenodd" />
+                            </svg>
+                            PDF
+                          </span>
+                        )}
+                        {article.full_text_type === 'xml' && (
+                          <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200 flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                              <path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 0 0 2 4.25v11.5A2.25 2.25 0 0 0 4.25 18h11.5A2.25 2.25 0 0 0 18 15.75V4.25A2.25 2.25 0 0 0 15.75 2H4.25Zm0 1.5h11.5a.75.75 0 0 1 .75.75v11.5a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V4.25a.75.75 0 0 1 .75-.75Zm3 3a.75.75 0 0 1 1.06 0L10 8.19l1.69-1.69a.75.75 0 1 1 1.06 1.06L11.06 9.25l1.69 1.69a.75.75 0 1 1-1.06 1.06L10 10.31l-1.69 1.69a.75.75 0 1 1-1.06-1.06l1.69-1.69-1.69-1.69a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                            </svg>
+                            XML
+                          </span>
+                        )}
                       </div>
                       <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2 break-words">
                         <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline">

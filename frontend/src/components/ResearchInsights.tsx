@@ -19,6 +19,7 @@ interface AnalyzedArticle {
     title: string
     year: string
     url?: string
+    hasFullText?: boolean
 }
 
 interface InsightEntry {
@@ -180,12 +181,20 @@ export function ResearchInsights({
                         setIsLoading(false)
                     } else if (insight.status === 'error') {
                         clearInterval(interval)
-                        setError(insight.error || 'The technical analysis encountered an error.')
+                        const serverError = insight.error || 'The technical analysis encountered an error.'
+                        setError(`Analysis failed: ${serverError} `)
                         setIsLoading(false)
                     }
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error('Polling error:', err)
+                // If it's a 4xx error (not found yet etc), we might want to keep polling
+                // but if it's a 500 or connection refused, we should eventually bail.
+                if (err.response?.status === 500) {
+                    clearInterval(interval)
+                    setError(`Server error during status check: ${err.response?.data?.error || err.message} `)
+                    setIsLoading(false)
+                }
             }
         }, 2000)
     }
@@ -238,11 +247,12 @@ export function ResearchInsights({
                     setBackendId(response.data.insightId)
                 }
             } else {
-                setError(response.data.error || 'Failed to initiate insights analysis')
+                setError(response.data.error || 'Failed to initiate insights analysis. Please try again.')
                 setIsLoading(false)
             }
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Failed to start analysis. The server might be busy.')
+            const errorMsg = err.response?.data?.error || err.message || 'Failed to start analysis. The server might be busy.'
+            setError(`Request failed: ${errorMsg} `)
             setIsLoading(false)
         }
     }
@@ -315,12 +325,12 @@ export function ResearchInsights({
         const filterSummary = viewingHistoryEntry?.filterSummary || generateFilterSummary(searchQuery, selectedFilters)
         const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 
-        let content = `LEUKEMIALENS RESEARCH INSIGHTS\nGenerated: ${date}\nInsight ID: ${backendId || 'Local-only'}\nQuery: ${filterSummary}\n\n${'─'.repeat(50)}\nINSIGHTS SUMMARY\n${'─'.repeat(50)}\n\n${summary}\n\n${'─'.repeat(50)}\nARTICLES ANALYZED (${analyzedArticles.length})\n${'─'.repeat(50)}\n`
+        let content = `LEUKEMIALENS RESEARCH INSIGHTS\nGenerated: ${date} \nInsight ID: ${backendId || 'Local-only'} \nQuery: ${filterSummary} \n\n${'─'.repeat(50)} \nINSIGHTS SUMMARY\n${'─'.repeat(50)} \n\n${summary} \n\n${'─'.repeat(50)} \nARTICLES ANALYZED(${analyzedArticles.length}) \n${'─'.repeat(50)} \n`
         analyzedArticles.forEach(a => {
-            content += `#${a.num}: ${a.title} (${a.year})\n`
+            content += `#${a.num}: ${a.title} (${a.year}) \n`
         })
 
-        content += `\n${'─'.repeat(50)}\n` + `FULL ARTICLE DATA (CSV FORMAT)\n` + `${'─'.repeat(50)}\n` + `PMID,Title,Authors,Journal,PubDate,Mutations,Diseases\n`
+        content += `\n${'─'.repeat(50)} \n` + `FULL ARTICLE DATA(CSV FORMAT) \n` + `${'─'.repeat(50)} \n` + `PMID, Title, Authors, Journal, PubDate, Mutations, Diseases\n`
         articles.slice(0, 50).forEach(a => {
             const row = [
                 a.pubmed_id || '',
@@ -774,9 +784,17 @@ export function ResearchInsights({
                                                                 <h4 className="text-sm font-semibold text-gray-900 group-hover:text-purple-700 transition-colors leading-snug break-words">
                                                                     {article.title}
                                                                 </h4>
-                                                                <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                                                                <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
                                                                     <span className="font-medium px-1.5 py-0.5 bg-gray-100 rounded">{article.year}</span>
-                                                                    <span className="flex items-center gap-1">
+                                                                    {article.hasFullText && (
+                                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wider">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-2.5 h-2.5">
+                                                                                <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
+                                                                            </svg>
+                                                                            Full-Text Reference
+                                                                        </span>
+                                                                    )}
+                                                                    <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                                                                         </svg>
@@ -869,19 +887,22 @@ export function ResearchInsights({
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </div >
 
                         {/* Footer */}
-                        {summary && (
-                            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-                                <p className="text-xs text-gray-500 text-center">
-                                    AI-generated summary based on article abstracts. Always verify findings with original sources.
-                                </p>
-                            </div>
-                        )}
-                    </div>
+                        {
+                            summary && (
+                                <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+                                    <p className="text-xs text-gray-500 text-center">
+                                        AI-generated summary based on article abstracts. Always verify findings with original sources.
+                                    </p>
+                                </div>
+                            )
+                        }
+                    </div >
                 </>
-            )}
+            )
+            }
         </>
     )
 }

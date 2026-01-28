@@ -141,6 +141,7 @@ app.get('/api/search', async (c) => {
         const batchSize = 50;
         const mutationsMap: Record<number, string[]> = {};
         const treatmentsMap: Record<number, any[]> = {};
+        const documentStatusMap: Record<string, string> = {}; // PMID -> format (pdf, xml)
 
         // Process study IDs in batches
         for (let i = 0; i < studyIds.length; i += batchSize) {
@@ -148,7 +149,7 @@ app.get('/api/search', async (c) => {
             const idsPlaceholder = batchIds.map(() => '?').join(',');
 
             try {
-                const [mutationsRes, treatmentsRes] = await Promise.all([
+                const [mutationsRes, treatmentsRes, documentsRes] = await Promise.all([
                     c.env.DB.prepare(`
                         SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
                     `).bind(...batchIds).run(),
@@ -157,7 +158,14 @@ app.get('/api/search', async (c) => {
                         FROM treatments tr 
                         JOIN ref_treatments rt ON tr.treatment_id = rt.id 
                         WHERE tr.study_id IN (${idsPlaceholder})
-                    `).bind(...batchIds).run()
+                    `).bind(...batchIds).run(),
+                    c.env.DB.prepare(`
+                        SELECT pmid, format FROM documents 
+                        WHERE pmid IN (${batchIds.map(() => '?').join(',')}) AND status = 'ready'
+                    `).bind(...batchIds.map(id => {
+                        const study: any = results.find((r: any) => r.id === id);
+                        return study?.source_id ? study.source_id.replace('PMID:', '') : '';
+                    }).filter(Boolean)).run()
                 ]);
 
                 // Merge batch results into maps
@@ -174,17 +182,26 @@ app.get('/api/search', async (c) => {
                         treatmentsMap[t.study_id].push({ code: t.code, name: t.name, type: t.type });
                     });
                 }
+                if (documentsRes.results) {
+                    documentsRes.results.forEach((d: any) => {
+                        documentStatusMap[d.pmid] = d.format;
+                    });
+                }
             } catch (batchError: any) {
                 console.error(`Batch query error for batch starting at ${i}, batchSize: ${batchIds.length}`, batchError);
                 throw new Error(`Batch query failed: ${batchError.message} (batch size: ${batchIds.length})`);
             }
         }
 
-        const enhancedResults = results.map((r: any) => ({
-            ...r,
-            mutations: mutationsMap[r.id] || [],
-            treatments: treatmentsMap[r.id] || []
-        }));
+        const enhancedResults = results.map((r: any) => {
+            const pmid = r.source_id ? r.source_id.replace('PMID:', '') : '';
+            return {
+                ...r,
+                mutations: mutationsMap[r.id] || [],
+                treatments: treatmentsMap[r.id] || [],
+                full_text_type: documentStatusMap[pmid] || null
+            };
+        });
 
         return c.json(enhancedResults);
     } catch (e: any) {
@@ -262,65 +279,86 @@ Rules:
 
 // AI-powered research insights summarization using Claude
 app.post('/api/summarize', async (c) => {
-    const body = await c.req.json().catch(() => ({}));
-    const { articles, query, filter_summary } = body;
-
-    if (!articles || !Array.isArray(articles) || articles.length === 0) {
-        return c.json({ error: 'No articles provided' }, 400);
-    }
-
-    const ip = c.req.header('cf-connecting-ip') || 'unknown';
-    const now = Math.floor(Date.now() / 1000);
-
-    // Quick rate limit check
     try {
-        const usage = await c.env.DB.prepare('SELECT count FROM api_usage WHERE ip = ? AND last_reset > ?')
-            .bind(ip, now - 3600).first<{ count: number }>();
-        if (usage && usage.count >= 25) {
-            return c.json({ error: 'Rate limit exceeded' }, 429);
+        const body = await c.req.json().catch(() => ({}));
+        const { articles, query, filter_summary } = body;
+
+        if (!articles || !Array.isArray(articles) || articles.length === 0) {
+            return c.json({ error: 'No articles provided' }, 400);
         }
-        await c.env.DB.prepare('INSERT INTO api_usage (ip, count, last_reset) VALUES (?, 1, ?) ON CONFLICT(ip) DO UPDATE SET count = api_usage.count + 1')
-            .bind(ip, now).run();
-    } catch (e) { }
 
-    const insightId = crypto.randomUUID();
-    const truncatedArticles = articles.slice(0, 50);
+        const ip = c.req.header('cf-connecting-ip') || 'unknown';
+        const now = Math.floor(Date.now() / 1000);
 
-    // Initial persistence with 'processing' status
-    try {
-        await c.env.DB.prepare(`
-            INSERT INTO insights (
-                id, query, filter_summary, summary,
-                article_count, analyzed_articles_json, is_rag_enhanced, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(
+        // Quick rate limit check
+        try {
+            const usage = await c.env.DB.prepare('SELECT count FROM api_usage WHERE ip = ? AND last_reset > ?')
+                .bind(ip, now - 3600).first<{ count: number }>();
+            if (usage && usage.count >= 25) {
+                return c.json({ error: 'Rate limit exceeded' }, 429);
+            }
+            await c.env.DB.prepare('INSERT INTO api_usage (ip, count, last_reset) VALUES (?, 1, ?) ON CONFLICT(ip) DO UPDATE SET count = api_usage.count + 1')
+                .bind(ip, now).run();
+        } catch (e) {
+            console.error('Rate limit DB error:', e);
+        }
+
+        let insightId;
+        try {
+            insightId = crypto.randomUUID();
+        } catch (e) {
+            insightId = Date.now().toString(36) + Math.random().toString(36).substring(2);
+            console.warn('crypto.randomUUID failed, using fallback:', insightId);
+        }
+
+        const truncatedArticles = articles.slice(0, 50);
+
+        // Defensive mapping for analyzed articles JSON
+        const analyzedBrief = JSON.stringify(truncatedArticles.map(a => ({
+            title: a.title || 'Untitled',
+            year: a.year || (a.pub_date && typeof a.pub_date === 'string' ? a.pub_date.substring(0, 4) : 'N/A')
+        })));
+
+        // Initial persistence with 'processing' status
+        try {
+            await c.env.DB.prepare(`
+                INSERT INTO insights (
+                    id, query, filter_summary, summary,
+                    article_count, analyzed_articles_json, is_rag_enhanced, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(
+                insightId,
+                query || 'General Search',
+                filter_summary || '',
+                '',
+                truncatedArticles.length,
+                analyzedBrief,
+                false,
+                'processing'
+            ).run();
+        } catch (e: any) {
+            console.error('Failed to initialize insight in DB:', e);
+            return c.json({ error: `Failed to initialize insight: ${e.message}` }, 500);
+        }
+
+        // Launch background orchestration
+        c.executionCtx.waitUntil(orchestrateMapReduceSummary(c, insightId, truncatedArticles, query));
+
+        return c.json({
+            success: true,
             insightId,
-            query || 'General Search',
-            filter_summary || '',
-            '',
-            truncatedArticles.length,
-            JSON.stringify(truncatedArticles.map(a => ({ title: a.title, year: a.year || a.pub_date?.substring(0, 4) }))),
-            false,
-            'processing'
-        ).run();
-    } catch (e: any) {
-        return c.json({ error: 'Failed to initialize insight' }, 500);
+            status: 'processing'
+        });
+    } catch (globalError: any) {
+        console.error('Global /api/summarize error:', globalError);
+        return c.json({ error: `Internal server error: ${globalError.message}` }, 500);
     }
-
-    // Launch background orchestration
-    c.executionCtx.waitUntil(orchestrateMapReduceSummary(c, insightId, truncatedArticles, query));
-
-    return c.json({
-        success: true,
-        insightId,
-        status: 'processing'
-    });
 });
 
 async function orchestrateMapReduceSummary(c: any, insightId: string, articles: any[], query: string | undefined) {
     const anthropic = new Anthropic({ apiKey: c.env.ANTHROPIC_API_KEY });
     const batchSize = 10;
-    const batches = [];
+    const batches: any[] = [];
     for (let i = 0; i < articles.length; i += batchSize) {
         batches.push(articles.slice(i, i + batchSize));
     }
@@ -331,7 +369,7 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
             const startIdx = bIdx * batchSize;
 
             // For each batch, check for available full-text data
-            const batchPmids = batch.map(a => a.pubmed_id || a.pmid || '').filter(Boolean);
+            const batchPmids = batch.map((a: any) => a.pubmed_id || a.pmid || '').filter(Boolean);
             let technicalContext = '';
             let docsWithFullText = 0;
 
@@ -343,6 +381,7 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
 
                 if (fullTextDocs && fullTextDocs.length > 0) {
                     docsWithFullText = fullTextDocs.length;
+                    const fullTextPmidsInBatch = fullTextDocs.map((d: any) => d.pmid);
                     const docIds = fullTextDocs.map((d: any) => d.id);
                     const { results: chunks } = await c.env.DB.prepare(`
                         SELECT document_id, content FROM chunks 
@@ -353,21 +392,29 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
                         technicalContext = "\nFULL-TEXT EXCERPTS:\n";
                         fullTextDocs.forEach((doc: any) => {
                             const docChunks = chunks.filter((ch: any) => ch.document_id === doc.id);
-                            technicalContext += `Ref [#${articles.indexOf(batch.find(a => (a.pubmed_id || a.pmid || a.pubmedId) === doc.pmid)) + 1}]:\n`;
+                            technicalContext += `Ref [#${articles.indexOf(batch.find((a: any) => (a.pubmed_id || a.pmid || a.pubmedId) === doc.pmid)) + 1}]:\n`;
                             docChunks.forEach((ch: any) => technicalContext += `${ch.content}\n`);
                         });
                     }
+                    return { text: '', hasFullText: docsWithFullText > 0, fullTextPmids: fullTextPmidsInBatch, technicalContext, docsWithFullText };
                 }
             }
 
-            const batchContent = batch.map((a, idx) => `
+            return { text: '', hasFullText: false, fullTextPmids: [], technicalContext: '', docsWithFullText: 0 };
+        })).then(async (preBatchResults) => {
+            // Now actually run the Anthropic calls using the gathered context
+            return await Promise.all((batches as any[]).map(async (batch: any[], bIdx: number) => {
+                const { technicalContext, docsWithFullText, fullTextPmids } = preBatchResults[bIdx];
+                const startIdx = bIdx * batchSize;
+
+                const batchContent = batch.map((a: any, idx: number) => `
 Article [#${startIdx + idx + 1}]:
 Title: ${a.title}
 Abstract: ${a.abstract || 'N/A'}
 Year: ${a.year || a.pub_date?.substring(0, 4)}
 `).join('\n---\n');
 
-            const mapPrompt = `You are a scientific analyst. Extract precise metrics (ORR, OS, hazard ratios, p-values), key molecular findings, and trial designs for the following leukemia research articles. 
+                const mapPrompt = `You are a scientific analyst. Extract precise metrics (ORR, OS, hazard ratios, p-values), key molecular findings, and trial designs for the following leukemia research articles. 
 Be technical, dense, and concise. Cite article numbers [#N] for every data point. Include findings from both abstracts and any provided full-text excerpts.
 
 ARTICLES:
@@ -377,20 +424,30 @@ ${technicalContext}
 
 Provide a dense bulleted list of technical highlights for this batch.`;
 
-            const response = await anthropic.messages.create({
-                model: 'claude-3-5-sonnet-latest',
-                max_tokens: 2048,
-                messages: [{ role: 'user', content: mapPrompt }],
-                system: "Scientific data extractor. Output only technical highlights with citations."
-            });
+                const response = await anthropic.messages.create({
+                    model: 'claude-3-5-sonnet-latest',
+                    max_tokens: 2048,
+                    messages: [{ role: 'user', content: mapPrompt }],
+                    system: "Scientific data extractor. Output only technical highlights with citations."
+                });
 
-            const text = (response.content[0] as any).text || '';
-            return { text, hasFullText: docsWithFullText > 0 };
-        }));
+                const text = (response.content[0] as any).text || '';
+                return { text, hasFullText: docsWithFullText > 0, fullTextPmids: preBatchResults[bIdx].fullTextPmids };
+            }));
+        });
 
         // Step 2: Global Synthesis (Reduce Phase)
         const combinedHighlights = batchResults.map((r, i) => `BATCH ${i + 1} HIGHLIGHTS:\n${r.text}`).join('\n\n');
         const totalFullText = batchResults.some(r => r.hasFullText);
+        const allFullTextPmids = new Set<string>();
+        batchResults.forEach(r => r.fullTextPmids?.forEach((p: string) => allFullTextPmids.add(p)));
+
+        const updatedAnalyzedArticles = articles.map((a, i) => ({
+            num: i + 1,
+            title: a.title || 'Untitled',
+            year: a.year || (a.pub_date && typeof a.pub_date === 'string' ? a.pub_date.substring(0, 4) : 'N/A'),
+            hasFullText: allFullTextPmids.has(a.pubmed_id || a.pmid || '')
+        }));
 
         const reducePrompt = `You are a medical research synthesis expert specializing in hematological malignancies. I will provide you with technical summary highlights for 50 articles. 
 Your task is to synthesize these into a single, cohesive, high-level scientific report.
@@ -427,14 +484,18 @@ ${query ? `CONTEXT QUERY: ${query}` : ''}`;
 
         // Update persistence
         await c.env.DB.prepare(`
-            UPDATE insights SET summary = ?, is_rag_enhanced = ?, status = 'completed' WHERE id = ?
-        `).bind(summary, totalFullText ? 1 : 0, insightId).run();
+            UPDATE insights SET summary = ?, is_rag_enhanced = ?, status = 'completed', error = NULL, analyzed_articles_json = ? WHERE id = ?
+        `).bind(summary, totalFullText ? 1 : 0, JSON.stringify(updatedAnalyzedArticles), insightId).run();
 
     } catch (e: any) {
-        console.error('Map-Reduce Orchestration Error:', e);
-        await c.env.DB.prepare(`
-            UPDATE insights SET status = 'error', error = ? WHERE id = ?
-        `).bind(e.message, insightId).run();
+        console.error(`Map-Reduce Orchestration Error [ID: ${insightId}]:`, e);
+        try {
+            await c.env.DB.prepare(`
+                UPDATE insights SET status = 'error', error = ? WHERE id = ?
+            `).bind(`${e.name}: ${e.message}`, insightId).run();
+        } catch (dbError) {
+            console.error('Failed to update error status in DB:', dbError);
+        }
     }
 }
 
