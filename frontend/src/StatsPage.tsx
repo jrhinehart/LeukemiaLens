@@ -198,7 +198,7 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
                                 color="purple"
                             />
                             <StatCard
-                                title="Ready RAG"
+                                title="AI Ready"
                                 value={ragStats?.readyDocuments.toLocaleString() || '0'}
                                 icon="🤖"
                                 color="blue"

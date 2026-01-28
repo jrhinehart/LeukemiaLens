@@ -112,19 +112,19 @@ Ensure CUDA is properly installed: `python -c "import torch; print(torch.cuda.is
 ### Connection errors
 Check that your API token has the correct permissions and the API URL is accessible.
 
-## Deployment to Unraid
+## Deployment to Local Machine
 
-### Step 1: Copy files to Unraid
+### Step 1: Copy files to local machine
 
 ```bash
 # From your local machine
-scp -r rag-processing/ unraid:/mnt/user/appdata/leukemialens-rag/
+scp -r rag-processing/ /mnt/user/appdata/leukemialens-rag/
 ```
 
 ### Step 2: Create environment file
 
 ```bash
-# On Unraid
+# On local machine
 cd /mnt/user/appdata/leukemialens-rag
 cp .env.example .env
 nano .env

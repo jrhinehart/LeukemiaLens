@@ -5,7 +5,7 @@ import { AboutPage, ContactPage, ResourcesPage } from './Pages'
 import { StatsPage } from './StatsPage'
 import { LandingPage } from './LandingPage'
 import { DiseasePage } from './DiseasePage'
-import { BloodCellProductionPage, MutationsPage, RiskStratificationPage, StemCellTransplantPage } from './EducationPages'
+import { BloodCellProductionPage, MutationsPage, RiskStratificationPage, StemCellTransplantPage, LabResultsPage, ClinicalTrialsPage } from './EducationPages'
 import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput, ResearchInsights } from './components'
 import type { ParsedFilters } from './components'
 
@@ -65,7 +65,7 @@ const HighlightText = ({ text, highlight }: { text: string, highlight: string })
 
 function App() {
   // Page routing - check URL pathname
-  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats' | 'search' | 'myeloid' | 'lymphoid' | 'myeloma' | 'learn-blood-cells' | 'learn-mutations' | 'learn-risk' | 'learn-transplant'>(() => {
+  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats' | 'search' | 'myeloid' | 'lymphoid' | 'myeloma' | 'learn-blood-cells' | 'learn-mutations' | 'learn-risk' | 'learn-transplant' | 'learn-lab-results' | 'learn-clinical-trials'>(() => {
     const path = window.location.pathname
     if (path === '/stats') return 'stats'
     if (path === '/about') return 'about'
@@ -79,6 +79,8 @@ function App() {
     if (path === '/learn/mutations') return 'learn-mutations'
     if (path === '/learn/risk') return 'learn-risk'
     if (path === '/learn/transplant') return 'learn-transplant'
+    if (path === '/learn/lab-results') return 'learn-lab-results'
+    if (path === '/learn/clinical-trials') return 'learn-clinical-trials'
     return 'home'
   })
 
@@ -99,6 +101,8 @@ function App() {
       else if (path === '/learn/mutations') setCurrentPage('learn-mutations')
       else if (path === '/learn/risk') setCurrentPage('learn-risk')
       else if (path === '/learn/transplant') setCurrentPage('learn-transplant')
+      else if (path === '/learn/lab-results') setCurrentPage('learn-lab-results')
+      else if (path === '/learn/clinical-trials') setCurrentPage('learn-clinical-trials')
       else setCurrentPage('home')
     }
 
@@ -391,6 +395,22 @@ function App() {
   if (currentPage === 'learn-transplant') {
     return (
       <StemCellTransplantPage
+        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
+        onNavigateToLearn={navigateToLearn}
+      />
+    );
+  }
+  if (currentPage === 'learn-lab-results') {
+    return (
+      <LabResultsPage
+        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
+        onNavigateToLearn={navigateToLearn}
+      />
+    );
+  }
+  if (currentPage === 'learn-clinical-trials') {
+    return (
+      <ClinicalTrialsPage
         onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
         onNavigateToLearn={navigateToLearn}
       />

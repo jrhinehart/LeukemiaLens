@@ -37,3 +37,14 @@ Scripts will automatically load from `.env` file or use the provided defaults.
 # Load .env and run backfill
 npx tsx scripts/backfill-production.ts --start-year 2000 --end-year 2005
 ```
+
+### Full RAG Backfill (Recommended for large datasets)
+
+   Backfill Production DB and kick off Full-text Fetching and GPU Processing.
+   --with-rag - enables RAG processing
+   --gpu - enables GPU processing
+
+```bash
+# Load .env and run backfill
+npx tsx scripts/backfill-production.ts --local --start-year 2025 --month 3 --with-rag --gpu
+```

@@ -167,7 +167,7 @@ Document Sources              Local Processing               Cloud Services
                                    ▼                            ▼
                            ┌───────────────┐            ┌─────────────────┐
                            │ Vectorize     │◀──────────▶│ Query Worker    │
-                           │ (384-dim)     │            │ + Claude API    │
+                           │ (768-dim)     │            │ + Claude API    │
                            └───────────────┘            └─────────────────┘
 ```
 

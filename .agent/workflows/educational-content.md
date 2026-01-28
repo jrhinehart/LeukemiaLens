@@ -17,16 +17,16 @@ This agent owns the **patient education section** of LeukemiaLens, focused on he
 
 | Topic | Route | Component | Status |
 |-------|-------|-----------|--------|
-| Blood Cell Production | `/learn/blood-cells` | `BloodCellProductionPage` | ✅ Complete |
-| Mutations | `/learn/mutations` | `MutationsPage` | ✅ Complete |
-| Risk Stratification | `/learn/risk` | `RiskStratificationPage` | ✅ Complete |
-| Stem Cell Transplants | `/learn/transplant` | `StemCellTransplantPage` | ✅ Complete |
+| Blood Cell Production | `/learn/blood-cells` | `BloodCellProductionPage` | ✅ Complete (Expanded) |
+| Mutations | `/learn/mutations` | `MutationsPage` | ✅ Complete (Expanded) |
+| Risk Stratification | `/learn/risk` | `RiskStratificationPage` | ✅ Complete (Expanded) |
+| Stem Cell Transplants | `/learn/transplant` | `StemCellTransplantPage` | ✅ Complete (Expanded) |
+| Understanding Lab Results | `/learn/lab-results` | `LabResultsPage` | ✅ Complete |
+| Clinical Trial Basics | `/learn/clinical-trials` | `ClinicalTrialsPage` | ✅ Complete |
 
 ## Planned Pages to Add
 
-- [ ] Understanding Your Lab Results
 - [ ] Preparing for Treatment
-- [ ] Clinical Trial Basics
 - [ ] Living with Blood Cancer
 - [ ] Nutrition During Treatment
 - [ ] Managing Side Effects

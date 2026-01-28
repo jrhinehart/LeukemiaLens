@@ -16,9 +16,12 @@ export const AboutPage = ({ onNavigateHome }: PageProps) => {
                     <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Mission</h2>
                     <div className="prose prose-lg max-w-none">
                         <p className="text-gray-700 leading-relaxed mb-4">
-                            LeukemiaLens is intended to empower researchers and clinicians by aggregating the latest scientific findings from PubMed.
-                            We categorize articles by mutations, diseases, and topics to help you discover insights faster.
-                            Along with that, we also want to provide additional resources to the leukemia and bone marrow transplant community.
+                            LeukemiaLens is intended to empower researchers and clinicians by aggregating the latest scientific findings about Leukemia of all sorts from PubMed.
+                            We categorize articles by mutations, diseases, and topics to help you drill down faster, then use cutting edge AI to provide you with a summary of the articles and ask further questions.
+                        </p>
+                        <p className="text-gray-700 leading-relaxed">
+                            Along with that, we also want to provide additional learning resources to the leukemia and bone marrow transplant community.
+                            We are currently working on a series of articles that will provide a comprehensive overview of leukemia and bone marrow transplant.
                         </p>
                         <p className="text-gray-700 leading-relaxed">
                             My name is Josh Rhinehart, and I am the creator of LeukemiaLens.
@@ -183,6 +186,79 @@ export const ResourcesPage = ({ onNavigateHome }: PageProps) => {
                 <p className="text-lg text-gray-600 mb-10">
                     A curated collection of databases, organizations, and tools for researchers, clinicians, and patients.
                 </p>
+
+                {/* Learning Center - Educational Content */}
+                <section className="mb-10">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                        <span className="text-3xl">📚</span>
+                        Learning Center
+                    </h2>
+                    <p className="text-gray-600 mb-4">
+                        Educational resources designed to help newly diagnosed patients and caregivers understand blood cancer fundamentals.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <a
+                            href="/learn/blood-cells"
+                            className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-red-300 hover:shadow-md transition-all group"
+                        >
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="text-2xl">🩸</span>
+                                <h3 className="font-semibold text-gray-900 group-hover:text-red-600">Blood Cell Production</h3>
+                            </div>
+                            <p className="text-sm text-gray-600">Understanding how blood cells are made and what goes wrong in leukemia.</p>
+                        </a>
+                        <a
+                            href="/learn/mutations"
+                            className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-green-300 hover:shadow-md transition-all group"
+                        >
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="text-2xl">🧬</span>
+                                <h3 className="font-semibold text-gray-900 group-hover:text-green-600">Mutations</h3>
+                            </div>
+                            <p className="text-sm text-gray-600">Learn about common genetic mutations and how they affect treatment.</p>
+                        </a>
+                        <a
+                            href="/learn/risk"
+                            className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all group"
+                        >
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="text-2xl">📊</span>
+                                <h3 className="font-semibold text-gray-900 group-hover:text-blue-600">Risk Stratification</h3>
+                            </div>
+                            <p className="text-sm text-gray-600">How doctors categorize risk to personalize your treatment plan.</p>
+                        </a>
+                        <a
+                            href="/learn/transplant"
+                            className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all group"
+                        >
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="text-2xl">🏥</span>
+                                <h3 className="font-semibold text-gray-900 group-hover:text-purple-600">Stem Cell Transplants</h3>
+                            </div>
+                            <p className="text-sm text-gray-600">What to expect before, during, and after a transplant.</p>
+                        </a>
+                        <a
+                            href="/learn/lab-results"
+                            className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-amber-300 hover:shadow-md transition-all group"
+                        >
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="text-2xl">🔬</span>
+                                <h3 className="font-semibold text-gray-900 group-hover:text-amber-600">Lab Results</h3>
+                            </div>
+                            <p className="text-sm text-gray-600">Understanding your CBC, differential, and other common blood tests.</p>
+                        </a>
+                        <a
+                            href="/learn/clinical-trials"
+                            className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-teal-300 hover:shadow-md transition-all group"
+                        >
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="text-2xl">🧪</span>
+                                <h3 className="font-semibold text-gray-900 group-hover:text-teal-600">Clinical Trials</h3>
+                            </div>
+                            <p className="text-sm text-gray-600">How trials work, where to find them, and questions to ask.</p>
+                        </a>
+                    </div>
+                </section>
 
                 {/* Cancer Genomic Databases */}
                 <section className="mb-10">
