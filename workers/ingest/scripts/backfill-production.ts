@@ -73,6 +73,7 @@ interface BackfillOptions {
     local: boolean;
     withRag: boolean;  // Trigger RAG document fetch after backfill
     withGpu: boolean;  // Trigger GPU backfill after document fetch
+    workers: number;   // Number of parallel workers for GPU processing
 }
 
 interface BackfillProgress {
@@ -583,6 +584,7 @@ async function backfillProduction(options: BackfillOptions) {
     if (options.limit) console.log(`Limit:      ${options.limit} articles per segment`);
     console.log(`RAG Fetch:  ${options.withRag ? 'YES' : 'NO'}`);
     console.log(`GPU Vector: ${options.withGpu ? 'YES' : 'NO'}`);
+    if (options.withGpu) console.log(`Workers:    ${options.workers}`);
     console.log(`API Key:    ${NCBI_API_KEY ? 'YES (10 req/s)' : 'NO (3 req/s)'}`);
     console.log('='.repeat(60));
 
@@ -633,7 +635,8 @@ async function backfillProduction(options: BackfillOptions) {
         console.log('TRIGGERING RAG DOCUMENT FETCH');
         console.log('='.repeat(60));
 
-        let fetchCmd = `npx tsx scripts/fetch-pmc-fulltext.ts --limit ${Math.max(progress.articlesIngested, 100)}`;
+        let fetchLimit = options.limit || Math.max(progress.articlesIngested, 1000);
+        let fetchCmd = `npx tsx scripts/fetch-pmc-fulltext.ts --limit ${fetchLimit}`;
 
         // Pass date filters if we were running for a specific segment
         if (options.startYear === options.endYear) {
@@ -674,6 +677,9 @@ async function backfillProduction(options: BackfillOptions) {
             }
         }
 
+        gpuCmd += ` --workers ${options.workers}`;
+        gpuCmd += ` --resume`;
+
         console.log(`Running: ${gpuCmd}`);
 
         const { execSync } = await import('child_process');
@@ -703,7 +709,8 @@ const options: BackfillOptions = {
     useAI: false,
     local: false,
     withRag: false,
-    withGpu: false
+    withGpu: false,
+    workers: 4
 };
 
 for (let i = 0; i < args.length; i++) {
@@ -719,6 +726,7 @@ for (let i = 0; i < args.length; i++) {
     if (args[i] === '--local') options.local = true;
     if (args[i] === '--with-rag') options.withRag = true;
     if (args[i] === '--gpu') options.withGpu = true;
+    if (args[i] === '--workers' && args[i + 1]) options.workers = parseInt(args[i + 1]);
 }
 
 // Handle defaults
