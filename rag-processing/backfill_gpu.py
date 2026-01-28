@@ -18,10 +18,12 @@ import json
 import time
 import argparse
 import logging
+import threading
 from typing import List, Optional
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from dotenv import load_dotenv
@@ -72,7 +74,19 @@ class BackfillStats:
     chunks_created: int
     vectors_uploaded: int
     last_document_id: Optional[str]
+    _lock = threading.Lock()
     
+    def update(self, success: bool, chunks: int = 0, vectors: int = 0, doc_id: str = None):
+        with self._lock:
+            if success:
+                self.documents_processed += 1
+            else:
+                self.documents_failed += 1
+            self.chunks_created += chunks
+            self.vectors_uploaded += vectors
+            if doc_id:
+                self.last_document_id = doc_id
+
     def save(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w') as f:
@@ -320,14 +334,14 @@ def process_document(doc: Document, data_dir: Path, stats: BackfillStats) -> boo
         update_study_metadata(doc.study_id, doc.pmid, doc.pmcid)
         
         # Update stats
-        stats.chunks_created += len(chunks)
-        stats.vectors_uploaded += len(embeddings)
+        stats.update(True, chunks=len(chunks), vectors=len(embeddings), doc_id=doc.id)
         
         return True
         
     except Exception as e:
         logger.exception(f"Error processing {doc.id}: {e}")
         update_document_status(doc.id, 'error', error=str(e))
+        stats.update(False, doc_id=doc.id)
         return False
     
     finally:
@@ -343,6 +357,7 @@ def main():
     parser.add_argument('--resume', action='store_true', help='Resume from last checkpoint')
     parser.add_argument('--dry-run', action='store_true', help='List documents without processing')
     parser.add_argument('--clear-checkpoint', action='store_true', help='Clear checkpoint and start fresh')
+    parser.add_argument('--workers', type=int, default=1, help='Number of parallel workers (default: 1)')
     args = parser.parse_args()
     
     print("=" * 70)
@@ -355,6 +370,7 @@ def main():
     if args.year:
         date_str = f"{args.year}-{str(args.month).zfill(2)}" if args.month else str(args.year)
         print(f"  Date Filter: {date_str}")
+    print(f"  Workers: {args.workers}")
     print("=" * 70)
     
     # Handle checkpoint
@@ -415,19 +431,20 @@ def main():
     print("\n🚀 Starting processing...\n")
     start_time = time.time()
     
-    for doc in tqdm(documents, desc="Processing", unit="doc"):
-        success = process_document(doc, data_dir, stats)
-        
-        if success:
-            stats.documents_processed += 1
-        else:
-            stats.documents_failed += 1
-        
-        stats.last_document_id = doc.id
-        
-        # Save checkpoint every 10 documents
-        if (stats.documents_processed + stats.documents_failed) % 10 == 0:
-            stats.save(CHECKPOINT_FILE)
+    if args.workers > 1:
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            # Wrap the executor map with tqdm to track overall progress
+            list(tqdm(executor.map(lambda d: process_document(d, data_dir, stats), documents), 
+                     total=len(documents), desc="Processing", unit="doc"))
+            # Note: with threading, checkpointing every 10 is harder but we save at the end
+            # and stats are updated with a lock.
+    else:
+        for doc in tqdm(documents, desc="Processing", unit="doc"):
+            success = process_document(doc, data_dir, stats)
+            
+            # Save checkpoint every 10 documents
+            if (stats.documents_processed + stats.documents_failed) % 10 == 0:
+                stats.save(CHECKPOINT_FILE)
     
     # Final checkpoint save
     stats.save(CHECKPOINT_FILE)
