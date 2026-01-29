@@ -442,19 +442,45 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
                     docsWithFullText = fullTextDocs.length;
                     const fullTextPmidsInBatch = fullTextDocs.map((d: any) => d.pmid);
                     const docIds = fullTextDocs.map((d: any) => d.id);
-                    const { results: chunks } = await c.env.DB.prepare(`
-                        SELECT document_id, content FROM chunks 
+
+                    // Fetch chunk metadata for context window (first 5 chunks)
+                    const { results: chunksMetadata } = await c.env.DB.prepare(`
+                        SELECT id, document_id, content, chunk_index FROM chunks 
                         WHERE document_id IN (${docIds.map(() => '?').join(',')}) AND chunk_index < 5
                     `).bind(...docIds).run();
 
-                    if (chunks && chunks.length > 0) {
-                        technicalContext = "\nFULL-TEXT EXCERPTS:\n";
-                        fullTextDocs.forEach((doc: any) => {
-                            const docChunks = chunks.filter((ch: any) => ch.document_id === doc.id);
-                            technicalContext += `Ref [#${articles.indexOf(batch.find((a: any) => (a.pubmed_id || a.pmid || a.pubmedId) === doc.pmid)) + 1}]:\n`;
-                            docChunks.forEach((ch: any) => technicalContext += `${ch.content}\n`);
-                        });
+                    // Fetch content from R2 for each doc in batch (if available)
+                    technicalContext = "\nFULL-TEXT EXCERPTS (TOP 5 CHUNKS):\n";
+                    for (const doc of fullTextDocs) {
+                        let docContent = "";
+
+                        // Try R2 first
+                        try {
+                            const r2Key = `chunks/${doc.id}.json`;
+                            const object = await c.env.DOCUMENTS.get(r2Key);
+                            if (object) {
+                                const data: any = await object.json();
+                                if (data && data.chunks) {
+                                    // Take first 5 chunks for summary
+                                    docContent = data.chunks.slice(0, 5).map((ch: any) => ch.content).join("\n");
+                                }
+                            }
+                        } catch (e) {
+                            console.warn(`[Insights] Failed to fetch R2 content for ${doc.id}:`, e);
+                        }
+
+                        // Fallback to D1 metadata if R2 was empty/failed
+                        if (!docContent && chunksMetadata) {
+                            const docChunks = (chunksMetadata as any[]).filter(ch => ch.document_id === doc.id);
+                            docContent = docChunks.map(ch => ch.content).filter(Boolean).join("\n");
+                        }
+
+                        if (docContent) {
+                            const articleNum = articles.findIndex(a => (a.pubmed_id || a.pmid) === doc.pmid) + 1;
+                            technicalContext += `Ref [#${articleNum}]:\n${docContent}\n\n`;
+                        }
                     }
+
                     return { text: '', hasFullText: docsWithFullText > 0, fullTextPmids: fullTextPmidsInBatch, technicalContext, docsWithFullText };
                 }
             }
