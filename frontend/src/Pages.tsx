@@ -178,7 +178,7 @@ export const ContactPage = ({ onNavigateHome }: PageProps) => {
     )
 }
 
-export const ResourcesPage = ({ onNavigateHome }: PageProps) => {
+export const ResourcesPage = ({ onNavigateHome, onNavigateToLearn }: PageProps & { onNavigateToLearn: (topic: string) => void }) => {
     return (
         <div className="min-h-screen flex flex-col bg-gray-100">
             <PageHeader title="Research Resources" onNavigateHome={onNavigateHome} />
@@ -199,6 +199,7 @@ export const ResourcesPage = ({ onNavigateHome }: PageProps) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <a
                             href="/learn/blood-cells"
+                            onClick={(e) => { e.preventDefault(); onNavigateToLearn('blood-cells'); }}
                             className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-red-300 hover:shadow-md transition-all group"
                         >
                             <div className="flex items-center gap-3 mb-2">
@@ -209,6 +210,7 @@ export const ResourcesPage = ({ onNavigateHome }: PageProps) => {
                         </a>
                         <a
                             href="/learn/mutations"
+                            onClick={(e) => { e.preventDefault(); onNavigateToLearn('mutations'); }}
                             className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-green-300 hover:shadow-md transition-all group"
                         >
                             <div className="flex items-center gap-3 mb-2">
@@ -219,6 +221,7 @@ export const ResourcesPage = ({ onNavigateHome }: PageProps) => {
                         </a>
                         <a
                             href="/learn/risk"
+                            onClick={(e) => { e.preventDefault(); onNavigateToLearn('risk'); }}
                             className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all group"
                         >
                             <div className="flex items-center gap-3 mb-2">
@@ -229,6 +232,7 @@ export const ResourcesPage = ({ onNavigateHome }: PageProps) => {
                         </a>
                         <a
                             href="/learn/transplant"
+                            onClick={(e) => { e.preventDefault(); onNavigateToLearn('transplant'); }}
                             className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all group"
                         >
                             <div className="flex items-center gap-3 mb-2">
@@ -239,6 +243,7 @@ export const ResourcesPage = ({ onNavigateHome }: PageProps) => {
                         </a>
                         <a
                             href="/learn/lab-results"
+                            onClick={(e) => { e.preventDefault(); onNavigateToLearn('lab-results'); }}
                             className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-amber-300 hover:shadow-md transition-all group"
                         >
                             <div className="flex items-center gap-3 mb-2">
@@ -249,6 +254,7 @@ export const ResourcesPage = ({ onNavigateHome }: PageProps) => {
                         </a>
                         <a
                             href="/learn/clinical-trials"
+                            onClick={(e) => { e.preventDefault(); onNavigateToLearn('clinical-trials'); }}
                             className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-teal-300 hover:shadow-md transition-all group"
                         >
                             <div className="flex items-center gap-3 mb-2">

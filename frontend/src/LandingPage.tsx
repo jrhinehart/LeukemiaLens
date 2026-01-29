@@ -25,6 +25,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToDisease, o
         <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-50">
             {/* Hero Section */}
             <header className="relative bg-gradient-to-r from-blue-950 via-blue-700 to-blue-500 text-white overflow-hidden">
+                {/* Top Navigation */}
+                <nav className="absolute top-4 right-4 sm:right-8 flex gap-6 text-sm font-medium z-30">
+                    <button onClick={() => onNavigateToPage('about')} className="text-blue-100 hover:text-white transition-colors cursor-pointer">About</button>
+                    <button onClick={() => onNavigateToPage('contact')} className="text-blue-100 hover:text-white transition-colors cursor-pointer">Contact</button>
+                    <button onClick={() => onNavigateToPage('resources')} className="text-blue-100 hover:text-white transition-colors cursor-pointer">Resources</button>
+                    <button onClick={() => onNavigateToPage('stats')} className="text-blue-100 hover:text-white transition-colors cursor-pointer">Stats</button>
+                </nav>
+
                 <div className="absolute inset-0 opacity-10">
                     <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                         <path d="M0 100 C 20 0 50 0 100 100 Z" fill="currentColor" />
@@ -151,41 +159,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToDisease, o
                     </button>
                 </div>
 
-                {/* For Newly Diagnosed Patients */}
+                {/* Patient Resources Section */}
                 <section className="mt-16 bg-gradient-to-br from-purple-50 to-blue-50 rounded-[2.5rem] p-8 border border-purple-100">
-                    <div className="max-w-3xl mx-auto text-center">
+                    <div className="max-w-4xl mx-auto text-center">
                         <span className="text-5xl mb-4 block">💜</span>
-                        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">For Newly Diagnosed Patients</h2>
-                        <p className="text-gray-700 text-lg leading-relaxed mb-6">
-                            Navigating a new diagnosis is a challenging time for patients, as well as family and friends.
-                            Blood production is also more complicated than many people think, so here are some resources to
-                            learn more about how hematopoiesis works, and some of the language you will hear in discussing
-                            blood cancers with your medical providers.
+                        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">Patient & Caregiver Resources</h2>
+                        <p className="text-gray-700 text-lg leading-relaxed mb-8 max-w-3xl mx-auto">
+                            Navigating a leukemia diagnosis and treatment is a challenging journey.
+                            We provide clear, accessible resources to help you understand blood production,
+                            genetic mutations, transplant procedures, and how to interpret your medical reports.
                         </p>
-                        <div className="flex flex-wrap justify-center gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                             <button
                                 onClick={() => onNavigateToLearn('blood-cells')}
-                                className="flex items-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-purple-100 hover:text-purple-800 transition-colors shadow-sm border border-gray-200"
+                                className="flex items-center justify-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-red-50 hover:text-red-700 transition-colors shadow-sm border border-gray-100"
                             >
-                                <span className="text-xl">🩸</span> Blood Cell Production
+                                <span className="text-xl">🩸</span> Blood Production
                             </button>
                             <button
                                 onClick={() => onNavigateToLearn('mutations')}
-                                className="flex items-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-purple-100 hover:text-purple-800 transition-colors shadow-sm border border-gray-200"
+                                className="flex items-center justify-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-green-50 hover:text-green-700 transition-colors shadow-sm border border-gray-100"
                             >
                                 <span className="text-xl">🧬</span> Mutations
                             </button>
                             <button
                                 onClick={() => onNavigateToLearn('risk')}
-                                className="flex items-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-purple-100 hover:text-purple-800 transition-colors shadow-sm border border-gray-200"
+                                className="flex items-center justify-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-blue-50 hover:text-blue-700 transition-colors shadow-sm border border-gray-100"
                             >
-                                <span className="text-xl">📊</span> Risk Stratification
+                                <span className="text-xl">📊</span> Risk Assessment
                             </button>
                             <button
                                 onClick={() => onNavigateToLearn('transplant')}
-                                className="flex items-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-purple-100 hover:text-purple-800 transition-colors shadow-sm border border-gray-200"
+                                className="flex items-center justify-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-purple-50 hover:text-purple-700 transition-colors shadow-sm border border-gray-100"
                             >
-                                <span className="text-xl">🏥</span> Stem Cell Transplants
+                                <span className="text-xl">🏥</span> Transplants
+                            </button>
+                            <button
+                                onClick={() => onNavigateToLearn('lab-results')}
+                                className="flex items-center justify-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-amber-50 hover:text-amber-700 transition-colors shadow-sm border border-gray-100"
+                            >
+                                <span className="text-xl">🔬</span> Test Results
+                            </button>
+                            <button
+                                onClick={() => onNavigateToLearn('clinical-trials')}
+                                className="flex items-center justify-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-teal-50 hover:text-teal-700 transition-colors shadow-sm border border-gray-100"
+                            >
+                                <span className="text-xl">🧪</span> Clinical Trials
                             </button>
                         </div>
                     </div>

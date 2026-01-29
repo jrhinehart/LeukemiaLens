@@ -333,6 +333,13 @@ function App() {
   if (currentPage === 'stats') {
     return <StatsPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
   }
+  // Handle educational pages
+  const navigateToLearn = (topic: string) => {
+    setCurrentPage(`learn-${topic}` as any);
+    window.history.pushState({}, '', `/learn/${topic}`);
+    window.scrollTo(0, 0);
+  };
+
   if (currentPage === 'about') {
     return <AboutPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
   }
@@ -340,7 +347,12 @@ function App() {
     return <ContactPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
   }
   if (currentPage === 'resources') {
-    return <ResourcesPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
+    return (
+      <ResourcesPage
+        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
+        onNavigateToLearn={navigateToLearn}
+      />
+    );
   }
 
   // Handle disease group pages
@@ -362,12 +374,6 @@ function App() {
     );
   }
 
-  // Handle educational pages
-  const navigateToLearn = (topic: string) => {
-    setCurrentPage(`learn-${topic}` as any);
-    window.history.pushState({}, '', `/learn/${topic}`);
-    window.scrollTo(0, 0);
-  };
 
   if (currentPage === 'learn-blood-cells') {
     return (
