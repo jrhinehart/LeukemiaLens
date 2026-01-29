@@ -355,8 +355,68 @@ app.post('/api/summarize', async (c) => {
     }
 });
 
-async function orchestrateMapReduceSummary(c: any, insightId: string, articles: any[], query: string | undefined) {
+async function callLLMWithFallback(c: any, prompt: string, system: string, maxTokens: number = 2048) {
     const anthropic = new Anthropic({ apiKey: c.env.ANTHROPIC_API_KEY });
+
+    console.log(`[LLM] Starting call. API Key present: ${!!c.env.ANTHROPIC_API_KEY}`);
+    if (c.env.ANTHROPIC_API_KEY) {
+        // Log prefix for debugging auth issues
+        console.log(`[LLM] Key prefix: ${c.env.ANTHROPIC_API_KEY.substring(0, 7)}...`);
+    } else {
+        console.warn(`[LLM] WARNING: ANTHROPIC_API_KEY is MISSING in worker environment.`);
+    }
+
+    // List of models to try in sequence (including 2026-era models)
+    const models = [
+        'claude-sonnet-4-5',          // Potential late 2025/2026 model
+        'claude-sonnet-4',            // Potential 2025 model (referenced in earlier logs)
+        'claude-3-5-sonnet-latest',   // Standard alias
+        'claude-3-5-sonnet-20241022', // Sonnet 3.5 v2
+        'claude-3-5-sonnet-20240620', // Sonnet 3.5 v1
+        'claude-3-haiku-20240307'     // Known working fallback
+    ];
+
+    for (const model of models) {
+        try {
+            console.log(`[LLM] Attempting Anthropic model: ${model}...`);
+            const response = await anthropic.messages.create({
+                model,
+                max_tokens: maxTokens,
+                messages: [{ role: 'user', content: prompt }],
+                system
+            });
+            console.log(`[LLM] SUCCESS with ${model}`);
+            return (response.content[0] as any).text || '';
+        } catch (e: any) {
+            console.error(`[LLM] FAILED with ${model}:`, e.message);
+            // If it's a 404 (model not found) or a 403 (unauthorized for this specific model), try next
+            if (e.status === 404 || e.status === 403) {
+                console.log(`[LLM] Retrying with next model due to ${e.status}...`);
+                continue;
+            }
+            // For other errors (like 401 Invalid Key), we stop and throw
+            throw e;
+        }
+    }
+
+    // Final Fallback: Cloudflare Workers AI (local Llama)
+    console.warn(`[LLM] All Anthropic attempts failed or returned 404. Falling back to Llama-3...`);
+    try {
+        const response = await c.env.AI.run('@cf/meta/llama-3-8b-instruct', {
+            messages: [
+                { role: 'system', content: system },
+                { role: 'user', content: prompt }
+            ]
+        });
+        console.log(`[LLM] SUCCESS with Llama-3 fallback.`);
+        return response.response || '';
+    } catch (llamaError: any) {
+        console.error(`[LLM] CRITICAL: Llama fallback failed:`, llamaError.message);
+        throw new Error(`All LLM providers failed. Last error: ${llamaError.message}`);
+    }
+}
+
+async function orchestrateMapReduceSummary(c: any, insightId: string, articles: any[], query: string | undefined) {
     const batchSize = 10;
     const batches: any[] = [];
     for (let i = 0; i < articles.length; i += batchSize) {
@@ -366,9 +426,6 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
     try {
         // Step 1: Technical Analysis of each batch in parallel (Map Phase)
         const batchResults = await Promise.all(batches.map(async (batch, bIdx) => {
-            const startIdx = bIdx * batchSize;
-
-            // For each batch, check for available full-text data
             const batchPmids = batch.map((a: any) => a.pubmed_id || a.pmid || '').filter(Boolean);
             let technicalContext = '';
             let docsWithFullText = 0;
@@ -402,9 +459,9 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
 
             return { text: '', hasFullText: false, fullTextPmids: [], technicalContext: '', docsWithFullText: 0 };
         })).then(async (preBatchResults) => {
-            // Now actually run the Anthropic calls using the gathered context
+            // Now actually run the LLM calls using the gathered context
             return await Promise.all((batches as any[]).map(async (batch: any[], bIdx: number) => {
-                const { technicalContext, docsWithFullText, fullTextPmids } = preBatchResults[bIdx];
+                const { technicalContext, docsWithFullText } = preBatchResults[bIdx];
                 const startIdx = bIdx * batchSize;
 
                 const batchContent = batch.map((a: any, idx: number) => `
@@ -424,14 +481,13 @@ ${technicalContext}
 
 Provide a dense bulleted list of technical highlights for this batch.`;
 
-                const response = await anthropic.messages.create({
-                    model: 'claude-3-5-sonnet-latest',
-                    max_tokens: 2048,
-                    messages: [{ role: 'user', content: mapPrompt }],
-                    system: "Scientific data extractor. Output only technical highlights with citations."
-                });
+                const text = await callLLMWithFallback(
+                    c,
+                    mapPrompt,
+                    "Scientific data extractor. Output only technical highlights with citations.",
+                    2048
+                );
 
-                const text = (response.content[0] as any).text || '';
                 return { text, hasFullText: docsWithFullText > 0, fullTextPmids: preBatchResults[bIdx].fullTextPmids };
             }));
         });
@@ -473,14 +529,12 @@ ${combinedHighlights}
 
 ${query ? `CONTEXT QUERY: ${query}` : ''}`;
 
-        const finalResponse = await anthropic.messages.create({
-            model: 'claude-3-5-sonnet-latest',
-            max_tokens: 4096,
-            messages: [{ role: 'user', content: reducePrompt }],
-            system: "Master scientific report writer. Synthesize multi-batch data into a final structured report."
-        });
-
-        const summary = (finalResponse.content[0] as any).text || '';
+        const summary = await callLLMWithFallback(
+            c,
+            reducePrompt,
+            "Master scientific report writer. Synthesize multi-batch data into a final structured report.",
+            4096
+        );
 
         // Update persistence
         await c.env.DB.prepare(`
@@ -1900,31 +1954,25 @@ ${context}
 
 Please provide a comprehensive answer based on these sources, citing them with [1], [2], etc. as appropriate.`;
 
-        const response = await anthropic.messages.create({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 4096,
-            messages: [
-                { role: 'user', content: userPrompt }
-            ],
-            system: systemPrompt
-        });
+        // Step 5: Call LLM with synthesis fallback
+        const answer = await callLLMWithFallback(
+            c,
+            userPrompt,
+            systemPrompt,
+            4096
+        );
 
-        // Extract text from response
-        const answer = response.content
-            .filter(block => block.type === 'text')
-            .map(block => (block as { type: 'text'; text: string }).text)
-            .join('\n');
 
         return c.json({
             answer,
             sources,
             usage: {
                 contextTokens: tokensUsed,
-                responseTokens: response.usage?.output_tokens || 0,
-                totalTokens: tokensUsed + (response.usage?.output_tokens || 0),
+                responseTokens: estimateTokens(answer), // Approximated
+                totalTokens: tokensUsed + estimateTokens(answer),
                 chunksUsed: sources.length
             },
-            model: response.model
+            model: 'dynamic-fallback'
         });
 
     } catch (e: any) {
