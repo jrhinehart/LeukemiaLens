@@ -1,8 +1,0 @@
-{
-  "started_at": "2026-01-27T22:32:15.958503",
-  "documents_processed": 230,
-  "documents_failed": 4,
-  "chunks_created": 8539,
-  "vectors_uploaded": 8539,
-  "last_document_id": "ffcef24c-a2ce-48c4-8e46-9ad348f7bd8b"
-}

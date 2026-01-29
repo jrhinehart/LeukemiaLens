@@ -6,7 +6,8 @@ import { StatsPage } from './StatsPage'
 import { LandingPage } from './LandingPage'
 import { DiseasePage } from './DiseasePage'
 import { BloodCellProductionPage, MutationsPage, RiskStratificationPage, StemCellTransplantPage, LabResultsPage, ClinicalTrialsPage } from './EducationPages'
-import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput, ResearchInsights } from './components'
+import { CommonTreatmentsPage, MedicationsPage } from './TreatmentPages'
+import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput, ResearchInsights, ResourcesLayout } from './components'
 import type { ParsedFilters } from './components'
 
 // Helper to serialize arrays as repeat params: key=val1&key=val2
@@ -65,7 +66,12 @@ const HighlightText = ({ text, highlight }: { text: string, highlight: string })
 
 function App() {
   // Page routing - check URL pathname
-  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'resources' | 'stats' | 'search' | 'myeloid' | 'lymphoid' | 'myeloma' | 'learn-blood-cells' | 'learn-mutations' | 'learn-risk' | 'learn-transplant' | 'learn-lab-results' | 'learn-clinical-trials'>(() => {
+  type Page = 'home' | 'about' | 'contact' | 'resources' | 'stats' | 'search' | 'myeloid' | 'lymphoid' | 'myeloma' |
+    'learn-blood-cells' | 'learn-mutations' | 'learn-risk' | 'learn-transplant' | 'learn-lab-results' | 'learn-clinical-trials' |
+    'learn-treatments' | 'learn-medications' |
+    'disease-aml' | 'disease-mds' | 'disease-cml' | 'disease-mpn' | 'disease-all' | 'disease-cll' | 'disease-mm';
+
+  const [currentPage, setCurrentPage] = useState<Page>(() => {
     const path = window.location.pathname
     if (path === '/stats') return 'stats'
     if (path === '/about') return 'about'
@@ -78,9 +84,12 @@ function App() {
     if (path === '/learn/blood-cells') return 'learn-blood-cells'
     if (path === '/learn/mutations') return 'learn-mutations'
     if (path === '/learn/risk') return 'learn-risk'
+    if (path === '/learn/treatments') return 'learn-treatments'
+    if (path === '/learn/medications') return 'learn-medications'
     if (path === '/learn/transplant') return 'learn-transplant'
     if (path === '/learn/lab-results') return 'learn-lab-results'
     if (path === '/learn/clinical-trials') return 'learn-clinical-trials'
+    if (path.startsWith('/disease/')) return `disease-${path.split('/')[2]}` as Page
     return 'home'
   })
 
@@ -100,15 +109,24 @@ function App() {
       else if (path === '/learn/blood-cells') setCurrentPage('learn-blood-cells')
       else if (path === '/learn/mutations') setCurrentPage('learn-mutations')
       else if (path === '/learn/risk') setCurrentPage('learn-risk')
+      else if (path === '/learn/treatments') setCurrentPage('learn-treatments')
+      else if (path === '/learn/medications') setCurrentPage('learn-medications')
       else if (path === '/learn/transplant') setCurrentPage('learn-transplant')
       else if (path === '/learn/lab-results') setCurrentPage('learn-lab-results')
       else if (path === '/learn/clinical-trials') setCurrentPage('learn-clinical-trials')
+      else if (path.startsWith('/disease/')) setCurrentPage(`disease-${path.split('/')[2]}` as Page)
       else setCurrentPage('home')
     }
 
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  const navigateToResource = (id: string, path: string) => {
+    setCurrentPage(id as Page);
+    window.history.pushState({}, '', path);
+    window.scrollTo(0, 0);
+  };
 
 
   const [articles, setArticles] = useState<Article[]>([])
@@ -330,97 +348,87 @@ function App() {
   const paginatedArticles = articles.slice(startIndex, endIndex)
 
   // Check current page state and render appropriate component
-  if (currentPage === 'stats') {
-    return <StatsPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
-  }
-  // Handle educational pages
+  const onNavigateHome = () => { setCurrentPage('home'); window.history.pushState({}, '', '/') };
+
   const navigateToLearn = (topic: string) => {
     setCurrentPage(`learn-${topic}` as any);
     window.history.pushState({}, '', `/learn/${topic}`);
     window.scrollTo(0, 0);
   };
 
+  if (currentPage === 'stats') {
+    return (
+      <ResourcesLayout title="Analytics & Stats" activeNavId="stats" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
+        <StatsPage onNavigateHome={onNavigateHome} />
+      </ResourcesLayout>
+    );
+  }
+
   if (currentPage === 'about') {
-    return <AboutPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
+    return (
+      <ResourcesLayout title="About LeukemiaLens" activeNavId="about" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
+        <AboutPage onNavigateHome={onNavigateHome} />
+      </ResourcesLayout>
+    );
   }
+
   if (currentPage === 'contact') {
-    return <ContactPage onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }} />
+    return (
+      <ResourcesLayout title="Contact Us" activeNavId="contact" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
+        <ContactPage onNavigateHome={onNavigateHome} />
+      </ResourcesLayout>
+    );
   }
+
   if (currentPage === 'resources') {
     return (
-      <ResourcesPage
-        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
-        onNavigateToLearn={navigateToLearn}
-      />
+      <ResourcesLayout title="Research Resources" activeNavId="resources" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
+        <ResourcesPage onNavigateHome={onNavigateHome} onNavigateToLearn={navigateToLearn} />
+      </ResourcesLayout>
     );
   }
 
-  // Handle disease group pages
-  if (['myeloid', 'lymphoid', 'myeloma'].includes(currentPage)) {
+  // Handle disease pages (groups and individual)
+  if (['myeloid', 'lymphoid', 'myeloma'].includes(currentPage) || currentPage.startsWith('disease-')) {
+    const groupId = currentPage.startsWith('disease-') ? currentPage.split('-')[1] : currentPage;
     return (
-      <DiseasePage
-        groupId={currentPage}
-        apiBaseUrl={API_BASE_URL}
-        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
-        onStartSearch={(initialDisease) => {
-          if (initialDisease) {
-            setSelectedDisease([initialDisease]);
-          }
-          setCurrentPage('search');
-          window.history.pushState({}, '', '/search');
-          window.scrollTo(0, 0);
-        }}
-      />
+      <ResourcesLayout title="Disease Information" activeNavId={groupId} onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
+        <DiseasePage
+          groupId={groupId}
+          apiBaseUrl={API_BASE_URL}
+          onNavigateHome={onNavigateHome}
+          onNavigate={navigateToResource}
+          onStartSearch={(initialDisease) => {
+            if (initialDisease) {
+              setSelectedDisease([initialDisease]);
+            }
+            setCurrentPage('search');
+            window.history.pushState({}, '', '/search');
+            window.scrollTo(0, 0);
+          }}
+        />
+      </ResourcesLayout>
     );
   }
 
+  // Handle educational pages
+  const educationPages: Record<string, { component: React.FC<any>, title: string, navId: string }> = {
+    'learn-blood-cells': { component: BloodCellProductionPage, title: 'Blood Cell Production', navId: 'blood-cells' },
+    'learn-mutations': { component: MutationsPage, title: 'Understanding Mutations', navId: 'mutations' },
+    'learn-risk': { component: RiskStratificationPage, title: 'Risk Stratification', navId: 'risk' },
+    'learn-treatments': { component: CommonTreatmentsPage, title: 'Treatment Regimens', navId: 'treatments' },
+    'learn-medications': { component: MedicationsPage, title: 'Leukemia Medications', navId: 'medications' },
+    'learn-transplant': { component: StemCellTransplantPage, title: 'Stem Cell Transplants', navId: 'transplant' },
+    'learn-lab-results': { component: LabResultsPage, title: 'Lab Results', navId: 'lab-results' },
+    'learn-clinical-trials': { component: ClinicalTrialsPage, title: 'Clinical Trials', navId: 'clinical-trials' },
+  };
 
-  if (currentPage === 'learn-blood-cells') {
+  if (currentPage in educationPages) {
+    const { component: PageComp, title, navId } = educationPages[currentPage];
     return (
-      <BloodCellProductionPage
-        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
-        onNavigateToLearn={navigateToLearn}
-      />
-    );
-  }
-  if (currentPage === 'learn-mutations') {
-    return (
-      <MutationsPage
-        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
-        onNavigateToLearn={navigateToLearn}
-      />
-    );
-  }
-  if (currentPage === 'learn-risk') {
-    return (
-      <RiskStratificationPage
-        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
-        onNavigateToLearn={navigateToLearn}
-      />
-    );
-  }
-  if (currentPage === 'learn-transplant') {
-    return (
-      <StemCellTransplantPage
-        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
-        onNavigateToLearn={navigateToLearn}
-      />
-    );
-  }
-  if (currentPage === 'learn-lab-results') {
-    return (
-      <LabResultsPage
-        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
-        onNavigateToLearn={navigateToLearn}
-      />
-    );
-  }
-  if (currentPage === 'learn-clinical-trials') {
-    return (
-      <ClinicalTrialsPage
-        onNavigateHome={() => { setCurrentPage('home'); window.history.pushState({}, '', '/') }}
-        onNavigateToLearn={navigateToLearn}
-      />
+      <ResourcesLayout title={title} activeNavId={navId} onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
+        <PageComp onNavigateHome={onNavigateHome} onNavigateToLearn={navigateToLearn} />
+      </ResourcesLayout>
     );
   }
 

@@ -206,6 +206,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToDisease, o
                             >
                                 <span className="text-xl">🧪</span> Clinical Trials
                             </button>
+                            <button
+                                onClick={() => onNavigateToLearn('treatments')}
+                                className="flex items-center justify-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-pink-50 hover:text-pink-700 transition-colors shadow-sm border border-gray-100"
+                            >
+                                <span className="text-xl">💊</span> Treatments
+                            </button>
+                            <button
+                                onClick={() => onNavigateToLearn('medications')}
+                                className="flex items-center justify-center gap-2 bg-white text-gray-800 px-5 py-3 rounded-xl font-semibold hover:bg-emerald-50 hover:text-emerald-700 transition-colors shadow-sm border border-gray-100"
+                            >
+                                <span className="text-xl">🔬</span> Medications
+                            </button>
                         </div>
                     </div>
                 </section>

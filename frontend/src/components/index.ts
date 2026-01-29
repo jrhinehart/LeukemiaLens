@@ -7,6 +7,8 @@ export { PageHeader } from './PageHeader'
 export { GroupedMutationFilter } from './GroupedMutationFilter'
 export { SmartSearchInput } from './SmartSearchInput'
 export { ResearchInsights } from './ResearchInsights'
+export { ResourceSidebar } from './ResourceSidebar'
+export { ResourcesLayout } from './ResourcesLayout'
 
 export type { SimpleListFilterProps, SimpleListFilterItem } from './SimpleListFilter'
 export type { SearchableListFilterProps, SearchableListFilterItem } from './SearchableListFilter'

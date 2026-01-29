@@ -16,3 +16,12 @@ temp/
 .dev.vars
 .capnp/
 .wrangler/
+
+# Python
+__pycache__/
+*.pyc
+
+# Data
+rag-processing/data/*.pdf
+rag-processing/data/*.tgz
+rag-processing/data/*.json
