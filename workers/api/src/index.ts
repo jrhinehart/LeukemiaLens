@@ -1701,14 +1701,14 @@ app.post('/api/chunks/batch', async (c) => {
         for (let i = 0; i < body.chunks.length; i += batchSize) {
             const batch = body.chunks.slice(i, i + batchSize);
 
-            // Insert chunks metadata into D1 (NO CONTENT)
+            // Insert chunks metadata into D1 (empty string for content to satisfy NOT NULL constraint)
             for (const chunk of batch) {
                 await c.env.DB.prepare(`
                     INSERT INTO chunks (
-                        id, document_id, chunk_index,
+                        id, document_id, chunk_index, content,
                         start_page, end_page, section_header, token_count,
                         embedding_id, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    ) VALUES (?, ?, ?, '', ?, ?, ?, ?, ?, datetime('now'))
                 `).bind(
                     chunk.id,
                     body.documentId,
