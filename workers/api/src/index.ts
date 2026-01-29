@@ -357,6 +357,8 @@ app.post('/api/summarize', async (c) => {
     }
 });
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function callLLMWithFallback(c: any, prompt: string, system: string, maxTokens: number = 2048): Promise<{ text: string, model: string }> {
     const anthropic = new Anthropic({ apiKey: c.env.ANTHROPIC_API_KEY });
 
@@ -391,9 +393,29 @@ async function callLLMWithFallback(c: any, prompt: string, system: string, maxTo
             return { text: (response.content[0] as any).text || '', model };
         } catch (e: any) {
             console.error(`[LLM] FAILED with ${model}:`, e.message);
+
+            // Handle Overloaded (529) or Rate Limit (429) with retry
+            if (e.status === 529 || e.status === 429) {
+                console.log(`[LLM] Provider overloaded (529) or rate limited (429). Retrying in 2s...`);
+                await sleep(2000); // Simple fixed delay for retry
+                try {
+                    const retryResponse = await anthropic.messages.create({
+                        model,
+                        max_tokens: maxTokens,
+                        messages: [{ role: 'user', content: prompt }],
+                        system
+                    });
+                    console.log(`[LLM] SUCCESS after retry with ${model}`);
+                    return { text: (retryResponse.content[0] as any).text || '', model };
+                } catch (retryErr: any) {
+                    console.error(`[LLM] Retry FAILED for ${model}:`, retryErr.message);
+                    // If retry fails, continue to next model
+                }
+            }
+
             // If it's a 404 (model not found) or a 403 (unauthorized for this specific model), try next
-            if (e.status === 404 || e.status === 403) {
-                console.log(`[LLM] Retrying with next model due to ${e.status}...`);
+            if (e.status === 404 || e.status === 403 || e.status === 529 || e.status === 429) {
+                console.log(`[LLM] Trying next model due to error ${e.status}...`);
                 continue;
             }
             // For other errors (like 401 Invalid Key), we stop and throw
@@ -426,12 +448,18 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
     }
 
     try {
-        // Step 1: Technical Analysis of each batch in parallel (Map Phase)
-        const batchResults = await Promise.all(batches.map(async (batch, bIdx) => {
+        // Step 1: Technical Analysis of each batch sequentially (Map Phase)
+        // Sequential processing reduces concurrent load and prevents provider overload
+        const mappedResults: any[] = [];
+        let lastUsedModel = 'unknown';
+
+        for (let bIdx = 0; bIdx < batches.length; bIdx++) {
+            const batch = batches[bIdx];
             const batchPmids = batch.map((a: any) => a.pubmed_id || a.pmid || '').filter(Boolean);
 
             let technicalContext = '';
             let docsWithFullText = 0;
+            let fullTextPmidsInBatch: string[] = [];
 
             if (batchPmids.length > 0) {
                 const { results: fullTextDocs } = await c.env.DB.prepare(`
@@ -441,16 +469,14 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
 
                 if (fullTextDocs && fullTextDocs.length > 0) {
                     docsWithFullText = fullTextDocs.length;
-                    const fullTextPmidsInBatch = fullTextDocs.map((d: any) => d.pmid);
+                    fullTextPmidsInBatch = fullTextDocs.map((d: any) => d.pmid);
                     const docIds = fullTextDocs.map((d: any) => d.id);
 
-                    // Fetch chunk metadata for context window (first 5 chunks)
                     const { results: chunksMetadata } = await c.env.DB.prepare(`
                         SELECT id, document_id, content, chunk_index FROM chunks 
                         WHERE document_id IN (${docIds.map(() => '?').join(',')}) AND chunk_index < 5
                     `).bind(...docIds).run();
 
-                    // Fetch content from R2 for all docs in batch in parallel
                     const docContentPromises = fullTextDocs.map(async (doc: any) => {
                         let content = "";
                         try {
@@ -459,7 +485,6 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
                             if (object) {
                                 const data: any = await object.json();
                                 if (data && data.chunks) {
-                                    // Take first 5 chunks for summary (dense high-level context)
                                     content = data.chunks.slice(0, 5).map((ch: any) => ch.content).join("\n");
                                 }
                             }
@@ -467,7 +492,6 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
                             console.warn(`[Insights] Failed to fetch R2 content for ${doc.id}:`, e);
                         }
 
-                        // Fallback to D1 metadata if R2 was empty/failed
                         if (!content && chunksMetadata) {
                             const docChunks = (chunksMetadata as any[]).filter(ch => ch.document_id === doc.id);
                             content = docChunks.map(ch => ch.content).filter(Boolean).join("\n");
@@ -482,27 +506,18 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
 
                     const contents = await Promise.all(docContentPromises);
                     technicalContext = "\nFULL-TEXT EXCERPTS (TOP 5 CHUNKS):\n" + contents.join("");
-
-                    return { text: '', hasFullText: docsWithFullText > 0, fullTextPmids: fullTextPmidsInBatch, technicalContext, docsWithFullText };
                 }
             }
 
-            return { text: '', hasFullText: false, fullTextPmids: [], technicalContext: '', docsWithFullText: 0 };
-        })).then(async (preBatchResults) => {
-            // Now actually run the LLM calls using the gathered context
-            let lastUsedModel = 'unknown';
-            const mappedResults = await Promise.all((batches as any[]).map(async (batch: any[], bIdx: number) => {
-                const { technicalContext, docsWithFullText } = preBatchResults[bIdx];
-                const startIdx = bIdx * batchSize;
-
-                const batchContent = batch.map((a: any, idx: number) => `
+            const startIdx = bIdx * batchSize;
+            const batchContent = batch.map((a: any, idx: number) => `
 Article [#${startIdx + idx + 1}]:
 Title: ${a.title}
 Abstract: ${a.abstract || 'N/A'}
 Year: ${a.year || a.pub_date?.substring(0, 4)}
 `).join('\n---\n');
 
-                const mapPrompt = `You are a scientific analyst. Extract precise metrics (ORR, OS, hazard ratios, p-values), key molecular findings, and trial designs for the following leukemia research articles. 
+            const mapPrompt = `You are a scientific analyst. Extract precise metrics (ORR, OS, hazard ratios, p-values), key molecular findings, and trial designs for the following leukemia research articles. 
 Be technical, dense, and concise. Cite article numbers [#N] for every data point. Include findings from both abstracts and any provided full-text excerpts.
 
 ARTICLES:
@@ -512,20 +527,26 @@ ${technicalContext}
 
 Provide a dense bulleted list of technical highlights for this batch.`;
 
-                const { text, model } = await callLLMWithFallback(
-                    c,
-                    mapPrompt,
-                    "Scientific data extractor. Output only technical highlights with citations.",
-                    2048
-                );
-                lastUsedModel = model;
+            const { text, model } = await callLLMWithFallback(
+                c,
+                mapPrompt,
+                "Scientific data extractor. Output only technical highlights with citations.",
+                2048
+            );
+            lastUsedModel = model;
 
-                return { text, hasFullText: docsWithFullText > 0, fullTextPmids: preBatchResults[bIdx].fullTextPmids, docsWithFullText };
-            }));
-            return { mappedResults, lastUsedModel };
-        });
+            mappedResults.push({
+                text,
+                hasFullText: docsWithFullText > 0,
+                fullTextPmids: fullTextPmidsInBatch,
+                docsWithFullText
+            });
 
-        const { mappedResults, lastUsedModel: intermediateModel } = batchResults;
+            // Small delay between batches to further reduce spike load
+            if (bIdx < batches.length - 1) {
+                await sleep(500);
+            }
+        }
 
         // Step 2: Global Synthesis (Reduce Phase)
         const combinedHighlights = mappedResults.map((r, i) => `BATCH ${i + 1} HIGHLIGHTS:\n${r.text}`).join('\n\n');
