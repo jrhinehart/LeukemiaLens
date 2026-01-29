@@ -74,6 +74,7 @@ interface BackfillOptions {
     withRag: boolean;  // Trigger RAG document fetch after backfill
     withGpu: boolean;  // Trigger GPU backfill after document fetch
     workers: number;   // Number of parallel workers for GPU processing
+    includeErrors: boolean;  // Include documents in error state for reprocessing
 }
 
 interface BackfillProgress {
@@ -673,6 +674,9 @@ async function backfillProduction(options: BackfillOptions) {
         gpuCmd += ` --workers ${options.workers}`;
         gpuCmd += ` --resume`;
         gpuCmd += ` --limit 0`; // Unlimited processing
+        if (options.includeErrors) {
+            gpuCmd += ` --include-errors`;
+        }
 
         console.log(`Running: ${gpuCmd}`);
 
@@ -704,7 +708,8 @@ const options: BackfillOptions = {
     local: false,
     withRag: false,
     withGpu: false,
-    workers: 4
+    workers: 4,
+    includeErrors: false
 };
 
 for (let i = 0; i < args.length; i++) {
@@ -721,6 +726,7 @@ for (let i = 0; i < args.length; i++) {
     if (args[i] === '--with-rag') options.withRag = true;
     if (args[i] === '--gpu') options.withGpu = true;
     if (args[i] === '--workers' && args[i + 1]) options.workers = parseInt(args[i + 1]);
+    if (args[i] === '--include-errors') options.includeErrors = true;
 }
 
 // Handle defaults

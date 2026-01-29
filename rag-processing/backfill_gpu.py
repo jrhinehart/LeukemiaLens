@@ -122,7 +122,7 @@ def query_d1(sql: str, params: List = None) -> dict:
 
 
 def get_pending_documents(limit: int = 1000, 
-                          year: Optional[int] = None, month: Optional[int] = None) -> List[Document]:
+                          year: Optional[int] = None, month: Optional[int] = None, include_errors: bool = False) -> List[Document]:
     """Fetch documents with status 'pending', optionally filtered by date."""
     
     # 1. First, get a total count for better logging
@@ -140,7 +140,11 @@ def get_pending_documents(limit: int = 1000,
         FROM documents d
     """
     
-    conditions = ["d.status = 'pending'"]
+    # Include both pending and error status if requested
+    if include_errors:
+        conditions = ["(d.status = 'pending' OR d.status = 'error')"]
+    else:
+        conditions = ["d.status = 'pending'"]
     params = []
     
     if year:
@@ -371,6 +375,7 @@ def main():
     parser.add_argument('--dry-run', action='store_true', help='List documents without processing')
     parser.add_argument('--clear-checkpoint', action='store_true', help='Clear checkpoint and start fresh')
     parser.add_argument('--workers', type=int, default=1, help='Number of parallel workers (default: 1)')
+    parser.add_argument('--include-errors', action='store_true', help='Include documents in error state for reprocessing')
     args = parser.parse_args()
     
     print("=" * 70)
@@ -384,6 +389,8 @@ def main():
         date_str = f"{args.year}-{str(args.month).zfill(2)}" if args.month else str(args.year)
         print(f"  Date Filter: {date_str}")
     print(f"  Workers: {args.workers}")
+    if args.include_errors:
+        print(f"  Include Errors: YES (will retry failed documents)")
     print("=" * 70)
     
     # Handle checkpoint
@@ -417,11 +424,13 @@ def main():
     data_dir.mkdir(parents=True, exist_ok=True)
     
     # Get pending documents
-    print("\n📥 Fetching pending documents...")
+    status_msg = "pending and error" if args.include_errors else "pending"
+    print(f"\n📥 Fetching {status_msg} documents...")
     documents = get_pending_documents(
         limit=args.limit, 
         year=args.year,
-        month=args.month
+        month=args.month,
+        include_errors=args.include_errors
     )
     
     if not documents:
@@ -457,11 +466,13 @@ def main():
         fetch_limit = 1000 if total_docs_requested <= 0 else min(total_docs_requested, 1000)
         
         # Get pending documents
-        print(f"\n📥 Fetching next {fetch_limit} pending documents...")
+        status_msg = "pending and error" if args.include_errors else "pending"
+        print(f"\n📥 Fetching next {fetch_limit} {status_msg} documents...")
         documents = get_pending_documents(
             limit=fetch_limit, 
             year=args.year,
-            month=args.month
+            month=args.month,
+            include_errors=args.include_errors
         )
         
         if not documents:
