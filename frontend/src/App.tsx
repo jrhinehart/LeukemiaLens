@@ -122,8 +122,29 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  const navigateToResource = (id: string, path: string) => {
-    setCurrentPage(id as Page);
+  const navigateToResource = (_id: string, path: string) => {
+    // Map path to the correct page state
+    let targetPage: Page = 'search'; // default fallback
+
+    if (path === '/stats') targetPage = 'stats';
+    else if (path === '/about') targetPage = 'about';
+    else if (path === '/contact') targetPage = 'contact';
+    else if (path === '/resources') targetPage = 'resources';
+    else if (path === '/search') targetPage = 'search';
+    else if (path === '/myeloid') targetPage = 'myeloid';
+    else if (path === '/lymphoid') targetPage = 'lymphoid';
+    else if (path === '/myeloma') targetPage = 'myeloma';
+    else if (path === '/learn/blood-cells') targetPage = 'learn-blood-cells';
+    else if (path === '/learn/mutations') targetPage = 'learn-mutations';
+    else if (path === '/learn/risk') targetPage = 'learn-risk';
+    else if (path === '/learn/treatments') targetPage = 'learn-treatments';
+    else if (path === '/learn/medications') targetPage = 'learn-medications';
+    else if (path === '/learn/transplant') targetPage = 'learn-transplant';
+    else if (path === '/learn/lab-results') targetPage = 'learn-lab-results';
+    else if (path === '/learn/clinical-trials') targetPage = 'learn-clinical-trials';
+    else if (path.startsWith('/disease/')) targetPage = `disease-${path.split('/')[2]}` as Page;
+
+    setCurrentPage(targetPage);
     window.history.pushState({}, '', path);
     window.scrollTo(0, 0);
   };

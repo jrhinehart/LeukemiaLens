@@ -15,7 +15,6 @@ const NAV_TREE: NavItem[] = [
         icon: '🔍',
         children: [
             { id: 'search', label: 'Search Articles', path: '/search' },
-            { id: 'stats', label: 'Analytics & Stats', path: '/stats' },
         ]
     },
     {
@@ -73,6 +72,7 @@ const NAV_TREE: NavItem[] = [
         label: 'Support & Info',
         icon: 'ℹ️',
         children: [
+            { id: 'stats', label: 'Analytics & Stats', path: '/stats' },
             { id: 'about', label: 'About', path: '/about' },
             { id: 'contact', label: 'Contact', path: '/contact' },
             { id: 'resources', label: 'General Resources', path: '/resources' },
