@@ -621,7 +621,7 @@ export function ResearchInsights({
 
             {/* Insights Panel */}
             <div className={`
-                fixed inset-y-0 right-0 z-[60] w-full lg:w-[450px] xl:w-[600px] bg-white shadow-2xl transition-transform duration-500 ease-in-out transform
+                fixed inset-y-0 right-0 z-[60] w-full lg:w-1/2 xl:w-[65%] bg-white shadow-2xl transition-transform duration-500 ease-in-out transform
                 ${isOpen ? 'translate-x-0' : 'translate-x-full'}
                 flex flex-col border-l border-gray-200
             `}>

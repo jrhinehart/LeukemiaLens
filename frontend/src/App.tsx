@@ -520,7 +520,7 @@ function App() {
 
       {/* Main Content Area with Split View Support */}
       <div className="flex-1 flex overflow-hidden relative">
-        <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isInsightsPanelOpen ? 'lg:mr-[450px] xl:mr-[600px]' : ''}`}>
+        <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isInsightsPanelOpen ? 'lg:mr-[50%] xl:mr-[65%]' : ''}`}>
           <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8 relative h-full">
 
             {/* Sidebar Filters */}
