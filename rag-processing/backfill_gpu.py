@@ -161,8 +161,11 @@ def get_pending_documents(limit: int = 1000,
             params.append(f"{year}-01-01")
             params.append(f"{year}-12-31")
     
-    query = f"{base_query} WHERE {' AND '.join(conditions)} ORDER BY d.id LIMIT ?"
-    params.append(limit)
+    if limit > 0:
+        query = f"{base_query} WHERE {' AND '.join(conditions)} ORDER BY d.id LIMIT ?"
+        params.append(limit)
+    else:
+        query = f"{base_query} WHERE {' AND '.join(conditions)} ORDER BY d.id"
     
     result = query_d1(query, params)
     rows = result.get('results', [])
@@ -361,7 +364,7 @@ def process_document(doc: Document, data_dir: Path, stats: BackfillStats) -> boo
 
 def main():
     parser = argparse.ArgumentParser(description='GPU-optimized RAG backfill processor')
-    parser.add_argument('--limit', type=int, default=1000, help='Max documents to process')
+    parser.add_argument('--limit', type=int, default=0, help='Max documents to process (default: 0 for unlimited)')
     parser.add_argument('--year', type=int, help='Filter by publication year')
     parser.add_argument('--month', type=int, help='Filter by publication month (1-12, requires --year)')
     parser.add_argument('--resume', action='store_true', help='Resume from last checkpoint')
@@ -376,7 +379,7 @@ def main():
     print(f"  Device: {get_device()}")
     print(f"  Embedding Model: BAAI/bge-base-en-v1.5 (768-dim)")
     print(f"  API: {API_BASE_URL}")
-    print(f"  Limit: {args.limit}")
+    print(f"  Limit: {'Unlimited' if args.limit <= 0 else args.limit}")
     if args.year:
         date_str = f"{args.year}-{str(args.month).zfill(2)}" if args.month else str(args.year)
         print(f"  Date Filter: {date_str}")
@@ -445,28 +448,60 @@ def main():
         pre_load_model()
     
     start_time = time.time()
+    total_docs_requested = args.limit
     
-    if args.workers > 1:
-        with ThreadPoolExecutor(max_workers=args.workers) as executor:
-            # Wrap the executor map with tqdm to track overall progress
-            list(tqdm(executor.map(lambda d: process_document(d, data_dir, stats), documents), 
-                     total=len(documents), desc="Processing", unit="doc"))
-            # Note: with threading, checkpointing every 10 is harder but we save at the end
-            # and stats are updated with a lock.
-    else:
-        for doc in tqdm(documents, desc="Processing", unit="doc"):
-            success = process_document(doc, data_dir, stats)
+    # Large loop for autonomous processing if limit is unlimited (0) or larger than one fetch
+    while True:
+        # Determine fetch limit for this iteration
+        # If total_docs_requested is 0, we fetch 1000 at a time to keep D1 responses manageable
+        fetch_limit = 1000 if total_docs_requested <= 0 else min(total_docs_requested, 1000)
+        
+        # Get pending documents
+        print(f"\n📥 Fetching next {fetch_limit} pending documents...")
+        documents = get_pending_documents(
+            limit=fetch_limit, 
+            year=args.year,
+            month=args.month
+        )
+        
+        if not documents:
+            print("✓ No more pending documents found.")
+            break
             
-            # Save checkpoint every 10 documents
-            if (stats.documents_processed + stats.documents_failed) % 10 == 0:
-                stats.save(CHECKPOINT_FILE)
+        print(f"📦 Processing {len(documents)} documents...")
+        
+        if args.workers > 1:
+            with ThreadPoolExecutor(max_workers=args.workers) as executor:
+                # Wrap the executor map with tqdm to track overall progress
+                list(tqdm(executor.map(lambda d: process_document(d, data_dir, stats), documents), 
+                         total=len(documents), desc="Processing", unit="doc"))
+        else:
+            for doc in tqdm(documents, desc="Processing", unit="doc"):
+                success = process_document(doc, data_dir, stats)
+                
+                # Save checkpoint every 10 documents
+                if (stats.documents_processed + stats.documents_failed) % 10 == 0:
+                    stats.save(CHECKPOINT_FILE)
+        
+        # Periodic checkpoint save
+        stats.save(CHECKPOINT_FILE)
+        
+        # Update remaining count if not unlimited
+        if total_docs_requested > 0:
+            total_docs_requested -= len(documents)
+            if total_docs_requested <= 0:
+                break
+        
+        # Brief pause to be nice to the API
+        time.sleep(1)
     
     # Final checkpoint save
     stats.save(CHECKPOINT_FILE)
     
     # Summary
     elapsed = time.time() - start_time
-    docs_per_min = (stats.documents_processed + stats.documents_failed) / (elapsed / 60) if elapsed > 0 else 0
+    total_attempted = stats.documents_processed + stats.documents_failed
+    docs_per_min = total_attempted / (elapsed / 60) if elapsed > 0 else 0
     
     print("\n" + "=" * 70)
     print("  BACKFILL COMPLETE")

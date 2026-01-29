@@ -672,6 +672,7 @@ async function backfillProduction(options: BackfillOptions) {
 
         gpuCmd += ` --workers ${options.workers}`;
         gpuCmd += ` --resume`;
+        gpuCmd += ` --limit 0`; // Unlimited processing
 
         console.log(`Running: ${gpuCmd}`);
 
