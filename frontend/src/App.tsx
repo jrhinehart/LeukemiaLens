@@ -7,7 +7,7 @@ import { LandingPage } from './LandingPage'
 import { DiseasePage } from './DiseasePage'
 import { BloodCellProductionPage, MutationsPage, RiskStratificationPage, StemCellTransplantPage, LabResultsPage, ClinicalTrialsPage } from './EducationPages'
 import { CommonTreatmentsPage, MedicationsPage } from './TreatmentPages'
-import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput, ResearchInsights, ResourcesLayout } from './components'
+import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput, ResearchInsights, ResourcesLayout, ConfirmationModal } from './components'
 import type { ParsedFilters } from './components'
 
 // Helper to serialize arrays as repeat params: key=val1&key=val2
@@ -181,6 +181,7 @@ function App() {
   // Sidebar visibility for mobile
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isInsightsPanelOpen, setIsInsightsPanelOpen] = useState(false)
+  const [isConfirmingCloseInsights, setIsConfirmingCloseInsights] = useState(false)
 
   const hasActiveFilters = selectedMutation.length > 0 ||
     selectedDisease.length > 0 ||
@@ -192,6 +193,17 @@ function App() {
     institutionFilter !== "" ||
     startDate !== "" ||
     endDate !== ""
+
+  useEffect(() => {
+    if (isInsightsPanelOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isInsightsPanelOpen]);
 
   useEffect(() => {
     // Prevent default fetch if no filters are active
@@ -487,6 +499,20 @@ function App() {
         title={error?.title || 'Error'}
         message={error?.message || 'An unexpected error occurred.'}
       />
+      {/* Insights Close Confirmation */}
+      <ConfirmationModal
+        isOpen={isConfirmingCloseInsights}
+        onClose={() => setIsConfirmingCloseInsights(false)}
+        onConfirm={() => {
+          setIsConfirmingCloseInsights(false);
+          setIsInsightsPanelOpen(false);
+        }}
+        title="Return to Search?"
+        message="Do you want to return to searching and filtering the dataset? Your current insights session will be closed."
+        confirmText="Return to Search"
+        cancelText="Stay in Insights"
+        type="info"
+      />
       {/* Return to Top Button */}
       {showScrollTop && (
         <button
@@ -552,9 +578,26 @@ function App() {
         />
       )}
 
-      {/* Main Content Area with Split View Support */}
+      {/* Main Content Area with Overlay Support */}
       <div className="flex-1 flex overflow-hidden relative">
-        <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isInsightsPanelOpen ? 'lg:mr-[50%] xl:mr-[65%]' : ''}`}>
+        {/* Insights Overlay */}
+        {isInsightsPanelOpen && (
+          <div
+            className="fixed inset-0 bg-black/40 z-[55] backdrop-blur-sm transition-opacity cursor-pointer flex items-center justify-center group"
+            onClick={() => setIsConfirmingCloseInsights(true)}
+          >
+            <div className="bg-white/90 backdrop-blur px-6 py-3 rounded-full shadow-2xl border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-4 group-hover:translate-y-0 duration-300">
+              <p className="text-gray-900 font-bold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-blue-600">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                </svg>
+                Click here to return to Search & Filter
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300`}>
           <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8 relative h-full">
 
             {/* Sidebar Filters */}
