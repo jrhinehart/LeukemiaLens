@@ -337,6 +337,18 @@ export const ResourcesPage = ({ onNavigateToLearn }: { onNavigateToLearn: (topic
                             NIH Genomic Data Commons - unified data repository enabling data sharing across cancer genomic studies.
                         </p>
                     </a>
+
+                    <a
+                        href="https://www.vizome.org/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                    >
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">Vizome</h3>
+                        <p className="text-sm text-gray-600">
+                            A collaborative platform for exploring and visualizing multidimensional cancer genomics data, with a strong focus on hematologic malignancies.
+                        </p>
+                    </a>
                 </div>
             </section>
 
