@@ -425,7 +425,7 @@ ${technicalContext}
 Provide a dense bulleted list of technical highlights for this batch.`;
 
                 const response = await anthropic.messages.create({
-                    model: 'claude-3-5-sonnet-20241022',
+                    model: 'claude-3-5-sonnet-latest',
                     max_tokens: 2048,
                     messages: [{ role: 'user', content: mapPrompt }],
                     system: "Scientific data extractor. Output only technical highlights with citations."
@@ -474,7 +474,7 @@ ${combinedHighlights}
 ${query ? `CONTEXT QUERY: ${query}` : ''}`;
 
         const finalResponse = await anthropic.messages.create({
-            model: 'claude-3-5-sonnet-20241022',
+            model: 'claude-3-5-sonnet-latest',
             max_tokens: 4096,
             messages: [{ role: 'user', content: reducePrompt }],
             system: "Master scientific report writer. Synthesize multi-batch data into a final structured report."
