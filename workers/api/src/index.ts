@@ -1671,6 +1671,27 @@ app.post('/api/chunks/batch', async (c) => {
             }, 404);
         }
 
+        // Store chunk content in R2
+        const chunkContentData = {
+            documentId: body.documentId,
+            chunks: body.chunks.map(chunk => ({
+                id: chunk.id,
+                chunkIndex: chunk.chunkIndex,
+                content: chunk.content
+            }))
+        };
+
+        const r2Key = `chunks/${body.documentId}.json`;
+        await c.env.DOCUMENTS.put(
+            r2Key,
+            JSON.stringify(chunkContentData),
+            {
+                httpMetadata: {
+                    contentType: 'application/json'
+                }
+            }
+        );
+
         let chunksCreated = 0;
         let vectorsUpserted = 0;
 
@@ -1680,19 +1701,18 @@ app.post('/api/chunks/batch', async (c) => {
         for (let i = 0; i < body.chunks.length; i += batchSize) {
             const batch = body.chunks.slice(i, i + batchSize);
 
-            // Insert chunks into D1
+            // Insert chunks metadata into D1 (NO CONTENT)
             for (const chunk of batch) {
                 await c.env.DB.prepare(`
                     INSERT INTO chunks (
-                        id, document_id, chunk_index, content,
+                        id, document_id, chunk_index,
                         start_page, end_page, section_header, token_count,
                         embedding_id, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 `).bind(
                     chunk.id,
                     body.documentId,
                     chunk.chunkIndex,
-                    chunk.content,
                     chunk.startPage || null,
                     chunk.endPage || null,
                     chunk.sectionHeader || null,
@@ -1736,6 +1756,26 @@ app.post('/api/chunks/batch', async (c) => {
             vectorsUpserted: 0,
             error: e.message
         }, 500);
+    }
+});
+
+// Get chunk content from R2 for a document
+app.get('/api/chunks/content/:documentId', async (c) => {
+    const documentId = c.req.param('documentId');
+
+    try {
+        const r2Key = `chunks/${documentId}.json`;
+        const object = await c.env.DOCUMENTS.get(r2Key);
+
+        if (!object) {
+            return c.json({ error: 'Chunk content not found' }, 404);
+        }
+
+        const data = await object.json();
+        return c.json(data);
+    } catch (e: any) {
+        console.error('Chunk content retrieval error:', e);
+        return c.json({ error: e.message }, 500);
     }
 });
 
@@ -1920,7 +1960,7 @@ app.post('/api/rag/query', async (c) => {
             });
         }
 
-        // Step 3: Fetch chunk content from D1
+        // Step 3: Fetch chunk metadata from D1
         const chunkIds = searchResults.matches.map(m => m.id);
         const placeholders = chunkIds.map(() => '?').join(',');
 
@@ -1932,19 +1972,68 @@ app.post('/api/rag/query', async (c) => {
             WHERE c.id IN (${placeholders})
         `).bind(...chunkIds).run();
 
-        // Combine with scores and sort by score
+        // Group chunks by document ID to fetch content from R2
+        const documentIds = new Set<string>();
+        const chunksByDoc = new Map<string, any[]>();
+
+        for (const chunk of (dbChunks || [])) {
+            const docId = (chunk as any).document_id;
+            documentIds.add(docId);
+            if (!chunksByDoc.has(docId)) {
+                chunksByDoc.set(docId, []);
+            }
+            chunksByDoc.get(docId)!.push(chunk);
+        }
+
+        // Fetch chunk content from R2 for each document
+        const documentContentMap = new Map<string, any>();
+        for (const docId of documentIds) {
+            try {
+                const r2Key = `chunks/${docId}.json`;
+                const object = await c.env.DOCUMENTS.get(r2Key);
+                if (object) {
+                    const data: any = await object.json();
+                    documentContentMap.set(docId, data);
+                }
+            } catch (e) {
+                console.warn(`Failed to fetch chunk content from R2 for ${docId}:`, e);
+            }
+        }
+
+        // Combine with scores and get content from R2 or fallback to D1
         const scoredChunks = searchResults.matches.map(match => {
             const chunk = dbChunks?.find((c: any) => c.id === match.id) as any;
+            if (!chunk) return null;
+
+            let content = '';
+            const docId = chunk.document_id;
+
+            // Try to get content from R2
+            const docContent = documentContentMap.get(docId);
+            if (docContent && docContent.chunks) {
+                const chunkData = docContent.chunks.find((c: any) => c.id === match.id);
+                if (chunkData) {
+                    content = chunkData.content;
+                }
+            }
+
+            // Fallback to D1 content for legacy chunks
+            if (!content && chunk.content) {
+                content = chunk.content;
+            }
+
+            if (!content) return null;
+
             return {
                 id: match.id,
-                content: chunk?.content || '',
-                filename: chunk?.filename || 'Unknown',
-                pmcid: chunk?.pmcid,
-                start_page: chunk?.start_page,
-                end_page: chunk?.end_page,
+                content: content,
+                filename: chunk.filename || 'Unknown',
+                pmcid: chunk.pmcid,
+                start_page: chunk.start_page,
+                end_page: chunk.end_page,
                 score: match.score
             };
-        }).filter(c => c.content);
+        }).filter(c => c !== null);
 
         // Step 4: Build context with token limit
         const { context, sources, tokensUsed } = buildContext(scoredChunks, maxContextTokens);
