@@ -141,6 +141,7 @@ function App() {
 
   // Sidebar visibility for mobile
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isInsightsPanelOpen, setIsInsightsPanelOpen] = useState(false)
 
   const hasActiveFilters = selectedMutation.length > 0 ||
     selectedDisease.length > 0 ||
@@ -517,512 +518,435 @@ function App() {
         />
       )}
 
-      {/* Home/Search Page */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8 relative">
+      {/* Main Content Area with Split View Support */}
+      <div className="flex-1 flex overflow-hidden relative">
+        <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isInsightsPanelOpen ? 'lg:mr-[450px] xl:mr-[600px]' : ''}`}>
+          <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8 relative h-full">
 
-        {/* Sidebar Filters */}
-        <aside className={`
-          fixed inset-y-0 left-0 z-50 w-72 bg-gray-50 p-6 shadow-2xl transition-transform duration-300 ease-in-out transform
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          md:relative md:translate-x-0 md:w-64 md:flex-shrink-0 md:bg-transparent md:p-0 md:shadow-none md:z-0
-        `}>
-          <div className="flex justify-between items-center mb-6 md:hidden">
-            <h2 className="text-lg font-bold text-gray-900">Filters</h2>
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="p-2 text-gray-500 hover:text-gray-700"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="sticky top-8 space-y-6 max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar px-2">
+            {/* Sidebar Filters */}
+            <aside className={`
+              fixed inset-y-0 left-0 z-50 w-72 bg-gray-50 p-6 shadow-2xl transition-transform duration-300 ease-in-out transform
+              ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+              md:relative md:translate-x-0 md:w-64 md:flex-shrink-0 md:bg-transparent md:p-0 md:shadow-none md:z0
+            `}>
+              <div className="flex justify-between items-center mb-6 md:hidden">
+                <h2 className="text-lg font-bold text-gray-900">Filters</h2>
+                <button
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="p-2 text-gray-500 hover:text-gray-700"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="sticky top-8 space-y-6 max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar px-2">
 
-            {/* Smart Search - AI-powered natural language query */}
-            <SmartSearchInput
-              onApplyFilters={(filters: ParsedFilters) => {
-                // Only set search query if there are unparsed terms
-                setSearchQuery(filters.q || '')
-                setSelectedMutation(filters.mutations || [])
-                setSelectedDisease(filters.diseases || [])
-                setSelectedTreatment(filters.treatments || [])
-                setSelectedTag(filters.tags || [])
-                setStartDate(filters.yearStart || '')
-                setEndDate(filters.yearEnd || '')
-                setAuthorFilter(filters.author || '')
-                setJournalFilter(filters.journal || '')
-                // Note: useEffect will trigger fetchArticles when state updates
-              }}
-            />
+                {/* Smart Search - AI-powered natural language query */}
+                <SmartSearchInput
+                  onApplyFilters={(filters: ParsedFilters) => {
+                    // Only set search query if there are unparsed terms
+                    setSearchQuery(filters.q || '')
+                    setSelectedMutation(filters.mutations || [])
+                    setSelectedDisease(filters.diseases || [])
+                    setSelectedTreatment(filters.treatments || [])
+                    setSelectedTag(filters.tags || [])
+                    setStartDate(filters.yearStart || '')
+                    setEndDate(filters.yearEnd || '')
+                    setAuthorFilter(filters.author || '')
+                    setJournalFilter(filters.journal || '')
+                    // Note: useEffect will trigger fetchArticles when state updates
+                  }}
+                />
 
-            <hr className="border-gray-300" />
+                <hr className="border-gray-300" />
 
-            {/* Main Search - Moved to top of filters */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Search</h3>
-              <TextSearchFilter
-                value={searchQuery}
-                onChange={setSearchQuery}
-                onSearch={fetchArticles}
-                placeholder="Search articles..."
-              />
-            </div>
+                {/* Main Search - Moved to top of filters */}
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Search</h3>
+                  <TextSearchFilter
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    onSearch={fetchArticles}
+                    placeholder="Search articles..."
+                  />
+                </div>
 
-            <hr className="border-gray-300" />
+                <hr className="border-gray-300" />
 
-            {/* Diseases */}
-            <SimpleListFilter
-              title="Diseases"
-              items={ontology.diseases.length > 0
-                ? ontology.diseases.map(d => ({
-                  id: d.code,
-                  label: d.code,
-                  description: d.name !== d.code ? d.name : undefined
-                }))
-                : ['AML', 'CML', 'ALL'].map(d => ({ id: d, label: d }))
-              }
-              selectedIds={selectedDisease}
-              onChange={setSelectedDisease}
-              defaultCollapsed={true}
-            />
+                {/* Diseases */}
+                <SimpleListFilter
+                  title="Diseases"
+                  items={ontology.diseases.length > 0
+                    ? ontology.diseases.map(d => ({
+                      id: d.code,
+                      label: d.code,
+                      description: d.name !== d.code ? d.name : undefined
+                    }))
+                    : ['AML', 'CML', 'ALL'].map(d => ({ id: d, label: d }))
+                  }
+                  selectedIds={selectedDisease}
+                  onChange={setSelectedDisease}
+                  defaultCollapsed={true}
+                />
 
-            <hr className="border-gray-300" />
+                <hr className="border-gray-300" />
 
-            {/* Mutations */}
-            <GroupedMutationFilter
-              title="Mutations"
-              items={ontology.mutations}
-              selectedIds={selectedMutation}
-              onChange={setSelectedMutation}
-              stats={stats.mutations}
-              defaultCollapsed={true}
-            />
+                {/* Mutations */}
+                <GroupedMutationFilter
+                  title="Mutations"
+                  items={ontology.mutations}
+                  selectedIds={selectedMutation}
+                  onChange={setSelectedMutation}
+                  stats={stats.mutations}
+                  defaultCollapsed={true}
+                />
 
-            <hr className="border-gray-300" />
+                <hr className="border-gray-300" />
 
-            {/* Treatments */}
-            <SearchableListFilter
-              title="Treatments"
-              items={ontology.treatments.length > 0
-                ? ontology.treatments.map(t => ({
-                  id: t.code,
-                  label: t.type === 'protocol' ? `⚕️ ${t.name}` : `💊 ${t.name}`,
-                  count: stats.treatments[t.code] || 0
-                }))
-                : Object.entries(stats.treatments || {}).map(([code, count]) => ({
-                  id: code,
-                  label: code,
-                  count: count as number
-                }))
-              }
-              selectedIds={selectedTreatment}
-              onChange={(newSelection) => {
-                // Auto-select component drugs when a protocol is selected
-                const addedTreatments = newSelection.filter(id => !selectedTreatment.includes(id));
-                const removedTreatments = selectedTreatment.filter(id => !newSelection.includes(id));
+                {/* Treatments */}
+                <SearchableListFilter
+                  title="Treatments"
+                  items={ontology.treatments.length > 0
+                    ? ontology.treatments.map(t => ({
+                      id: t.code,
+                      label: t.type === 'protocol' ? `⚕️ ${t.name}` : `💊 ${t.name}`,
+                      count: stats.treatments[t.code] || 0
+                    }))
+                    : Object.entries(stats.treatments || {}).map(([code, count]) => ({
+                      id: code,
+                      label: code,
+                      count: count as number
+                    }))
+                  }
+                  selectedIds={selectedTreatment}
+                  onChange={(newSelection) => {
+                    // Auto-select component drugs when a protocol is selected
+                    const addedTreatments = newSelection.filter(id => !selectedTreatment.includes(id));
+                    const removedTreatments = selectedTreatment.filter(id => !newSelection.includes(id));
 
-                let finalSelection = [...newSelection];
+                    let finalSelection = [...newSelection];
 
-                // If a protocol was added, also add its component drugs
-                addedTreatments.forEach(treatmentCode => {
-                  const treatment = ontology.treatments?.find(t => t.code === treatmentCode);
-                  if (treatment && treatment.type === 'protocol') {
-                    // Find component drugs for this protocol
-                    const components = (ontology.treatment_components || [])
-                      .filter(tc => tc.protocol_code === treatmentCode)
-                      .map(tc => tc.drug_code);
+                    // If a protocol was added, also add its component drugs
+                    addedTreatments.forEach(treatmentCode => {
+                      const treatment = ontology.treatments?.find(t => t.code === treatmentCode);
+                      if (treatment && treatment.type === 'protocol') {
+                        // Find component drugs for this protocol
+                        const components = (ontology.treatment_components || [])
+                          .filter(tc => tc.protocol_code === treatmentCode)
+                          .map(tc => tc.drug_code);
 
-                    // Add components if not already selected
-                    components.forEach(drugCode => {
-                      if (!finalSelection.includes(drugCode)) {
-                        finalSelection.push(drugCode);
+                        // Add components if not already selected
+                        components.forEach(drugCode => {
+                          if (!finalSelection.includes(drugCode)) {
+                            finalSelection.push(drugCode);
+                          }
+                        });
                       }
                     });
-                  }
-                });
 
-                // If a drug was removed that is part of a selected protocol, remove the protocol too
-                removedTreatments.forEach(treatmentCode => {
-                  const treatment = ontology.treatments?.find(t => t.code === treatmentCode);
-                  if (treatment && treatment.type === 'drug') {
-                    // Find protocols that include this drug
-                    const relatedProtocols = (ontology.treatment_components || [])
-                      .filter(tc => tc.drug_code === treatmentCode)
-                      .map(tc => tc.protocol_code);
+                    // If a drug was removed that is part of a selected protocol, remove the protocol too
+                    removedTreatments.forEach(treatmentCode => {
+                      const treatment = ontology.treatments?.find(t => t.code === treatmentCode);
+                      if (treatment && treatment.type === 'drug') {
+                        // Find protocols that include this drug
+                        const relatedProtocols = (ontology.treatment_components || [])
+                          .filter(tc => tc.drug_code === treatmentCode)
+                          .map(tc => tc.protocol_code);
 
-                    // Remove related protocols from selection
-                    finalSelection = finalSelection.filter(code => !relatedProtocols.includes(code));
-                  }
-                });
+                        // Remove related protocols from selection
+                        finalSelection = finalSelection.filter(code => !relatedProtocols.includes(code));
+                      }
+                    });
 
-                setSelectedTreatment(finalSelection);
-              }}
-              searchPlaceholder="Search treatments..."
-              maxHeight="24rem"
-              defaultCollapsed={true}
-            />
+                    setSelectedTreatment(finalSelection);
+                  }}
+                  searchPlaceholder="Search treatments..."
+                  maxHeight="24rem"
+                  defaultCollapsed={true}
+                />
 
-            <hr className="border-gray-300" />
+                <hr className="border-gray-300" />
 
-            {/* Study Tags */}
-            <SimpleListFilter
-              title="Study Topics"
-              items={Object.entries(stats.tags).map(([tag, count]) => ({
-                id: tag,
-                label: tag,
-                count: count as number
-              }))}
-              selectedIds={selectedTag}
-              onChange={setSelectedTag}
-              defaultCollapsed={true}
-            />
+                {/* Study Tags */}
+                <SimpleListFilter
+                  title="Study Topics"
+                  items={Object.entries(stats.tags).map(([tag, count]) => ({
+                    id: tag,
+                    label: tag,
+                    count: count as number
+                  }))}
+                  selectedIds={selectedTag}
+                  onChange={setSelectedTag}
+                  defaultCollapsed={true}
+                />
 
-            <hr className="border-gray-300" />
+                <hr className="border-gray-300" />
 
-            {/* Advanced Filters */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">Additional Filters</h3>
+                {/* Advanced Filters */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">Additional Filters</h3>
 
-              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-3">
-                <div>
-                  <input
-                    type="text"
-                    className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                    placeholder="Author (e.g. Smith)"
-                    value={authorFilter}
-                    onChange={e => setAuthorFilter(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                    placeholder="Journal (e.g. Blood)"
-                    value={journalFilter}
-                    onChange={e => setJournalFilter(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
-                    placeholder="Institution"
-                    value={institutionFilter}
-                    onChange={e => setInstitutionFilter(e.target.value)}
+                  <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-3">
+                    <div>
+                      <input
+                        type="text"
+                        className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                        placeholder="Author (e.g. Smith)"
+                        value={authorFilter}
+                        onChange={e => setAuthorFilter(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                        placeholder="Journal (e.g. Blood)"
+                        value={journalFilter}
+                        onChange={e => setJournalFilter(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        className="w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                        placeholder="Institution"
+                        value={institutionFilter}
+                        onChange={e => setInstitutionFilter(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <DateRangeFilter
+                    title="Publication Date"
+                    startDate={startDate}
+                    endDate={endDate}
+                    onStartDateChange={setStartDate}
+                    onEndDateChange={setEndDate}
+                    defaultCollapsed={false}
                   />
                 </div>
               </div>
+            </aside>
 
-              <DateRangeFilter
-                title="Publication Date"
-                startDate={startDate}
-                endDate={endDate}
-                onStartDateChange={setStartDate}
-                onEndDateChange={setEndDate}
-                defaultCollapsed={false}
-              />
-            </div>
+            {/* Main Content Area */}
+            <main className="flex-1 min-w-0">
+              {/* Active Filters Display */}
+              {searchQuery && (
+                <div className="mb-6">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Search:</span>
+                    <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium border border-blue-200">
+                      <span>"{searchQuery}"</span>
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="text-blue-600 hover:text-blue-800 transition-colors"
+                        aria-label="Clear search"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 min-w-0">
-
-
-
-
-          {/* Active Filters Display */}
-          {searchQuery && (
-            <div className="mb-6">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Search:</span>
-                <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium border border-blue-200">
-                  <span>"{searchQuery}"</span>
+              {/* Toolbar */}
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
                   <button
-                    onClick={() => setSearchQuery('')}
-                    className="text-blue-600 hover:text-blue-800 transition-colors"
-                    aria-label="Clear search"
+                    onClick={() => setIsSidebarOpen(true)}
+                    className="md:hidden p-2 text-gray-500 hover:text-gray-700 bg-white rounded-md border border-gray-300 shadow-sm"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0m-9.75 0h9.75" />
                     </svg>
                   </button>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    {articles.length > 0 ? `${articles.length} Research Articles` : 'Search Results'}
+                  </h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={resetAll}
+                    disabled={!hasActiveFilters}
+                    className="bg-white border border-gray-300 text-gray-700 px-2 py-1 sm:px-3 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm flex items-center gap-1.5"
+                    title="Clear all filters"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-red-500">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.48a8.25 8.25 0 1 1-2.427-4.688l1.134-1.134M18 3.375l-.669.669m0 0 1.5 1.5m-1.5-1.5-1.5-1.5m1.5 1.5.669.669" />
+                    </svg>
+                    <span className="hidden sm:inline">Reset</span>
+                  </button>
+                  <button
+                    onClick={handleExport}
+                    className="bg-white border border-gray-300 text-gray-700 px-2 py-1 sm:px-3 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-1.5"
+                    title="Export results to CSV"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                    <span className="hidden sm:inline">Export</span>
+                  </button>
+                  <ResearchInsights
+                    articles={articles}
+                    searchQuery={searchQuery}
+                    selectedFilters={{
+                      mutations: selectedMutation,
+                      diseases: selectedDisease,
+                      treatments: selectedTreatment,
+                      tags: selectedTag
+                    }}
+                    isOpen={isInsightsPanelOpen}
+                    onToggleOpen={() => setIsInsightsPanelOpen(!isInsightsPanelOpen)}
+                  />
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* Pagination Controls - Top */}
-          {totalPages > 1 && (
-            <div className="mb-6 flex items-center justify-end flex-wrap gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 mr-2">
-                  {startIndex + 1}-{Math.min(endIndex, articles.length)}
-                </span>
-                <button
-                  onClick={() => setResultsPage(p => Math.max(1, p - 1))}
-                  disabled={resultsPage === 1}
-                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Previous
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(page => {
-                      if (page === 1 || page === totalPages) return true
-                      if (Math.abs(page - resultsPage) <= 1) return true
-                      return false
-                    })
-                    .map((page, index, array) => {
-                      const prevPage = array[index - 1]
-                      const showEllipsis = prevPage && page - prevPage > 1
-
-                      return (
-                        <div key={page} className="flex items-center gap-1">
-                          {showEllipsis && <span className="px-2 text-gray-400">...</span>}
-                          <button
-                            onClick={() => setResultsPage(page)}
-                            className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                              }`}
-                          >
-                            {page}
-                          </button>
-                        </div>
-                      )
-                    })}
-                </div>
-
-                <button
-                  onClick={() => setResultsPage(p => Math.min(totalPages, p + 1))}
-                  disabled={resultsPage === totalPages}
-                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsSidebarOpen(true)}
-                className="md:hidden flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 18H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 12h9" />
-                </svg>
-                Filters
-              </button>
-              <div className="flex items-baseline gap-2">
-                <h2 className="text-xl font-bold text-gray-900">Articles</h2>
-                {articles.length >= 1000 && !searchQuery && selectedMutation.length === 0 && selectedDisease.length === 0 && selectedTag.length === 0 && selectedTreatment.length === 0 && !authorFilter && !journalFilter && !startDate && !endDate ? (
-                  <div className="group relative">
-                    <span className="text-sm font-medium text-amber-600 whitespace-nowrap cursor-help">
-                      (1,000+ results)
-                    </span>
-                    <div className="absolute left-0 top-full mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                      Showing first 1,000 articles. Use <strong>Smart Search</strong> or filters to narrow results.
+              <div className="space-y-4 pb-12">
+                {!hasActiveFilters && articles.length === 0 ? (
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-16 text-center">
+                    <div className="text-6xl mb-6">🔍</div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Ready to explore?</h3>
+                    <p className="text-gray-600 max-w-md mx-auto mb-8">
+                      Select a disease, mutation, or use the <strong>Smart Search</strong> bar above to start browsing the scientific literature.
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-4">
+                      <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl border border-blue-100 text-sm font-semibold">
+                        Step 1: Use the search bar
+                      </div>
+                      <div className="px-4 py-2 bg-purple-50 text-purple-700 rounded-xl border border-purple-100 text-sm font-semibold">
+                        Step 2: Apply filters
+                      </div>
                     </div>
                   </div>
+                ) : paginatedArticles.length > 0 ? (
+                  paginatedArticles.map((article) => (
+                    <div key={article.pubmed_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {article.mutations.map(m => (
+                              <span key={m} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                {m}
+                              </span>
+                            ))}
+                            {article.diseases.map(d => (
+                              <span key={d} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                                {d}
+                              </span>
+                            ))}
+                            {article.treatments?.map((t, idx) => (
+                              <span
+                                key={`${t.code}-${idx}`}
+                                className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
+                                title={t.type === 'protocol' ? 'Protocol' : 'Drug'}
+                              >
+                                {t.type === 'protocol' ? '⚕️' : '💊'} {t.name}
+                              </span>
+                            ))}
+                            {article.tags.map(t => (
+                              <span key={t} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                                {t}
+                              </span>
+                            ))}
+                            <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                              {article.journal}
+                            </span>
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2 break-words">
+                            <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline">
+                              <HighlightText text={article.title} highlight={searchQuery} />
+                            </a>
+                          </h3>
+                          <div className="text-xs text-gray-500 mb-3 flex flex-col gap-1">
+                            <span className="font-semibold text-gray-800 break-words">{article.authors}</span>
+                            {article.affiliations && <span className="text-gray-400 italic truncate w-full" title={article.affiliations}>{article.affiliations}</span>}
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <a
+                              href={article.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
+                            >
+                              VIEW ON PUBMED
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                              </svg>
+                            </a>
+                            <span className="text-xs text-gray-400 font-medium">
+                              PMID: {article.pubmed_id}
+                            </span>
+                            <span className="text-xs text-gray-400 font-medium">
+                              {article.pub_date}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
                 ) : (
-                  <span className="text-sm font-medium text-gray-500 whitespace-nowrap">
-                    ({articles.length.toLocaleString()} {articles.length === 1 ? 'result' : 'results'})
-                  </span>
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                    <p className="text-gray-500">No matching articles found. Try loosening your filters.</p>
+                  </div>
+                )}
+
+                {/* Pagination Controls - Bottom */}
+                {totalPages > 1 && (
+                  <div className="mt-8 flex items-center justify-between flex-wrap gap-4 border-t border-gray-200 pt-6 px-2">
+                    <button
+                      onClick={() => { setResultsPage(p => Math.max(1, p - 1)); scrollToTop(); }}
+                      disabled={resultsPage === 1}
+                      className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Previous
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(page => {
+                          if (page === 1 || page === totalPages) return true
+                          if (Math.abs(page - resultsPage) <= 3) return true
+                          return false
+                        })
+                        .map((page, index, array) => {
+                          const prevPage = array[index - 1]
+                          const showEllipsis = prevPage && page - prevPage > 1
+
+                          return (
+                            <div key={page} className="flex items-center gap-1">
+                              {showEllipsis && <span className="px-2 text-gray-400">...</span>}
+                              <button
+                                onClick={() => { setResultsPage(page); scrollToTop(); }}
+                                className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
+                                  ? 'bg-blue-600 text-white shadow-md'
+                                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                  }`}
+                              >
+                                {page}
+                              </button>
+                            </div>
+                          )
+                        })}
+                    </div>
+
+                    <button
+                      onClick={() => { setResultsPage(p => Math.min(totalPages, p + 1)); scrollToTop(); }}
+                      disabled={resultsPage === totalPages}
+                      className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
                 )}
               </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={resetAll}
-                className="bg-white border border-gray-300 text-gray-700 px-2 py-1 sm:px-3 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-1.5"
-                title="Reset all filters"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                </svg>
-                <span className="hidden sm:inline">Reset</span>
-              </button>
-              <button
-                onClick={handleExport}
-                className="bg-white border border-gray-300 text-gray-700 px-2 py-1 sm:px-3 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-1.5"
-                title="Export results to CSV"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                </svg>
-                <span className="hidden sm:inline">Export</span>
-              </button>
-              <ResearchInsights
-                articles={articles}
-                searchQuery={searchQuery}
-                selectedFilters={{
-                  mutations: selectedMutation,
-                  diseases: selectedDisease,
-                  treatments: selectedTreatment,
-                  tags: selectedTag
-                }}
-              />
-            </div>
+            </main>
           </div>
-
-          <div className="space-y-4">
-            {!hasActiveFilters && articles.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-16 text-center">
-                <div className="text-6xl mb-6">🔍</div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Ready to explore?</h3>
-                <p className="text-gray-600 max-w-md mx-auto mb-8">
-                  Select a disease, mutation, or use the <strong>Smart Search</strong> bar above to start browsing the scientific literature.
-                </p>
-                <div className="flex flex-wrap justify-center gap-4">
-                  <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl border border-blue-100 text-sm font-semibold">
-                    Step 1: Use the search bar
-                  </div>
-                  <div className="px-4 py-2 bg-purple-50 text-purple-700 rounded-xl border border-purple-100 text-sm font-semibold">
-                    Step 2: Apply filters
-                  </div>
-                </div>
-              </div>
-            ) : paginatedArticles.length > 0 ? (
-              paginatedArticles.map((article) => (
-                <div key={article.pubmed_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {article.mutations.map(m => (
-                          <span key={m} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                            {m}
-                          </span>
-                        ))}
-                        {article.diseases.map(d => (
-                          <span key={d} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                            {d}
-                          </span>
-                        ))}
-                        {article.treatments?.map((t, idx) => (
-                          <span
-                            key={`${t.code}-${idx}`}
-                            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
-                            title={t.type === 'protocol' ? 'Protocol' : 'Drug'}
-                          >
-                            {t.type === 'protocol' ? '⚕️' : '💊'} {t.name}
-                          </span>
-                        ))}
-                        {article.tags.map(t => (
-                          <span key={t} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                            {t}
-                          </span>
-                        ))}
-                        <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
-                          {article.journal}
-                        </span>
-                        {article.full_text_type === 'pdf' && (
-                          <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-red-100 text-red-700 border border-red-200 flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                              <path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-4.12-4.122A1.5 1.5 0 0 0 11.38 2H4.5Zm0 1.5H11v3a1.5 1.5 0 0 0 1.5 1.5h3v8.5h-11v-13Zm10.121 3.5H12.5V3.879L14.621 7Z" clipRule="evenodd" />
-                            </svg>
-                            PDF
-                          </span>
-                        )}
-                        {article.full_text_type === 'xml' && (
-                          <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200 flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                              <path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 0 0 2 4.25v11.5A2.25 2.25 0 0 0 4.25 18h11.5A2.25 2.25 0 0 0 18 15.75V4.25A2.25 2.25 0 0 0 15.75 2H4.25Zm0 1.5h11.5a.75.75 0 0 1 .75.75v11.5a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V4.25a.75.75 0 0 1 .75-.75Zm3 3a.75.75 0 0 1 1.06 0L10 8.19l1.69-1.69a.75.75 0 1 1 1.06 1.06L11.06 9.25l1.69 1.69a.75.75 0 1 1-1.06 1.06L10 10.31l-1.69 1.69a.75.75 0 1 1-1.06-1.06l1.69-1.69-1.69-1.69a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                            </svg>
-                            XML
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2 break-words">
-                        <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline">
-                          <HighlightText text={article.title} highlight={searchQuery} />
-                        </a>
-                      </h3>
-                      <div className="text-xs text-gray-500 mb-3 flex flex-col gap-1">
-                        <span className="font-semibold text-gray-800 break-words">{article.authors}</span>
-                        {article.affiliations && <span className="text-gray-400 italic truncate w-full" title={article.affiliations}>{article.affiliations}</span>}
-                      </div>
-                      <p className="text-sm text-gray-700 mb-4 line-clamp-3 leading-relaxed break-words">
-                        <HighlightText text={article.abstract} highlight={searchQuery} />
-                      </p>
-                      <div className="flex items-center text-xs font-medium text-gray-500 gap-4 border-t border-gray-100 pt-3">
-                        <span>PMID: {article.pubmed_id}</span>
-                        <span>Published: {article.pub_date}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                <p className="text-gray-500 text-lg">No articles found matching filters.</p>
-                <button onClick={resetAll} className="mt-4 text-blue-600 hover:underline text-sm">Clear all filters</button>
-              </div>
-            )}
-          </div>
-
-          {/* Pagination Controls - Bottom */}
-          {totalPages > 1 && (
-            <div className="mt-8 flex items-center justify-between flex-wrap gap-4">
-              <span className="text-sm font-medium text-gray-500 italic">
-                Showing {startIndex + 1}-{Math.min(endIndex, articles.length)} of {articles.length}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setResultsPage(p => Math.max(1, p - 1))}
-                  disabled={resultsPage === 1}
-                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Previous
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(page => {
-                      if (page === 1 || page === totalPages) return true
-                      if (Math.abs(page - resultsPage) <= 1) return true
-                      return false
-                    })
-                    .map((page, index, array) => {
-                      const prevPage = array[index - 1]
-                      const showEllipsis = prevPage && page - prevPage > 1
-
-                      return (
-                        <div key={page} className="flex items-center gap-1">
-                          {showEllipsis && <span className="px-2 text-gray-400">...</span>}
-                          <button
-                            onClick={() => setResultsPage(page)}
-                            className={`min-w-[2.5rem] px-3 py-2 rounded-md text-sm font-medium transition-colors ${resultsPage === page
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                              }`}
-                          >
-                            {page}
-                          </button>
-                        </div>
-                      )
-                    })}
-                </div>
-
-                <button
-                  onClick={() => setResultsPage(p => Math.min(totalPages, p + 1))}
-                  disabled={resultsPage === totalPages}
-                  className="px-4 py-2 rounded-md text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-        </main>
-      </div >
-    </div >
+        </div>
+      </div>
+    </div>
   )
 }
 

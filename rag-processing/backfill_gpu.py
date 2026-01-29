@@ -121,28 +121,32 @@ def query_d1(sql: str, params: List = None) -> dict:
     return data['result'][0]
 
 
-def get_pending_documents(limit: int = 1000, after_id: Optional[str] = None, 
+def get_pending_documents(limit: int = 1000, 
                           year: Optional[int] = None, month: Optional[int] = None) -> List[Document]:
     """Fetch documents with status 'pending', optionally filtered by date."""
     
+    # 1. First, get a total count for better logging
+    try:
+        count_query = "SELECT COUNT(*) as count FROM documents WHERE status = 'pending'"
+        count_result = query_d1(count_query)
+        total_pending = count_result.get('results', [{}])[0].get('count', 0)
+        logger.info(f"🔍 Total 'pending' documents in database: {total_pending}")
+    except Exception as e:
+        logger.warning(f"Could not fetch total pending count: {e}")
+
+    # 2. Build the main query
     base_query = """
         SELECT d.id, d.pmcid, d.pmid, d.study_id, d.filename, d.format, d.r2_key, d.status 
         FROM documents d
     """
     
-    # Join with studies if we need date filtering
-    if year:
-        base_query += " LEFT JOIN studies s ON s.id = d.study_id"
-    
     conditions = ["d.status = 'pending'"]
     params = []
     
-    if after_id:
-        conditions.append("d.id > ?")
-        params.append(after_id)
-    
-    # Date filtering via studies table
     if year:
+        # If we have a year, we MUST join with studies
+        base_query += " JOIN studies s ON s.id = d.study_id"
+        
         if month:
             month_str = str(month).zfill(2)
             import calendar
@@ -157,11 +161,17 @@ def get_pending_documents(limit: int = 1000, after_id: Optional[str] = None,
             params.append(f"{year}-01-01")
             params.append(f"{year}-12-31")
     
-    query = base_query + " WHERE " + " AND ".join(conditions) + " ORDER BY d.id LIMIT ?"
+    query = f"{base_query} WHERE {' AND '.join(conditions)} ORDER BY d.id LIMIT ?"
     params.append(limit)
     
     result = query_d1(query, params)
-    return [Document(**row) for row in result.get('results', [])]
+    rows = result.get('results', [])
+    
+    if not rows and year:
+        logger.warning(f"⚠️ No documents found for year {year}{f'-{month}' if month else ''}. " 
+                       "Checks if study_id is populated in documents table.")
+
+    return [Document(**row) for row in rows]
 
 
 def download_document(doc: Document, output_path: str) -> bool:
@@ -407,7 +417,6 @@ def main():
     print("\n📥 Fetching pending documents...")
     documents = get_pending_documents(
         limit=args.limit, 
-        after_id=resume_after,
         year=args.year,
         month=args.month
     )

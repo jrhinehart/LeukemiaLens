@@ -46,5 +46,5 @@ npx tsx scripts/backfill-production.ts --start-year 2000 --end-year 2005
 
 ```bash
 # Load .env and run backfill
-npx tsx scripts/backfill-production.ts --local --start-year 2025 --month 3 --with-rag --gpu
+npx tsx scripts/backfill-production.ts --local --start-year 2025 --month 4 --with-rag --gpu
 ```

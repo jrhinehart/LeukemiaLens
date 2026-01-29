@@ -670,13 +670,6 @@ async function backfillProduction(options: BackfillOptions) {
 
         let gpuCmd = `python ../../rag-processing/backfill_gpu.py`;
 
-        if (options.startYear === options.endYear) {
-            gpuCmd += ` --year ${options.startYear}`;
-            if (options.month) {
-                gpuCmd += ` --month ${options.month}`;
-            }
-        }
-
         gpuCmd += ` --workers ${options.workers}`;
         gpuCmd += ` --resume`;
 

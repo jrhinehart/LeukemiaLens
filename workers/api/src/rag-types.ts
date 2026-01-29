@@ -156,6 +156,7 @@ export interface RAGQueryRequest {
     documentIds?: string[];  // Scope to specific docs
     topK?: number;           // Number of chunks to retrieve (default 10, max 50)
     maxContextTokens?: number; // Max tokens for context (default 150000)
+    insightId?: string;      // ID of the insight this query is a follow-up to
 }
 
 export interface RAGQueryResponse {

@@ -11,7 +11,9 @@ import type {
     DocumentListResponse,
     DocumentChunk,
     BatchChunkRequest,
-    BatchChunkResponse
+    BatchChunkResponse,
+    RAGQueryRequest,
+    RAGQueryResponse
 } from './rag-types';
 
 type Bindings = {
@@ -211,7 +213,7 @@ app.get('/api/search', async (c) => {
 
 // NLP-powered query parsing using Workers AI
 app.post('/api/parse-query', async (c) => {
-    const body = await c.req.json().catch(() => ({}));
+    const body = await c.req.json<RAGQueryRequest>().catch(() => ({ query: '' } as RAGQueryRequest));
     const { query } = body;
 
     if (!query || typeof query !== 'string') {
@@ -280,7 +282,7 @@ Rules:
 // AI-powered research insights summarization using Claude
 app.post('/api/summarize', async (c) => {
     try {
-        const body = await c.req.json().catch(() => ({}));
+        const body = await c.req.json().catch(() => ({})) as any;
         const { articles, query, filter_summary } = body;
 
         if (!articles || !Array.isArray(articles) || articles.length === 0) {
@@ -355,7 +357,7 @@ app.post('/api/summarize', async (c) => {
     }
 });
 
-async function callLLMWithFallback(c: any, prompt: string, system: string, maxTokens: number = 2048) {
+async function callLLMWithFallback(c: any, prompt: string, system: string, maxTokens: number = 2048): Promise<{ text: string, model: string }> {
     const anthropic = new Anthropic({ apiKey: c.env.ANTHROPIC_API_KEY });
 
     console.log(`[LLM] Starting call. API Key present: ${!!c.env.ANTHROPIC_API_KEY}`);
@@ -386,7 +388,7 @@ async function callLLMWithFallback(c: any, prompt: string, system: string, maxTo
                 system
             });
             console.log(`[LLM] SUCCESS with ${model}`);
-            return (response.content[0] as any).text || '';
+            return { text: (response.content[0] as any).text || '', model };
         } catch (e: any) {
             console.error(`[LLM] FAILED with ${model}:`, e.message);
             // If it's a 404 (model not found) or a 403 (unauthorized for this specific model), try next
@@ -409,7 +411,7 @@ async function callLLMWithFallback(c: any, prompt: string, system: string, maxTo
             ]
         });
         console.log(`[LLM] SUCCESS with Llama-3 fallback.`);
-        return response.response || '';
+        return { text: response.response || '', model: 'llama-3-8b-instruct' };
     } catch (llamaError: any) {
         console.error(`[LLM] CRITICAL: Llama fallback failed:`, llamaError.message);
         throw new Error(`All LLM providers failed. Last error: ${llamaError.message}`);
@@ -460,7 +462,8 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
             return { text: '', hasFullText: false, fullTextPmids: [], technicalContext: '', docsWithFullText: 0 };
         })).then(async (preBatchResults) => {
             // Now actually run the LLM calls using the gathered context
-            return await Promise.all((batches as any[]).map(async (batch: any[], bIdx: number) => {
+            let lastUsedModel = 'unknown';
+            const mappedResults = await Promise.all((batches as any[]).map(async (batch: any[], bIdx: number) => {
                 const { technicalContext, docsWithFullText } = preBatchResults[bIdx];
                 const startIdx = bIdx * batchSize;
 
@@ -481,29 +484,38 @@ ${technicalContext}
 
 Provide a dense bulleted list of technical highlights for this batch.`;
 
-                const text = await callLLMWithFallback(
+                const { text, model } = await callLLMWithFallback(
                     c,
                     mapPrompt,
                     "Scientific data extractor. Output only technical highlights with citations.",
                     2048
                 );
+                lastUsedModel = model;
 
-                return { text, hasFullText: docsWithFullText > 0, fullTextPmids: preBatchResults[bIdx].fullTextPmids };
+                return { text, hasFullText: docsWithFullText > 0, fullTextPmids: preBatchResults[bIdx].fullTextPmids, docsWithFullText };
             }));
+            return { mappedResults, lastUsedModel };
         });
 
-        // Step 2: Global Synthesis (Reduce Phase)
-        const combinedHighlights = batchResults.map((r, i) => `BATCH ${i + 1} HIGHLIGHTS:\n${r.text}`).join('\n\n');
-        const totalFullText = batchResults.some(r => r.hasFullText);
-        const allFullTextPmids = new Set<string>();
-        batchResults.forEach(r => r.fullTextPmids?.forEach((p: string) => allFullTextPmids.add(p)));
+        const { mappedResults, lastUsedModel: intermediateModel } = batchResults;
 
-        const updatedAnalyzedArticles = articles.map((a, i) => ({
-            num: i + 1,
-            title: a.title || 'Untitled',
-            year: a.year || (a.pub_date && typeof a.pub_date === 'string' ? a.pub_date.substring(0, 4) : 'N/A'),
-            hasFullText: allFullTextPmids.has(a.pubmed_id || a.pmid || '')
-        }));
+        // Step 2: Global Synthesis (Reduce Phase)
+        const combinedHighlights = mappedResults.map((r, i) => `BATCH ${i + 1} HIGHLIGHTS:\n${r.text}`).join('\n\n');
+        const totalFullText = mappedResults.some(r => r.hasFullText);
+        const fullTextCount = mappedResults.reduce((acc, r) => acc + (r.docsWithFullText || 0), 0);
+        const allFullTextPmids = new Set<string>();
+        mappedResults.forEach(r => r.fullTextPmids?.forEach((p: string) => allFullTextPmids.add(String(p))));
+
+        const updatedAnalyzedArticles = articles.map((a, i) => {
+            const pmid = String(a.pubmed_id || a.pmid || '');
+            return {
+                num: i + 1,
+                title: a.title || 'Untitled',
+                year: a.year || (a.pub_date && typeof a.pub_date === 'string' ? a.pub_date.substring(0, 4) : 'N/A'),
+                pmid: pmid,
+                hasFullText: allFullTextPmids.has(pmid)
+            };
+        });
 
         const reducePrompt = `You are a medical research synthesis expert specializing in hematological malignancies. I will provide you with technical summary highlights for 50 articles. 
 Your task is to synthesize these into a single, cohesive, high-level scientific report.
@@ -529,7 +541,7 @@ ${combinedHighlights}
 
 ${query ? `CONTEXT QUERY: ${query}` : ''}`;
 
-        const summary = await callLLMWithFallback(
+        const { text: summary, model: finalModel } = await callLLMWithFallback(
             c,
             reducePrompt,
             "Master scientific report writer. Synthesize multi-batch data into a final structured report.",
@@ -538,8 +550,23 @@ ${query ? `CONTEXT QUERY: ${query}` : ''}`;
 
         // Update persistence
         await c.env.DB.prepare(`
-            UPDATE insights SET summary = ?, is_rag_enhanced = ?, status = 'completed', error = NULL, analyzed_articles_json = ? WHERE id = ?
-        `).bind(summary, totalFullText ? 1 : 0, JSON.stringify(updatedAnalyzedArticles), insightId).run();
+            UPDATE insights SET 
+                summary = ?, 
+                is_rag_enhanced = ?, 
+                status = 'completed', 
+                error = NULL, 
+                analyzed_articles_json = ?,
+                model_used = ?,
+                full_text_count = ?
+            WHERE id = ?
+        `).bind(
+            summary,
+            totalFullText ? 1 : 0,
+            JSON.stringify(updatedAnalyzedArticles),
+            finalModel,
+            fullTextCount,
+            insightId
+        ).run();
 
     } catch (e: any) {
         console.error(`Map-Reduce Orchestration Error [ID: ${insightId}]:`, e);
@@ -570,7 +597,8 @@ app.get('/api/insights/:id', async (c) => {
             success: true,
             insight: {
                 ...insight,
-                analyzedArticles: JSON.parse((insight as any).analyzed_articles_json || '[]')
+                analyzedArticles: JSON.parse((insight as any).analyzed_articles_json || '[]'),
+                chatHistory: JSON.parse((insight as any).chat_history || '[]')
             }
         });
     } catch (e: any) {
@@ -1860,12 +1888,7 @@ ${chunk.content}
 // RAG Query endpoint with Claude synthesis
 app.post('/api/rag/query', async (c) => {
     try {
-        const body = await c.req.json<{
-            query: string;
-            topK?: number;
-            maxContextTokens?: number;
-            documentIds?: string[];
-        }>();
+        const body = await c.req.json<RAGQueryRequest>().catch(() => ({ query: '' } as RAGQueryRequest));
 
         if (!body.query) {
             return c.json({ error: 'Query is required' }, 400);
@@ -1955,12 +1978,30 @@ ${context}
 Please provide a comprehensive answer based on these sources, citing them with [1], [2], etc. as appropriate.`;
 
         // Step 5: Call LLM with synthesis fallback
-        const answer = await callLLMWithFallback(
+        const { text: answer, model: usedModel } = await callLLMWithFallback(
             c,
             userPrompt,
             systemPrompt,
             4096
         );
+
+        // Step 6: Persist follow-up to history if insightId provided
+        if (body.insightId) {
+            try {
+                const insight = await c.env.DB.prepare('SELECT chat_history FROM insights WHERE id = ?')
+                    .bind(body.insightId).first();
+                if (insight) {
+                    const history = JSON.parse((insight as any).chat_history || '[]');
+                    history.push({ role: 'user', content: body.query });
+                    history.push({ role: 'assistant', content: answer, model: usedModel });
+
+                    await c.env.DB.prepare('UPDATE insights SET chat_history = ? WHERE id = ?')
+                        .bind(JSON.stringify(history), body.insightId).run();
+                }
+            } catch (historyError) {
+                console.error('Failed to save chat history:', historyError);
+            }
+        }
 
 
         return c.json({
@@ -1972,7 +2013,7 @@ Please provide a comprehensive answer based on these sources, citing them with [
                 totalTokens: tokensUsed + estimateTokens(answer),
                 chunksUsed: sources.length
             },
-            model: 'dynamic-fallback'
+            model: usedModel
         });
 
     } catch (e: any) {
