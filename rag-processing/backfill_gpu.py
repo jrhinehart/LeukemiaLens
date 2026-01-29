@@ -32,7 +32,7 @@ from tqdm import tqdm
 from pdf_parser import extract_text_from_pdf
 from xml_parser import extract_text_from_xml
 from chunker import chunk_text
-from embedder import generate_embeddings, get_device, EMBEDDING_DIM
+from embedder import generate_embeddings, get_device, EMBEDDING_DIM, pre_load_model
 
 # Load environment
 load_dotenv()
@@ -438,6 +438,12 @@ def main():
     
     # Process documents
     print("\n🚀 Starting processing...\n")
+    
+    # Pre-load model in main thread to avoid race conditions with meta tensors in multi-threaded initialization
+    if args.workers > 1:
+        print("📥 Pre-loading embedding model...")
+        pre_load_model()
+    
     start_time = time.time()
     
     if args.workers > 1:

@@ -11,6 +11,7 @@ import logging
 
 from sentence_transformers import SentenceTransformer
 import numpy as np
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ DEFAULT_GPU_BATCH_SIZE = 128
 # Global model instance (loaded once)
 _model = None
 _device = None
+_model_lock = threading.Lock()
 
 
 def get_device() -> str:
@@ -54,14 +56,39 @@ def get_device() -> str:
 
 
 def get_model() -> SentenceTransformer:
-    """Get or load the embedding model with GPU support if available."""
+    """Get or load the embedding model with thread safety."""
     global _model
     if _model is None:
-        device = get_device()
-        logger.info(f"Loading embedding model: {EMBEDDING_MODEL}")
-        _model = SentenceTransformer(EMBEDDING_MODEL, device=device)
-        logger.info(f"Model loaded on {device}. Embedding dimension: {_model.get_sentence_embedding_dimension()}")
+        with _model_lock:
+            # Double-check pattern
+            if _model is None:
+                device = get_device()
+                logger.info(f"Loading embedding model: {EMBEDDING_MODEL} on {device}")
+                
+                try:
+                    # Explicitly disable low_cpu_mem_usage to avoid 'meta tensor' errors on some systems
+                    _model = SentenceTransformer(
+                        EMBEDDING_MODEL, 
+                        device=device,
+                        model_kwargs={"low_cpu_mem_usage": False}
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to load with GPU optimizations: {e}. Trying fallback...")
+                    # Fallback: Load on CPU first then move, or just load without extras
+                    _model = SentenceTransformer(EMBEDDING_MODEL, device='cpu')
+                    if device != 'cpu':
+                        try:
+                            _model.to(device)
+                        except Exception as move_error:
+                            logger.error(f"Failed to move model to {device}: {move_error}. Staying on CPU.")
+                
+                logger.info(f"Model loaded. Embedding dimension: {_model.get_sentence_embedding_dimension()}")
     return _model
+
+
+def pre_load_model():
+    """Hint to load the model in the main thread before starting parallel workers."""
+    get_model()
 
 
 def get_batch_size() -> int:
