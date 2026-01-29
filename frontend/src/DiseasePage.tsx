@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { PageHeader } from './components';
 
 interface NewsItem {
     title: string;
@@ -230,12 +229,11 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
 interface DiseasePageProps {
     groupId: string;
     apiBaseUrl: string;
-    onNavigateHome: () => void;
     onStartSearch: (disease?: string) => void;
     onNavigate?: (id: string, path: string) => void;
 }
 
-export const DiseasePage: React.FC<DiseasePageProps> = ({ groupId, apiBaseUrl, onNavigateHome, onStartSearch, onNavigate }) => {
+export const DiseasePage: React.FC<DiseasePageProps> = ({ groupId, apiBaseUrl, onStartSearch, onNavigate }) => {
     const info = DISEASE_GROUPS[groupId];
     const [news, setNews] = useState<NewsItem[]>([]);
     const [loadingNews, setLoadingNews] = useState(true);

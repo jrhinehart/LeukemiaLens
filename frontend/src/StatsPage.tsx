@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { PageHeader } from './components'
+
 
 interface DatabaseStats {
     main_tables: {
@@ -61,7 +61,7 @@ interface RAGStats {
     generatedAt: string
 }
 
-export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) => {
+export const StatsPage = () => {
     const [stats, setStats] = useState<DatabaseStats | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -134,9 +134,8 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
 
     if (loading) {
         return (
-            <div className="min-h-screen flex flex-col bg-gray-100">
-                <PageHeader title="Database Statistics" onNavigateHome={onNavigateHome} />
-                <div className="flex-1 flex items-center justify-center">
+            <div className="py-6">
+                <div className="flex items-center justify-center">
                     <div className="text-center">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                         <p className="text-gray-600">Loading statistics...</p>
@@ -148,10 +147,9 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
 
     if (error) {
         return (
-            <div className="min-h-screen flex flex-col bg-gray-100">
-                <PageHeader title="Database Statistics" onNavigateHome={onNavigateHome} />
-                <div className="flex-1 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full border border-red-100">
+            <div className="py-6">
+                <div className="max-w-7xl mx-auto">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-6">
                         <h2 className="text-2xl font-bold text-red-600 mb-4 flex items-center gap-2">
                             <span>⚠️</span> Error
                         </h2>
@@ -446,16 +444,6 @@ export const StatsPage = ({ onNavigateHome }: { onNavigateHome: () => void }) =>
                             </div>
                         )}
                     </div>
-                </div>
-
-                {/* Footer / Back Link */}
-                <div className="mt-16 text-center border-t border-gray-200 pt-12">
-                    <button
-                        onClick={onNavigateHome}
-                        className="inline-flex items-center gap-2 bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
-                    >
-                        <span>←</span> Back to Search
-                    </button>
                 </div>
             </div>
         </div>

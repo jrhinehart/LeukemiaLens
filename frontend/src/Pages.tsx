@@ -1,10 +1,4 @@
-import { PageHeader } from './components'
-
-interface PageProps {
-    onNavigateHome: () => void
-}
-
-export const AboutPage = ({ onNavigateHome }: PageProps) => {
+export const AboutPage = () => {
     return (
         <div className="py-6">
             {/* Mission Statement */}
@@ -86,7 +80,7 @@ export const AboutPage = ({ onNavigateHome }: PageProps) => {
 }
 
 
-export const ContactPage = ({ onNavigateHome }: PageProps) => {
+export const ContactPage = () => {
     return (
         <div className="py-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
@@ -169,7 +163,7 @@ export const ContactPage = ({ onNavigateHome }: PageProps) => {
     )
 }
 
-export const ResourcesPage = ({ onNavigateHome, onNavigateToLearn }: PageProps & { onNavigateToLearn: (topic: string) => void }) => {
+export const ResourcesPage = ({ onNavigateToLearn }: { onNavigateToLearn: (topic: string) => void }) => {
     return (
         <div className="py-6">
             <p className="text-lg text-gray-600 mb-10">

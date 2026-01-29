@@ -359,7 +359,7 @@ function App() {
   if (currentPage === 'stats') {
     return (
       <ResourcesLayout title="Analytics & Stats" activeNavId="stats" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
-        <StatsPage onNavigateHome={onNavigateHome} />
+        <StatsPage />
       </ResourcesLayout>
     );
   }
@@ -367,7 +367,7 @@ function App() {
   if (currentPage === 'about') {
     return (
       <ResourcesLayout title="About LeukemiaLens" activeNavId="about" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
-        <AboutPage onNavigateHome={onNavigateHome} />
+        <AboutPage />
       </ResourcesLayout>
     );
   }
@@ -375,7 +375,7 @@ function App() {
   if (currentPage === 'contact') {
     return (
       <ResourcesLayout title="Contact Us" activeNavId="contact" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
-        <ContactPage onNavigateHome={onNavigateHome} />
+        <ContactPage />
       </ResourcesLayout>
     );
   }
@@ -383,7 +383,7 @@ function App() {
   if (currentPage === 'resources') {
     return (
       <ResourcesLayout title="Research Resources" activeNavId="resources" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
-        <ResourcesPage onNavigateHome={onNavigateHome} onNavigateToLearn={navigateToLearn} />
+        <ResourcesPage onNavigateToLearn={navigateToLearn} />
       </ResourcesLayout>
     );
   }
@@ -396,7 +396,6 @@ function App() {
         <DiseasePage
           groupId={groupId}
           apiBaseUrl={API_BASE_URL}
-          onNavigateHome={onNavigateHome}
           onNavigate={navigateToResource}
           onStartSearch={(initialDisease) => {
             if (initialDisease) {

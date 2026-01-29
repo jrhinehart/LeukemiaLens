@@ -1,10 +1,8 @@
 import React from 'react';
-import { PageHeader } from './components';
 import hematopoiesisDiagram from './assets/hematopoiesis-diagram.png';
 import dnaMutationDiagram from './assets/dna-mutation-diagram.png';
 
 interface EducationPageProps {
-    onNavigateHome: () => void;
     onNavigateToLearn: (topic: string) => void;
 }
 
@@ -51,7 +49,7 @@ const RelatedTopics: React.FC<{ currentTopic: string; onNavigate: (topic: string
     );
 };
 
-export const BloodCellProductionPage: React.FC<EducationPageProps> = ({ onNavigateHome, onNavigateToLearn }) => {
+export const BloodCellProductionPage: React.FC<EducationPageProps> = ({ onNavigateToLearn }) => {
     return (
         <div className="py-6">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
@@ -242,7 +240,7 @@ export const BloodCellProductionPage: React.FC<EducationPageProps> = ({ onNaviga
     );
 };
 
-export const MutationsPage: React.FC<EducationPageProps> = ({ onNavigateHome, onNavigateToLearn }) => {
+export const MutationsPage: React.FC<EducationPageProps> = ({ onNavigateToLearn }) => {
     return (
         <div className="py-6">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
@@ -396,7 +394,7 @@ export const MutationsPage: React.FC<EducationPageProps> = ({ onNavigateHome, on
     );
 };
 
-export const RiskStratificationPage: React.FC<EducationPageProps> = ({ onNavigateHome, onNavigateToLearn }) => {
+export const RiskStratificationPage: React.FC<EducationPageProps> = ({ onNavigateToLearn }) => {
     return (
         <div className="py-6">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
@@ -531,7 +529,7 @@ export const RiskStratificationPage: React.FC<EducationPageProps> = ({ onNavigat
     );
 };
 
-export const StemCellTransplantPage: React.FC<EducationPageProps> = ({ onNavigateHome, onNavigateToLearn }) => {
+export const StemCellTransplantPage: React.FC<EducationPageProps> = ({ onNavigateToLearn }) => {
     return (
         <div className="py-6">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
@@ -695,7 +693,7 @@ export const StemCellTransplantPage: React.FC<EducationPageProps> = ({ onNavigat
     );
 };
 
-export const LabResultsPage: React.FC<EducationPageProps> = ({ onNavigateHome, onNavigateToLearn }) => {
+export const LabResultsPage: React.FC<EducationPageProps> = ({ onNavigateToLearn }) => {
     return (
         <div className="py-6">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
@@ -852,7 +850,7 @@ export const LabResultsPage: React.FC<EducationPageProps> = ({ onNavigateHome, o
     );
 };
 
-export const ClinicalTrialsPage: React.FC<EducationPageProps> = ({ onNavigateHome, onNavigateToLearn }) => {
+export const ClinicalTrialsPage: React.FC<EducationPageProps> = ({ onNavigateToLearn }) => {
     return (
         <div className="py-6">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">

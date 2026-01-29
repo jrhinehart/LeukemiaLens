@@ -1,7 +1,6 @@
 import React from 'react';
 
 interface EducationPageProps {
-    onNavigateHome: () => void;
     onNavigateToLearn: (topic: string) => void;
 }
 
