@@ -146,7 +146,7 @@ export function ResearchInsights({
 
     const pollInsightStatus = async (id: string, totalArticles: number) => {
         let attempts = 0
-        const maxAttempts = 60 // 2 minutes
+        const maxAttempts = 120 // 4 minutes total (2s intervals)
 
         const interval = setInterval(async () => {
             attempts++
@@ -229,7 +229,7 @@ export function ResearchInsights({
         setBackendId(null)
         setModelUsed(null)
 
-        const maxArticles = 50
+        const maxArticles = 30
         const articlesToAnalyze = articles.slice(0, maxArticles).map((a) => ({
             title: a.title,
             abstract: a.abstract,
@@ -746,7 +746,7 @@ export function ResearchInsights({
                             </div>
                             <h3 className="mt-8 text-xl font-bold text-gray-900">Analyzing Literature...</h3>
                             <p className="mt-3 text-sm text-gray-600 leading-relaxed max-w-sm">
-                                Our AI is synthesizing findings across {Math.min(50, articles.length)} articles using specialized map-reduce orchestration. This may take up to 30 seconds.
+                                Our AI is synthesizing findings across {Math.min(30, articles.length)} articles using specialized map-reduce orchestration. This may take up to 60 seconds.
                             </p>
                             <div className="mt-8 w-full max-w-xs bg-gray-100 rounded-full h-1.5 overflow-hidden shadow-inner">
                                 <div className="bg-gradient-to-r from-purple-500 to-indigo-600 h-full animate-progress-fast w-full"></div>

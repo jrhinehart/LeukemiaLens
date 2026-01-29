@@ -313,7 +313,7 @@ app.post('/api/summarize', async (c) => {
             console.warn('crypto.randomUUID failed, using fallback:', insightId);
         }
 
-        const truncatedArticles = articles.slice(0, 50);
+        const truncatedArticles = articles.slice(0, 30);
 
         // Defensive mapping for analyzed articles JSON
         const analyzedBrief = JSON.stringify(truncatedArticles.map(a => ({
@@ -370,12 +370,12 @@ async function callLLMWithFallback(c: any, prompt: string, system: string, maxTo
 
     // List of models to try in sequence (including 2026-era models)
     const models = [
-        'claude-sonnet-4-5',          // Potential late 2025/2026 model
-        'claude-sonnet-4',            // Potential 2025 model (referenced in earlier logs)
-        'claude-3-5-sonnet-latest',   // Standard alias
-        'claude-3-5-sonnet-20241022', // Sonnet 3.5 v2
-        'claude-3-5-sonnet-20240620', // Sonnet 3.5 v1
-        'claude-3-haiku-20240307'     // Known working fallback
+        'claude-3-5-sonnet-latest',   // Most reliable standard alias
+        'claude-3-haiku-20240307',    // Fast fallback
+        'claude-sonnet-4-5',          // Potential future models
+        'claude-sonnet-4',
+        'claude-3-5-sonnet-20241022',
+        'claude-3-5-sonnet-20240620'
     ];
 
     for (const model of models) {
@@ -429,6 +429,7 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
         // Step 1: Technical Analysis of each batch in parallel (Map Phase)
         const batchResults = await Promise.all(batches.map(async (batch, bIdx) => {
             const batchPmids = batch.map((a: any) => a.pubmed_id || a.pmid || '').filter(Boolean);
+
             let technicalContext = '';
             let docsWithFullText = 0;
 
@@ -449,20 +450,17 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
                         WHERE document_id IN (${docIds.map(() => '?').join(',')}) AND chunk_index < 5
                     `).bind(...docIds).run();
 
-                    // Fetch content from R2 for each doc in batch (if available)
-                    technicalContext = "\nFULL-TEXT EXCERPTS (TOP 5 CHUNKS):\n";
-                    for (const doc of fullTextDocs) {
-                        let docContent = "";
-
-                        // Try R2 first
+                    // Fetch content from R2 for all docs in batch in parallel
+                    const docContentPromises = fullTextDocs.map(async (doc: any) => {
+                        let content = "";
                         try {
                             const r2Key = `chunks/${doc.id}.json`;
                             const object = await c.env.DOCUMENTS.get(r2Key);
                             if (object) {
                                 const data: any = await object.json();
                                 if (data && data.chunks) {
-                                    // Take first 5 chunks for summary
-                                    docContent = data.chunks.slice(0, 5).map((ch: any) => ch.content).join("\n");
+                                    // Take first 5 chunks for summary (dense high-level context)
+                                    content = data.chunks.slice(0, 5).map((ch: any) => ch.content).join("\n");
                                 }
                             }
                         } catch (e) {
@@ -470,16 +468,20 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
                         }
 
                         // Fallback to D1 metadata if R2 was empty/failed
-                        if (!docContent && chunksMetadata) {
+                        if (!content && chunksMetadata) {
                             const docChunks = (chunksMetadata as any[]).filter(ch => ch.document_id === doc.id);
-                            docContent = docChunks.map(ch => ch.content).filter(Boolean).join("\n");
+                            content = docChunks.map(ch => ch.content).filter(Boolean).join("\n");
                         }
 
-                        if (docContent) {
-                            const articleNum = articles.findIndex(a => (a.pubmed_id || a.pmid) === doc.pmid) + 1;
-                            technicalContext += `Ref [#${articleNum}]:\n${docContent}\n\n`;
+                        if (content) {
+                            const articleNum = articles.findIndex(a => (a.pubmed_id || a.pmid || a.pubmedId) === doc.pmid) + 1;
+                            return `Ref [#${articleNum}]:\n${content}\n\n`;
                         }
-                    }
+                        return "";
+                    });
+
+                    const contents = await Promise.all(docContentPromises);
+                    technicalContext = "\nFULL-TEXT EXCERPTS (TOP 5 CHUNKS):\n" + contents.join("");
 
                     return { text: '', hasFullText: docsWithFullText > 0, fullTextPmids: fullTextPmidsInBatch, technicalContext, docsWithFullText };
                 }
