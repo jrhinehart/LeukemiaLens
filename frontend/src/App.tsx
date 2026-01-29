@@ -931,6 +931,18 @@ function App() {
                             <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
                               {article.journal}
                             </span>
+                            {article.full_text_type && (
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wider flex items-center gap-1 ${article.full_text_type === 'pdf'
+                                    ? 'bg-red-50 text-red-700 border-red-200'
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  }`}
+                                title={article.full_text_type === 'pdf' ? 'Full PDF content available for analysis' : 'Full XML structured content available'}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${article.full_text_type === 'pdf' ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
+                                {article.full_text_type}
+                              </span>
+                            )}
                           </div>
                           <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2 break-words">
                             <a href={article.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 hover:underline">
