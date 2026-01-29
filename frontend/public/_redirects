@@ -1,3 +1,7 @@
+# WARNING: DO NOT ADD A CATCH-ALL RULE (e.g., /* /index.html 200) TO THIS FILE.
+# Cloudflare Workers/Pages will detect this as an infinite loop and the BUILD WILL FAIL.
+# Only add specific routes that need to be mapped to index.html for SPA routing.
+
 /stats /index.html 200
 /about /index.html 200
 /contact /index.html 200

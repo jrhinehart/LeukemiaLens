@@ -13,6 +13,7 @@ This document tracks planned features, architectural decisions, and design instr
 - **Backend**: Cloudflare Workers (Hono framework) + D1 SQLite
 - **AI**: Cloudflare Workers AI (LLaMA models) + Hosted Claude
 - **Hosting**: Cloudflare Pages
+- **Routing Note**: Do **NOT** add a catch-all rule (e.g., `/* /index.html 200`) to `_redirects`. It triggers an infinite loop error in Cloudflare and fails the build. Only map specific routes.
 
 ### Design Philosophy
 - Patient-first, compassionate design
