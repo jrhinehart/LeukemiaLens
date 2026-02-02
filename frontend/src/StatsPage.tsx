@@ -133,15 +133,15 @@ export const StatsPage = () => {
 
     const getMonthColor = (data: CoverageMonth) => {
         if (!data || data.pubmed === 0) {
-            return data?.tagged > 0 ? 'bg-blue-50/30 text-blue-400 border-blue-100' : 'bg-gray-50 border-gray-100'
+            return data?.tagged > 0 ? 'bg-blue-200 text-blue-900 border-blue-300' : 'bg-gray-100 border-gray-200'
         }
 
         const coveragePercent = (data.tagged / data.pubmed) * 100
 
-        if (coveragePercent === 0) return 'bg-gray-50 text-gray-300 border-gray-100'
-        if (coveragePercent < 50) return 'bg-red-50 text-red-400 border-red-100/50'
-        if (coveragePercent < 75) return 'bg-amber-50 text-amber-500 border-amber-100/50'
-        return 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm'
+        if (coveragePercent === 0) return 'bg-gray-100 text-gray-500 border-gray-200'
+        if (coveragePercent < 50) return 'bg-red-200 text-red-900 border-red-300'
+        if (coveragePercent < 75) return 'bg-amber-200 text-amber-950 border-amber-300'
+        return 'bg-emerald-300 text-emerald-950 border-emerald-400 shadow-sm'
     }
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -478,9 +478,9 @@ export const StatsPage = () => {
                                 <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                     <span>Heatmap:</span>
                                     <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-gray-50 border border-gray-200"></span> 0%</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-50 border border-red-100/50"></span> {'<'}50%</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-50 border border-amber-100/50"></span> 50-75%</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-50 border border-emerald-100"></span> {'>'}75%</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-200 border border-red-300"></span> {'<'}50%</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-200 border border-amber-300"></span> 50-75%</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-300 border border-emerald-400"></span> {'>'}75%</span>
                                     <span className="flex items-center gap-1.5 ml-2"><span className="w-2 h-2 rounded-full bg-blue-500"></span> RAG Ready</span>
                                 </div>
 
@@ -547,26 +547,28 @@ export const StatsPage = () => {
                                                                     setHoveredMonth({
                                                                         year: y.year,
                                                                         month: m,
-                                                                        data: data as CoverageMonth,
+                                                                        data: { ...data } as CoverageMonth,
                                                                         x: rect.left + rect.width / 2,
                                                                         y: rect.top
                                                                     });
                                                                 }}
                                                                 onMouseLeave={() => setHoveredMonth(null)}
                                                                 className={`
-                                                                    h-8 w-full rounded-md border text-[8.5px] font-bold 
+                                                                    h-8 w-full rounded-md border text-[10px] font-black 
                                                                     flex flex-col items-center justify-center transition-all duration-150
-                                                                    cursor-help relative
+                                                                    cursor-help relative overflow-hidden
                                                                     ${getMonthColor(data as CoverageMonth)}
                                                                 `}
                                                             >
-                                                                {(data as CoverageMonth).pubmed > 0 ? (
-                                                                    <span>{Math.round(((data as CoverageMonth).tagged / (data as CoverageMonth).pubmed) * 100)}%</span>
-                                                                ) : (data as CoverageMonth).tagged > 0 ? (
-                                                                    <span>{(data as CoverageMonth).tagged}</span>
+                                                                {((data as CoverageMonth).pubmed || 0) > 0 ? (
+                                                                    <span className="relative z-10 text-gray-950/90 drop-shadow-sm">
+                                                                        {Math.round(((data as CoverageMonth).tagged / (data as CoverageMonth).pubmed) * 100)}%
+                                                                    </span>
+                                                                ) : ((data as CoverageMonth).tagged || 0) > 0 ? (
+                                                                    <span className="relative z-10 text-gray-950/90">{(data as CoverageMonth).tagged}</span>
                                                                 ) : null}
                                                                 {(data as CoverageMonth).rag > 0 && (
-                                                                    <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-blue-400 rounded-full" />
+                                                                    <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-blue-500 rounded-full border border-white/50 shadow-sm z-20" />
                                                                 )}
                                                             </div>
                                                         </td>
