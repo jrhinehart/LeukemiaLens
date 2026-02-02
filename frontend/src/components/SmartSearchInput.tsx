@@ -13,17 +13,73 @@ export interface ParsedFilters {
     journal?: string
 }
 
+export interface SmartQueryResult {
+    insightId: string
+    filters: ParsedFilters
+    articleCount: number
+    analyzedCount: number
+    originalQuery: string
+}
+
 export interface SmartSearchInputProps {
     onApplyFilters: (filters: ParsedFilters) => void
+    onAskClaude?: (result: SmartQueryResult) => void
     apiBaseUrl?: string
 }
 
-export function SmartSearchInput({ onApplyFilters, apiBaseUrl = 'https://leukemialens-api.jr-rhinehart.workers.dev' }: SmartSearchInputProps) {
+type SearchMode = 'ask' | 'filter'
+
+export function SmartSearchInput({
+    onApplyFilters,
+    onAskClaude,
+    apiBaseUrl = 'https://leukemialens-api.jr-rhinehart.workers.dev'
+}: SmartSearchInputProps) {
     const [query, setQuery] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [parsedFilters, setParsedFilters] = useState<ParsedFilters | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [isExpanded, setIsExpanded] = useState(false)
+    const [mode, setMode] = useState<SearchMode>('ask')
+    const [noArticlesMessage, setNoArticlesMessage] = useState<string | null>(null)
+
+    const handleAskClaude = async () => {
+        if (!query.trim() || !onAskClaude) return
+
+        setIsLoading(true)
+        setError(null)
+        setParsedFilters(null)
+        setNoArticlesMessage(null)
+
+        try {
+            const response = await axios.post(`${apiBaseUrl}/api/smart-query`, {
+                query: query.trim()
+            })
+
+            if (response.data.success) {
+                if (response.data.articleCount === 0) {
+                    setNoArticlesMessage(response.data.message || 'No articles found. Try broadening your search.')
+                    setParsedFilters(response.data.filters)
+                } else {
+                    onAskClaude({
+                        insightId: response.data.insightId,
+                        filters: response.data.filters,
+                        articleCount: response.data.articleCount,
+                        analyzedCount: response.data.analyzedCount,
+                        originalQuery: query.trim()
+                    })
+                    // Reset after successful submission
+                    setQuery('')
+                    setIsExpanded(false)
+                }
+            } else {
+                setError(response.data.error || 'Failed to process your question')
+            }
+        } catch (err: any) {
+            setError(err.response?.data?.error || 'Failed to process query. Please try again.')
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
     const handleParseQuery = async () => {
         if (!query.trim()) return
@@ -31,6 +87,7 @@ export function SmartSearchInput({ onApplyFilters, apiBaseUrl = 'https://leukemi
         setIsLoading(true)
         setError(null)
         setParsedFilters(null)
+        setNoArticlesMessage(null)
 
         try {
             const response = await axios.post(`${apiBaseUrl}/api/parse-query`, {
@@ -52,26 +109,30 @@ export function SmartSearchInput({ onApplyFilters, apiBaseUrl = 'https://leukemi
     const handleApply = () => {
         if (parsedFilters) {
             onApplyFilters(parsedFilters)
-            // Reset state after applying
             setParsedFilters(null)
             setQuery('')
             setIsExpanded(false)
+            setNoArticlesMessage(null)
         }
     }
 
     const handleCancel = () => {
         setParsedFilters(null)
         setError(null)
+        setNoArticlesMessage(null)
     }
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
-            handleParseQuery()
+            if (mode === 'ask' && onAskClaude) {
+                handleAskClaude()
+            } else {
+                handleParseQuery()
+            }
         }
     }
 
-    // Format filter value for display
     const formatFilterValue = (_key: string, value: any): string => {
         if (Array.isArray(value)) {
             return value.join(', ')
@@ -79,7 +140,6 @@ export function SmartSearchInput({ onApplyFilters, apiBaseUrl = 'https://leukemi
         return String(value)
     }
 
-    // Get human-readable label for filter key
     const getFilterLabel = (key: string): string => {
         const labels: Record<string, string> = {
             q: 'Search Text',
@@ -104,7 +164,7 @@ export function SmartSearchInput({ onApplyFilters, apiBaseUrl = 'https://leukemi
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
                 </svg>
-                Smart Search
+                Ask Claude
             </button>
         )
     }
@@ -117,10 +177,10 @@ export function SmartSearchInput({ onApplyFilters, apiBaseUrl = 'https://leukemi
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-purple-600">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
                     </svg>
-                    <span className="text-sm font-semibold text-purple-800">Smart Search</span>
+                    <span className="text-sm font-semibold text-purple-800">Ask Claude</span>
                 </div>
                 <button
-                    onClick={() => { setIsExpanded(false); setParsedFilters(null); setError(null); }}
+                    onClick={() => { setIsExpanded(false); setParsedFilters(null); setError(null); setNoArticlesMessage(null); }}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -129,9 +189,36 @@ export function SmartSearchInput({ onApplyFilters, apiBaseUrl = 'https://leukemi
                 </button>
             </div>
 
+            {/* Mode Toggle */}
+            {onAskClaude && (
+                <div className="flex gap-1 mb-3 p-1 bg-white rounded-lg border border-purple-200">
+                    <button
+                        onClick={() => { setMode('ask'); handleCancel(); }}
+                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${mode === 'ask'
+                                ? 'bg-purple-600 text-white shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-50'
+                            }`}
+                    >
+                        🤖 Ask a Question
+                    </button>
+                    <button
+                        onClick={() => { setMode('filter'); handleCancel(); }}
+                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${mode === 'filter'
+                                ? 'bg-purple-600 text-white shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-50'
+                            }`}
+                    >
+                        🔍 Apply Filters
+                    </button>
+                </div>
+            )}
+
             {/* Example hint */}
             <p className="text-xs text-purple-600 mb-2 italic">
-                Try: "FLT3 mutations in AML from 2023" or "venetoclax studies with NPM1"
+                {mode === 'ask'
+                    ? 'Try: "What are the latest FLT3 inhibitor results in relapsed AML?"'
+                    : 'Try: "FLT3 mutations in AML from 2023" to set filters'
+                }
             </p>
 
             {/* Input */}
@@ -140,19 +227,25 @@ export function SmartSearchInput({ onApplyFilters, apiBaseUrl = 'https://leukemi
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Describe what you're looking for..."
+                    placeholder={mode === 'ask'
+                        ? "Ask a question about leukemia research..."
+                        : "Describe what you're looking for..."
+                    }
                     rows={2}
                     className="w-full px-3 py-2 text-sm border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none bg-white"
                     disabled={isLoading}
                 />
             </div>
 
-            {/* Parse Button */}
-            {!parsedFilters && (
+            {/* Action Button */}
+            {!parsedFilters && !noArticlesMessage && (
                 <button
-                    onClick={handleParseQuery}
+                    onClick={mode === 'ask' && onAskClaude ? handleAskClaude : handleParseQuery}
                     disabled={isLoading || !query.trim()}
-                    className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
+                    className={`w-full mt-3 flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm ${mode === 'ask'
+                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
+                            : 'bg-purple-600 hover:bg-purple-700'
+                        }`}
                 >
                     {isLoading ? (
                         <>
@@ -160,14 +253,25 @@ export function SmartSearchInput({ onApplyFilters, apiBaseUrl = 'https://leukemi
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Analyzing...
+                            {mode === 'ask' ? 'Searching & Analyzing...' : 'Analyzing...'}
                         </>
                     ) : (
                         <>
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                            </svg>
-                            Parse Query
+                            {mode === 'ask' ? (
+                                <>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                                    </svg>
+                                    Ask Claude
+                                </>
+                            ) : (
+                                <>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                                    </svg>
+                                    Parse Query
+                                </>
+                            )}
                         </>
                     )}
                 </button>
@@ -180,8 +284,39 @@ export function SmartSearchInput({ onApplyFilters, apiBaseUrl = 'https://leukemi
                 </div>
             )}
 
-            {/* Parsed Filters Preview */}
-            {parsedFilters && Object.keys(parsedFilters).length > 0 && (
+            {/* No Articles Found (for Ask mode) */}
+            {noArticlesMessage && (
+                <div className="mt-3 space-y-3">
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm text-amber-800 font-medium">No matching articles found</p>
+                        <p className="text-xs text-amber-700 mt-1">{noArticlesMessage}</p>
+                    </div>
+
+                    {parsedFilters && Object.keys(parsedFilters).length > 0 && (
+                        <div className="bg-white rounded-lg p-3 border border-purple-200">
+                            <p className="text-xs text-gray-500 mb-2">Detected filters you can adjust:</p>
+                            {Object.entries(parsedFilters).map(([key, value]) => (
+                                value && (
+                                    <div key={key} className="flex items-start gap-2 text-xs">
+                                        <span className="font-medium text-gray-600">{getFilterLabel(key)}:</span>
+                                        <span className="text-purple-700">{formatFilterValue(key, value)}</span>
+                                    </div>
+                                )
+                            ))}
+                        </div>
+                    )}
+
+                    <button
+                        onClick={handleCancel}
+                        className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                    >
+                        Try Again
+                    </button>
+                </div>
+            )}
+
+            {/* Parsed Filters Preview (Filter mode) */}
+            {parsedFilters && Object.keys(parsedFilters).length > 0 && !noArticlesMessage && (
                 <div className="mt-3 space-y-3">
                     <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Detected Filters:
@@ -221,8 +356,8 @@ export function SmartSearchInput({ onApplyFilters, apiBaseUrl = 'https://leukemi
                 </div>
             )}
 
-            {/* Empty result */}
-            {parsedFilters && Object.keys(parsedFilters).length === 0 && (
+            {/* Empty result (Filter mode) */}
+            {parsedFilters && Object.keys(parsedFilters).length === 0 && !noArticlesMessage && (
                 <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
                     No specific filters detected. Try being more specific with your query.
                 </div>

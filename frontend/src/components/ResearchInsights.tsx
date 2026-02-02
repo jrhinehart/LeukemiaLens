@@ -54,6 +54,11 @@ export interface ResearchInsightsProps {
     }
     isOpen: boolean
     onToggleOpen: () => void
+    // New props for Smart Search integration
+    initialInsightId?: string | null
+    initialQuestion?: string | null
+    initialArticleCount?: number
+    onClearInitial?: () => void
 }
 
 // localStorage helpers
@@ -108,7 +113,11 @@ export function ResearchInsights({
     selectedFilters,
     isOpen,
     onToggleOpen,
-    apiBaseUrl = 'https://leukemialens-api.jr-rhinehart.workers.dev'
+    apiBaseUrl = 'https://leukemialens-api.jr-rhinehart.workers.dev',
+    initialInsightId,
+    initialQuestion,
+    initialArticleCount,
+    onClearInitial
 }: ResearchInsightsProps) {
     const [isHistoryOpen, setIsHistoryOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
@@ -132,6 +141,9 @@ export function ResearchInsights({
     const [isChatLoading, setIsChatLoading] = useState(false)
     const [backendId, setBackendId] = useState<string | null>(null)
 
+    // Smart Search question display
+    const [userQuestion, setUserQuestion] = useState<string | null>(null)
+
     // Load history on mount
     useEffect(() => {
         setHistory(loadHistory())
@@ -143,6 +155,32 @@ export function ResearchInsights({
             saveHistory(history)
         }
     }, [history])
+
+    // Handle Smart Search initial insight
+    useEffect(() => {
+        if (initialInsightId && initialQuestion && isOpen) {
+            // Reset state for new Smart Search query
+            setIsLoading(true)
+            setError(null)
+            setSummary(null)
+            setAnalyzedArticles([])
+            setViewingHistoryEntry(null)
+            setIsCached(false)
+            setIsRagEnhanced(false)
+            setFullTextDocCount(0)
+            setChatMessages([])
+            setChatInput('')
+            setBackendId(null)
+            setModelUsed(null)
+            setUserQuestion(initialQuestion)
+
+            // Start polling for the insight
+            pollInsightStatus(initialInsightId, initialArticleCount || 30)
+
+            // Clear the initial props
+            onClearInitial?.()
+        }
+    }, [initialInsightId, initialQuestion, isOpen])
 
     const pollInsightStatus = async (id: string, totalArticles: number) => {
         let attempts = 0
@@ -736,6 +774,13 @@ export function ResearchInsights({
                 <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
                     {isLoading && (
                         <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
+                            {/* Show user question if this came from Smart Search */}
+                            {userQuestion && (
+                                <div className="mb-8 max-w-md">
+                                    <p className="text-xs text-purple-600 uppercase tracking-wider font-semibold mb-2">Your Question</p>
+                                    <p className="text-gray-800 font-medium italic">"{userQuestion}"</p>
+                                </div>
+                            )}
                             <div className="relative">
                                 <div className="w-20 h-20 border-4 border-purple-100 rounded-full animate-spin border-t-purple-600"></div>
                                 <div className="absolute inset-0 flex items-center justify-center">
@@ -744,9 +789,12 @@ export function ResearchInsights({
                                     </svg>
                                 </div>
                             </div>
-                            <h3 className="mt-8 text-xl font-bold text-gray-900">Analyzing Literature...</h3>
+                            <h3 className="mt-8 text-xl font-bold text-gray-900">{userQuestion ? 'Researching Your Question...' : 'Analyzing Literature...'}</h3>
                             <p className="mt-3 text-sm text-gray-600 leading-relaxed max-w-sm">
-                                Our AI is synthesizing findings across {Math.min(30, articles.length)} articles using specialized map-reduce orchestration. This may take a few minutes.
+                                {userQuestion
+                                    ? 'Our AI is searching relevant articles and synthesizing findings to answer your question. This may take a few minutes.'
+                                    : `Our AI is synthesizing findings across ${Math.min(30, articles.length)} articles using specialized map-reduce orchestration. This may take a few minutes.`
+                                }
                             </p>
                             <div className="mt-8 w-full max-w-xs bg-gray-100 rounded-full h-1.5 overflow-hidden shadow-inner">
                                 <div className="bg-gradient-to-r from-purple-500 to-indigo-600 h-full animate-progress-fast w-full"></div>
@@ -775,6 +823,14 @@ export function ResearchInsights({
 
                     {summary && (
                         <div className="p-6 lg:p-8 space-y-8 pb-32">
+                            {/* Show user question at top if from Smart Search */}
+                            {userQuestion && (
+                                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4">
+                                    <p className="text-xs text-purple-600 uppercase tracking-wider font-semibold mb-1">Your Question</p>
+                                    <p className="text-gray-900 font-medium">"{userQuestion}"</p>
+                                </div>
+                            )}
+
                             {/* Model Info Banner */}
                             {isRagEnhanced && (
                                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-4">

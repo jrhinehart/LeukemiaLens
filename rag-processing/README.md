@@ -98,7 +98,7 @@ python backfill_gpu.py --clear-checkpoint
 3. **Parse**: Extract text using PyMuPDF with page boundaries
 4. **Chunk**: Split into 500-800 token chunks with 100 token overlap
 5. **Embed**: Generate 768-dim vectors using bge-base-en-v1.5 (GPU accelerated)
-6. **Upload**: Push chunks to D1 and vectors to Vectorize
+6. **Upload**: Push chunks to R2 and vectors to Vectorize
 7. **Update**: Mark document as 'ready' in D1
 
 ## Troubleshooting
@@ -134,8 +134,8 @@ Fill in your credentials:
 ```
 CLOUDFLARE_ACCOUNT_ID=your_account_id
 CLOUDFLARE_API_TOKEN=your_api_token
-DATABASE_ID=6f7d8bb5-1a41-428d-8692-4bc39384a08d
-API_BASE_URL=https://leukemialens-api.jr-rhinehart.workers.dev
+DATABASE_ID=your_database_id
+API_BASE_URL=https://your_api_base_url.your_account_id.workers.dev
 ```
 
 ### Step 3: Run the backfill

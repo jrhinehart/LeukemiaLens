@@ -39,7 +39,8 @@ LeukemiaLens is fully optimized for mobile devices, featuring a collapsible filt
 - **Grouped Mutation Filter**: Toggle between functional category view (Kinase, Epigenetic, Fusion, etc.) or ELN 2022 risk classification (Favorable, Intermediate, Adverse) with collapsible sections and help tooltip.
 - **Ontology-Based Filtering**: Reference tables ensure consistent disease, mutation, and treatment classification.
 - **AI-Powered Features**:
-  - **Smart Search**: Natural language query parsing - type queries like "FLT3 mutations in AML from 2023" and automatically populate the appropriate filters.
+  - **Smart Search (Conversational)**: Ask natural language questions like "What are the latest findings on FLT3 inhibitors in relapsed AML?" and get AI-synthesized answers citing relevant articles.
+  - **Auto-Filtering**: Automatically extracts search filters from queries to populate the article list.
   - **Research Insights**: RAG-enhanced scientific synthesis. Analyzes abstracts and available full-text PDF data using Claude 3.5 Sonnet.
   - **Durable History**: Insights are saved to D1 for persistent reference and sharing via unique IDs.
   - **Deep Research Chat**: Interactive follow-up chat functionality allows users to "talk to" the papers in their search results using the RAG pipeline.
@@ -98,6 +99,7 @@ LeukemiaLens is built on a serverless Cloudflare Workers architecture:
 │  • GET /api/study/:id                   │
 │  • GET /api/insights/:id                │
 │  • POST /api/parse-query (AI)           │
+│  • POST /api/smart-query (Conversational)│
 │  • POST /api/summarize (RAG/AI)         │
 │  • POST /api/rag/query (RAG Chat)       │
 └───────┬─────────────────┬───────────────┘
@@ -443,8 +445,29 @@ Get reference lists of diseases, mutations, and treatments (including protocol c
 ### `GET /api/study/:id`
 Get detailed information for a specific study by ID.
 
+### `POST /api/smart-query` (Conversational AI)
+Parse a query, fetch articles, and initiate a deep research synthesis (Map-Reduce) to answer the question.
+
+**Request Body:**
+```json
+{
+  "query": "What are the latest findings on FLT3 inhibitors?"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "insightId": "uuid-v4",
+  "filters": { "mutations": ["FLT3"] },
+  "articleCount": 50,
+  "status": "processing"
+}
+```
+
 ### `POST /api/parse-query` (AI)
-Parse a natural language query into structured filters.
+Parse a natural language query into structured filters (without triggering synthesis).
 
 **Request Body:**
 ```json

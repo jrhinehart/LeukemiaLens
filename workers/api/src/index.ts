@@ -279,6 +279,205 @@ Rules:
     }
 });
 
+// Smart Query: Combines filter parsing + article fetch + insights trigger
+// This powers the conversational Smart Search feature
+app.post('/api/smart-query', async (c) => {
+    try {
+        const body = await c.req.json().catch(() => ({})) as any;
+        const { query } = body;
+
+        if (!query || typeof query !== 'string') {
+            return c.json({ error: 'Query is required' }, 400);
+        }
+
+        // Step 1: Parse query to extract filters using Llama
+        const filterSystemPrompt = `You are a search filter extractor for a leukemia research database.
+Given a natural language query, extract structured filters as JSON.
+
+Available filters:
+- q: ONLY for keywords that do NOT match any other filter category below. Do not put gene names, disease names, treatments, or other recognized terms here.
+- mutations: gene symbols like FLT3, NPM1, IDH1, IDH2, TP53, DNMT3A, TET2, ASXL1, RUNX1, CEBPA, KRAS, NRAS, WT1, SF3B1, GATA2, BCR-ABL1, PML-RARA, KIT
+- diseases: AML (Acute Myeloid Leukemia), ALL (Acute Lymphoblastic Leukemia), CML (Chronic Myeloid Leukemia), CLL (Chronic Lymphocytic Leukemia), MDS (Myelodysplastic Syndromes), MPN (Myeloproliferative Neoplasms), DLBCL, MM
+- treatments: chemotherapy drugs and protocols like "7+3", azacitidine (AZA), venetoclax (VEN), decitabine, cytarabine, daunorubicin, idarubicin
+- tags: study topics like Prognosis, Biomarkers, MRD (Minimal Residual Disease), Clinical Trial, Transplant, Pediatric, Relapsed, Refractory
+- yearStart: publication start year (YYYY format)
+- yearEnd: publication end year (YYYY format)
+
+Rules:
+1. Only include fields that are clearly indicated in the query
+2. Use uppercase for gene symbols and disease codes
+3. Recognize synonyms: "venetoclax" = "VEN", "azacitidine" = "AZA"
+4. For date ranges like "from 2020" use yearStart, "until 2023" use yearEnd, "in 2024" use both
+5. "recent" or "latest" means yearStart should be current year minus 2
+6. Respond ONLY with valid JSON object, no explanation or markdown`;
+
+        let filters: any = {};
+        try {
+            const parseResponse = await c.env.AI.run('@cf/meta/llama-2-7b-chat-int8', {
+                messages: [
+                    { role: 'system', content: filterSystemPrompt },
+                    { role: 'user', content: query }
+                ]
+            });
+
+            if (parseResponse?.response) {
+                let jsonStr = parseResponse.response.trim();
+                if (jsonStr.startsWith('```')) {
+                    jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+                }
+                filters = JSON.parse(jsonStr);
+            }
+        } catch (parseErr) {
+            console.warn('[SmartQuery] Filter parsing failed, continuing with empty filters:', parseErr);
+        }
+
+        // Step 2: Build query to fetch matching articles
+        let dbQuery = `SELECT DISTINCT s.* FROM studies s`;
+        const params: any[] = [];
+        const constraints: string[] = [];
+
+        if (filters.mutations?.length) {
+            dbQuery += ` JOIN mutations m ON s.id = m.study_id`;
+            const mutations = Array.isArray(filters.mutations) ? filters.mutations : [filters.mutations];
+            constraints.push(`m.gene_symbol IN (${mutations.map(() => '?').join(',')})`);
+            params.push(...mutations);
+        }
+
+        if (filters.tags?.length) {
+            dbQuery += ` JOIN study_topics t ON s.id = t.study_id`;
+            const tags = Array.isArray(filters.tags) ? filters.tags : [filters.tags];
+            constraints.push(`t.topic_name IN (${tags.map(() => '?').join(',')})`);
+            params.push(...tags);
+        }
+
+        if (filters.treatments?.length) {
+            dbQuery += ` JOIN treatments tr ON s.id = tr.study_id JOIN ref_treatments rt ON tr.treatment_id = rt.id`;
+            const treatments = Array.isArray(filters.treatments) ? filters.treatments : [filters.treatments];
+            constraints.push(`rt.code IN (${treatments.map(() => '?').join(',')})`);
+            params.push(...treatments);
+        }
+
+        if (filters.q) {
+            constraints.push(`(s.title LIKE ? OR s.abstract LIKE ?)`);
+            params.push(`%${filters.q}%`, `%${filters.q}%`);
+        }
+
+        if (filters.diseases?.length) {
+            const diseases = Array.isArray(filters.diseases) ? filters.diseases : [filters.diseases];
+            const diseaseConditions = diseases.map(() => `s.disease_subtype LIKE ?`).join(' OR ');
+            constraints.push(`(${diseaseConditions})`);
+            diseases.forEach((d: string) => params.push(`%${d}%`));
+        }
+
+        if (filters.yearStart) {
+            constraints.push(`s.pub_date >= ?`);
+            params.push(/^\d{4}$/.test(filters.yearStart) ? `${filters.yearStart}-01-01` : filters.yearStart);
+        }
+
+        if (filters.yearEnd) {
+            constraints.push(`s.pub_date <= ?`);
+            params.push(/^\d{4}$/.test(filters.yearEnd) ? `${filters.yearEnd}-12-31` : filters.yearEnd);
+        }
+
+        if (constraints.length > 0) {
+            dbQuery += ` WHERE ` + constraints.join(' AND ');
+        }
+
+        dbQuery += ` ORDER BY s.pub_date DESC LIMIT 50`;
+
+        // Step 3: Fetch articles
+        const { results: articles } = await c.env.DB.prepare(dbQuery).bind(...params).run();
+
+        if (!articles || articles.length === 0) {
+            return c.json({
+                success: true,
+                filters,
+                articleCount: 0,
+                message: 'No articles found matching your query. Try broadening your search terms.',
+                originalQuery: query
+            });
+        }
+
+        // Fetch mutations for the articles
+        const studyIds = articles.map((r: any) => r.id);
+        const batchSize = 50;
+        const mutationsMap: Record<number, string[]> = {};
+
+        for (let i = 0; i < studyIds.length; i += batchSize) {
+            const batchIds = studyIds.slice(i, i + batchSize);
+            const idsPlaceholder = batchIds.map(() => '?').join(',');
+            const { results: mutationsRes } = await c.env.DB.prepare(`
+                SELECT study_id, gene_symbol FROM mutations WHERE study_id IN (${idsPlaceholder})
+            `).bind(...batchIds).run();
+            mutationsRes?.forEach((m: any) => {
+                if (!mutationsMap[m.study_id]) mutationsMap[m.study_id] = [];
+                mutationsMap[m.study_id].push(m.gene_symbol);
+            });
+        }
+
+        const enhancedArticles = articles.map((r: any) => ({
+            ...r,
+            mutations: mutationsMap[r.id] || [],
+            diseases: r.disease_subtype ? [r.disease_subtype] : []
+        }));
+
+        // Step 4: Create insight record
+        let insightId;
+        try {
+            insightId = crypto.randomUUID();
+        } catch {
+            insightId = Date.now().toString(36) + Math.random().toString(36).substring(2);
+        }
+
+        const truncatedArticles = enhancedArticles.slice(0, 30);
+        const filterSummary = Object.entries(filters)
+            .filter(([_, v]) => v && (Array.isArray(v) ? v.length > 0 : true))
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+            .join(' | ') || 'General Search';
+
+        const analyzedBrief = JSON.stringify(truncatedArticles.map((a: any) => ({
+            title: a.title || 'Untitled',
+            year: a.pub_date?.substring(0, 4) || 'N/A'
+        })));
+
+        await c.env.DB.prepare(`
+            INSERT INTO insights (
+                id, query, filter_summary, summary,
+                article_count, analyzed_articles_json, is_rag_enhanced, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+            insightId,
+            query, // Store the original question
+            filterSummary,
+            '',
+            truncatedArticles.length,
+            analyzedBrief,
+            false,
+            'processing'
+        ).run();
+
+        // Step 5: Launch Map-Reduce orchestration with the question as context
+        c.executionCtx.waitUntil(orchestrateMapReduceSummary(c, insightId, truncatedArticles, query));
+
+        return c.json({
+            success: true,
+            insightId,
+            filters,
+            articleCount: enhancedArticles.length,
+            analyzedCount: truncatedArticles.length,
+            status: 'processing',
+            originalQuery: query
+        });
+
+    } catch (e: any) {
+        console.error('[SmartQuery] Error:', e);
+        return c.json({
+            success: false,
+            error: `Smart query failed: ${e.message}`
+        }, 500);
+    }
+});
+
 // AI-powered research insights summarization using Claude
 app.post('/api/summarize', async (c) => {
     try {
@@ -566,7 +765,36 @@ Provide a dense bulleted list of technical highlights for this batch.`;
             };
         });
 
-        const reducePrompt = `You are a medical research synthesis expert specializing in hematological malignancies. I will provide you with technical summary highlights for 50 articles. 
+        // Build the reduce prompt - use question-answering format when query exists
+        const reducePrompt = query
+            ? `You are a medical research assistant answering a specific question from the scientific literature.
+
+USER QUESTION: ${query}
+
+Based on the research data below, synthesize a comprehensive answer. Structure your response with these sections:
+
+## Answer
+- Directly answer the user's question using evidence from the articles
+- Be specific with data points, percentages, outcomes, and statistics
+- Cite EVERY relevant article [#1, #2...] where you draw information from
+
+## Key Evidence
+- Major findings and metrics that support your answer
+- Distinguish between clinical evidence (trials, cohorts) and pre-clinical data
+- Include specific outcomes: ORR, OS, PFS, hazard ratios where available
+
+## Treatment Implications
+- What this means for therapy decisions (if applicable)
+- Drug combinations, dosages, or regimens mentioned
+
+## Limitations & Gaps
+- What the evidence doesn't cover
+- Conflicting findings or areas needing more research
+- Note if evidence is preliminary vs. established
+
+RESEARCH DATA:
+${combinedHighlights}`
+            : `You are a medical research synthesis expert specializing in hematological malignancies. I will provide you with technical summary highlights for articles. 
 Your task is to synthesize these into a single, cohesive, high-level scientific report.
 
 Structure your response with these exact sections:
@@ -586,14 +814,16 @@ Structure your response with these exact sections:
 - Preliminary findings vs. clinical-ready data.
 
 RESEARCH DATA:
-${combinedHighlights}
+${combinedHighlights}`;
 
-${query ? `CONTEXT QUERY: ${query}` : ''}`;
+        const systemPrompt = query
+            ? "You are a knowledgeable medical research assistant. Answer the user's question directly using the provided research data. Be accurate, cite sources, and use clear language accessible to patients while maintaining scientific precision."
+            : "Master scientific report writer. Synthesize multi-batch data into a final structured report.";
 
         const { text: summary, model: finalModel } = await callLLMWithFallback(
             c,
             reducePrompt,
-            "Master scientific report writer. Synthesize multi-batch data into a final structured report.",
+            systemPrompt,
             4096
         );
 

@@ -183,6 +183,11 @@ function App() {
   const [isInsightsPanelOpen, setIsInsightsPanelOpen] = useState(false)
   const [isConfirmingCloseInsights, setIsConfirmingCloseInsights] = useState(false)
 
+  // Smart Search conversational state
+  const [smartSearchInsightId, setSmartSearchInsightId] = useState<string | null>(null)
+  const [smartSearchQuestion, setSmartSearchQuestion] = useState<string | null>(null)
+  const [smartSearchArticleCount, setSmartSearchArticleCount] = useState<number>(0)
+
   const hasActiveFilters = selectedMutation.length > 0 ||
     selectedDisease.length > 0 ||
     selectedTag.length > 0 ||
@@ -634,6 +639,12 @@ function App() {
                     setJournalFilter(filters.journal || '')
                     // Note: useEffect will trigger fetchArticles when state updates
                   }}
+                  onAskClaude={(result) => {
+                    setSmartSearchInsightId(result.insightId)
+                    setSmartSearchQuestion(result.originalQuery)
+                    setSmartSearchArticleCount(result.articleCount)
+                    setIsInsightsPanelOpen(true)
+                  }}
                 />
 
                 <hr className="border-gray-300" />
@@ -877,6 +888,14 @@ function App() {
                     }}
                     isOpen={isInsightsPanelOpen}
                     onToggleOpen={() => setIsInsightsPanelOpen(!isInsightsPanelOpen)}
+                    initialInsightId={smartSearchInsightId}
+                    initialQuestion={smartSearchQuestion}
+                    initialArticleCount={smartSearchArticleCount}
+                    onClearInitial={() => {
+                      setSmartSearchInsightId(null)
+                      setSmartSearchQuestion(null)
+                      setSmartSearchArticleCount(0)
+                    }}
                   />
                 </div>
               </div>
@@ -934,8 +953,8 @@ function App() {
                             {article.full_text_type && (
                               <span
                                 className={`px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wider flex items-center gap-1 ${article.full_text_type === 'pdf'
-                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  ? 'bg-red-50 text-red-700 border-red-200'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                   }`}
                                 title={article.full_text_type === 'pdf' ? 'Full PDF content available for analysis' : 'Full XML structured content available'}
                               >
