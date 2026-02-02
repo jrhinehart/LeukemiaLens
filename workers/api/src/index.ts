@@ -1238,27 +1238,17 @@ app.get('/api/database-stats', async (c) => {
 
 // Monthly coverage statistics for backfill planning
 app.get('/api/coverage', async (c) => {
-    const { year } = c.req.query();
-
     try {
-        let monthlyCoverage;
+        // Run all coverage queries in parallel
+        const [pubmedMetrics, taggedMetrics, ragMetrics, yearlyTotals] = await Promise.all([
+            // 1. PubMed Totals (from coverage_metrics)
+            c.env.DB.prepare(`
+                SELECT year, month, pubmed_total as count
+                FROM coverage_metrics
+            `).all(),
 
-        if (year) {
-            // Get monthly breakdown for a specific year
-            monthlyCoverage = await c.env.DB.prepare(`
-                SELECT 
-                    strftime('%Y', pub_date) as year,
-                    strftime('%m', pub_date) as month,
-                    COUNT(*) as count
-                FROM studies 
-                WHERE pub_date IS NOT NULL 
-                  AND strftime('%Y', pub_date) = ?
-                GROUP BY year, month
-                ORDER BY year DESC, month DESC
-            `).bind(year).all();
-        } else {
-            // Get yearly summary with monthly breakdown
-            monthlyCoverage = await c.env.DB.prepare(`
+            // 2. Tagged Totals (from studies)
+            c.env.DB.prepare(`
                 SELECT 
                     strftime('%Y', pub_date) as year,
                     strftime('%m', pub_date) as month,
@@ -1266,54 +1256,89 @@ app.get('/api/coverage', async (c) => {
                 FROM studies 
                 WHERE pub_date IS NOT NULL
                 GROUP BY year, month
-                ORDER BY year DESC, month DESC
-            `).all();
-        }
+            `).all(),
 
-        // Get yearly totals
-        const yearlyCoverage = await c.env.DB.prepare(`
-            SELECT 
-                strftime('%Y', pub_date) as year,
-                COUNT(*) as count
-            FROM studies 
-            WHERE pub_date IS NOT NULL
-            GROUP BY year
-            ORDER BY year DESC
-        `).all();
+            // 3. RAG Totals (from documents joining with studies to get publication month)
+            c.env.DB.prepare(`
+                SELECT 
+                    strftime('%Y', s.pub_date) as year,
+                    strftime('%m', s.pub_date) as month,
+                    COUNT(d.id) as count
+                FROM studies s
+                JOIN documents d ON s.source_id = 'PMID:' || d.pmid
+                WHERE s.pub_date IS NOT NULL AND d.status = 'ready'
+                GROUP BY year, month
+            `).all(),
 
-        // Transform monthly data into a more usable structure
-        const monthlyByYear: Record<string, Record<string, number>> = {};
-        monthlyCoverage.results?.forEach((row: any) => {
-            if (!monthlyByYear[row.year]) {
-                monthlyByYear[row.year] = {};
+            // 4. Yearly Totals (for summary)
+            c.env.DB.prepare(`
+                SELECT 
+                    strftime('%Y', pub_date) as year,
+                    COUNT(*) as count
+                FROM studies 
+                WHERE pub_date IS NOT NULL
+                GROUP BY year
+                ORDER BY year DESC
+            `).all()
+        ]);
+
+        // Transform results into a nested structure: year -> month -> { pubmed, tagged, rag }
+        const statsByYear: Record<string, Record<string, { pubmed: number, tagged: number, rag: number }>> = {};
+
+        // Helper to initialize year/month
+        const ensurePath = (year: string, month: string) => {
+            if (!statsByYear[year]) statsByYear[year] = {};
+            if (!statsByYear[year][month]) {
+                statsByYear[year][month] = { pubmed: 0, tagged: 0, rag: 0 };
             }
-            monthlyByYear[row.year][row.month] = row.count;
+        };
+
+        pubmedMetrics.results?.forEach((row: any) => {
+            const y = row.year.toString();
+            const m = row.month.toString().padStart(2, '0');
+            ensurePath(y, m);
+            statsByYear[y][m].pubmed = row.count || 0;
         });
 
-        // Build yearly summary with monthly details
-        const coverage = yearlyCoverage.results?.map((row: any) => {
-            const yearData = monthlyByYear[row.year] || {};
-            const months: Record<string, number> = {};
+        taggedMetrics.results?.forEach((row: any) => {
+            const y = row.year;
+            const m = row.month;
+            ensurePath(y, m);
+            statsByYear[y][m].tagged = row.count || 0;
+        });
 
-            // Fill in all 12 months (0 for missing)
+        ragMetrics.results?.forEach((row: any) => {
+            const y = row.year;
+            const m = row.month;
+            ensurePath(y, m);
+            statsByYear[y][m].rag = row.count || 0;
+        });
+
+        // Build final coverage array
+        const coverage = yearlyTotals.results?.map((row: any) => {
+            const year = row.year;
+            const yearData = statsByYear[year] || {};
+            const months: Record<string, any> = {};
+
+            // Fill in all 12 months
             for (let m = 1; m <= 12; m++) {
                 const monthKey = m.toString().padStart(2, '0');
-                months[monthKey] = yearData[monthKey] || 0;
+                months[monthKey] = yearData[monthKey] || { pubmed: 0, tagged: 0, rag: 0 };
             }
 
             return {
-                year: row.year,
-                total: row.count,
+                year,
+                total: row.count, // Total tagged in this year
                 months,
                 gaps: Object.entries(months)
-                    .filter(([_, count]) => count === 0)
+                    .filter(([_, data]: [any, any]) => data.tagged === 0)
                     .map(([month]) => month)
             };
         }) || [];
 
-        // Calculate overall stats
-        const totalArticles = yearlyCoverage.results?.reduce((sum: number, row: any) => sum + row.count, 0) || 0;
-        const yearsWithData = yearlyCoverage.results?.length || 0;
+        // Overall summary
+        const totalArticles = yearlyTotals.results?.reduce((sum: number, row: any) => sum + row.count, 0) || 0;
+        const yearsWithData = yearlyTotals.results?.length || 0;
         const totalGaps = coverage.reduce((sum, y) => sum + y.gaps.length, 0);
 
         return c.json({
@@ -1325,7 +1350,7 @@ app.get('/api/coverage', async (c) => {
             coverage,
             generated_at: new Date().toISOString()
         }, 200, {
-            'Cache-Control': 'public, max-age=1800'  // Cache for 30 minutes
+            'Cache-Control': 'public, max-age=600' // Cache for 10 minutes
         });
     } catch (e: any) {
         return c.json({ error: e.message }, 500);

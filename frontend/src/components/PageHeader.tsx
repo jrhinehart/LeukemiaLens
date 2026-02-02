@@ -9,7 +9,7 @@ export const PageHeader = ({ title, onNavigateHome }: PageHeaderProps) => {
     return (
         <div className="relative bg-gradient-to-r from-blue-950 via-blue-700 to-blue-500 text-white shadow-md">
             {/* Top Navigation */}
-            <nav className="absolute top-4 right-4 sm:right-8 flex gap-6 text-sm font-medium z-10">
+            <nav className="absolute top-4 right-4 sm:right-8 flex gap-3 sm:gap-6 text-sm font-medium z-10">
                 {[
                     { label: 'About', path: '/about' },
                     { label: 'Contact', path: '/contact' },
@@ -31,7 +31,7 @@ export const PageHeader = ({ title, onNavigateHome }: PageHeaderProps) => {
                 ))}
             </nav>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex items-center gap-6">
+            <div className="max-w-7xl mx-auto pl-2 pr-4 sm:px-6 lg:px-8 py-8 flex items-center gap-3 sm:gap-6">
                 {/* Logo - clickable to go home */}
                 <div className="flex-shrink-0">
                     <a
@@ -47,13 +47,13 @@ export const PageHeader = ({ title, onNavigateHome }: PageHeaderProps) => {
                         className="cursor-pointer"
                         title="Back to Home"
                     >
-                        <img src={bannerImage} alt="LeukemiaLens" className="h-16 object-contain hover:opacity-90 transition-opacity" />
+                        <img src={bannerImage} alt="LeukemiaLens" className="h-12 sm:h-16 object-contain hover:opacity-90 transition-opacity" />
                     </a>
                 </div>
 
                 {/* Page Title */}
                 <div className="flex-1">
-                    <h1 className="text-3xl md:text-4xl font-bold">{title}</h1>
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight">{title}</h1>
                 </div>
             </div>
         </div>

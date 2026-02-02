@@ -384,6 +384,25 @@ async function backfillLocal(options: BackfillOptions, progress: BackfillProgres
                 // Get total count first
                 await sleep(RATE_LIMIT_DELAY);
                 const { total } = await searchPubmed(searchTerm, 0, 0);
+
+                // Update coverage_metrics in D1
+                if (options.local && (options.granular || options.month)) {
+                    try {
+                        const mStr = m.toString().padStart(2, '0');
+                        await queryD1(
+                            `INSERT INTO coverage_metrics (year, month, pubmed_total, last_updated)
+                                VALUES (?, ?, ?, ?)
+                                ON CONFLICT(year, month) DO UPDATE SET
+                                pubmed_total = excluded.pubmed_total,
+                                last_updated = excluded.last_updated`,
+                            [year, m, total, new Date().toISOString()]
+                        );
+                        console.log(`  [Coverage] Updated metrics for ${year}-${mStr}: ${total}`);
+                    } catch (coverageErr: any) {
+                        console.warn(`  ⚠️ Failed to update coverage metrics: ${coverageErr.message}`);
+                    }
+                }
+
                 const maxArticles = options.limit ? Math.min(total, options.limit) : total;
 
                 console.log(`  Found ${total} articles, will ingest up to ${maxArticles}`);

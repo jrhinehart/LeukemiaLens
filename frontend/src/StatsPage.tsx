@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import architectureDiagram from './assets/architecture_diagram_v4.png'
 
 
 interface DatabaseStats {
@@ -25,10 +26,16 @@ interface DatabaseStats {
     generated_at: string
 }
 
+interface CoverageMonth {
+    pubmed: number
+    tagged: number
+    rag: number
+}
+
 interface CoverageYear {
     year: string
     total: number
-    months: Record<string, number>
+    months: Record<string, CoverageMonth>
     gaps: string[]
 }
 
@@ -74,6 +81,13 @@ export const StatsPage = () => {
 
     // RAG stats state
     const [ragStats, setRagStats] = useState<RAGStats | null>(null)
+    const [hoveredMonth, setHoveredMonth] = useState<{
+        year: string,
+        month: string,
+        data: CoverageMonth,
+        x: number,
+        y: number
+    } | null>(null)
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -117,11 +131,18 @@ export const StatsPage = () => {
         fetchRAGStats()
     }, [])
 
-    const getMonthColor = (count: number) => {
-        if (count === 0) return 'bg-red-100 text-red-600 border-red-200'
-        if (count < 10) return 'bg-yellow-100 text-yellow-700 border-yellow-200'
-        if (count < 50) return 'bg-blue-100 text-blue-700 border-blue-200'
-        return 'bg-green-100 text-green-700 border-green-200'
+    const getMonthColor = (data: CoverageMonth) => {
+        if (data.pubmed === 0) {
+            return data.tagged > 0 ? 'bg-blue-500/20 border-blue-500/10' : 'bg-gray-50 border-gray-100'
+        }
+
+        const coveragePercent = (data.tagged / data.pubmed) * 100
+
+        if (coveragePercent === 0) return 'bg-red-50 text-red-300 border-red-100'
+        if (coveragePercent < 20) return 'bg-emerald-50 text-emerald-600 border-emerald-100'
+        if (coveragePercent < 50) return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+        if (coveragePercent < 80) return 'bg-emerald-200 text-emerald-800 border-emerald-300'
+        return 'bg-emerald-500 text-white border-emerald-600 shadow-sm'
     }
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -213,6 +234,80 @@ export const StatsPage = () => {
                     </div>
                 </div>
 
+                {/* System Architecture Diagram */}
+                <div className="mb-12">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-8 border-b border-gray-100 bg-gray-50/50">
+                            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                <span>🏗️</span> System Architecture
+                            </h2>
+                            <p className="text-sm text-gray-600 mt-1">
+                                A high-level overview of the LeukemiaLens data pipeline and technology stack.
+                            </p>
+                        </div>
+                        <div className="p-4 sm:p-8 bg-blue-50/30 flex justify-center">
+                            <img
+                                src={architectureDiagram}
+                                alt="System Architecture Diagram"
+                                className="max-w-full h-auto rounded-lg shadow-xl border border-blue-100"
+                            />
+                        </div>
+                        <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-6 bg-gray-50/30">
+                            <div>
+                                <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">1. Daily Ingest</h4>
+                                <p className="text-xs text-gray-600 font-medium">Cloudflare Workers pull daily metadata from PubMed (NCBI) for real-time tracking.</p>
+                            </div>
+                            <div>
+                                <h4 className="text-[10px] font-black text-purple-600 uppercase tracking-widest mb-1">2. Historical Processing</h4>
+                                <p className="text-xs text-gray-600 font-medium">Local backfill scripts handle deep embedding and vectorization of historical research stacks.</p>
+                            </div>
+                            <div>
+                                <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">3. AI Engine</h4>
+                                <p className="text-xs text-gray-600 font-medium">Anthropic's Claude 3.5 Sonnet performs deep synthesis and citation-backed reasoning.</p>
+                            </div>
+                            <div>
+                                <h4 className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">4. Analytics</h4>
+                                <p className="text-xs text-gray-600 font-medium">Real-time metrics tracking and coverage monitoring across the entire database.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Educational Context: RAG Explained */}
+                <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-xl">🤖</div>
+                            <h2 className="text-xl font-bold text-gray-900">What is a RAG Pipeline?</h2>
+                        </div>
+                        <div className="prose prose-sm text-gray-600 space-y-3">
+                            <p>
+                                <strong>Retrieval-Augmented Generation (RAG)</strong> is the architecture that powers LeukemiaLens's "Smart Search." Instead of relying on a model's static training data, RAG allows the AI to first <em>retrieve</em> specific, peer-reviewed articles matching your query and then <em>generate</em> an answer based strictly on those sources.
+                            </p>
+                            <p>
+                                This ensures that citations are real, hallucinations are minimized, and insights are grounded in the most current hematology research.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-xl">🚀</div>
+                            <h2 className="text-xl font-bold text-gray-900">Why this matters</h2>
+                        </div>
+                        <div className="prose prose-sm text-gray-600 space-y-3">
+                            <p>
+                                By utilizing a serverless RAG pipeline, LeukemiaLens can leverage <strong>Anthropic-hosted Claude</strong>—giving us immediate access to newest frontier models while maintaining low infrastructure costs.
+                            </p>
+                            <ul className="list-disc pl-4 space-y-1">
+                                <li><strong>Accuracy:</strong> Access to Claude's industry-leading reasoning and medical analysis.</li>
+                                <li><strong>Speed:</strong> Real-time processing on the edge with no server management.</li>
+                                <li><strong>Scalability:</strong> Able to analyze 30+ full-text articles in parallel for deep synthesis.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Column 1: Date Range & Insights */}
                     <div className="space-y-8">
@@ -283,7 +378,7 @@ export const StatsPage = () => {
                                     </div>
                                     <div className="col-span-2 text-left md:text-right">
                                         <p className="text-[10px] text-gray-500 italic leading-tight">
-                                            ~50-60% of modern leukemia research currently has PMC full-text available.
+                                            <strong>Note on Coverage:</strong> The "Research Analyzed" metric represents articles where we have successfully retrieved full-text content. While we track metadata for all articles, full-text access is limited to Open Access journals and those indexed by PMC. Realistically, this will never reach 100% due to publisher paywalls.
                                         </p>
                                     </div>
                                 </div>
@@ -295,7 +390,7 @@ export const StatsPage = () => {
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Latest AI Vectorization</h3>
                                 <div className="divide-y divide-gray-50">
-                                    {ragStats.recentlyProcessed.slice(0, 4).map((doc) => (
+                                    {ragStats.recentlyProcessed.slice(0, 4).map((doc: any) => (
                                         <div key={doc.id} className="py-2 flex items-center justify-between gap-4">
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <div className={`w-8 h-8 rounded flex items-center justify-center text-sm ${doc.format === 'pdf' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'}`}>
@@ -357,7 +452,7 @@ export const StatsPage = () => {
                                     {/* Pagination Controls */}
                                     <div className="flex items-center gap-3">
                                         <button
-                                            onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                                            onClick={() => setCurrentPage((p: number) => Math.max(0, p - 1))}
                                             disabled={currentPage === 0}
                                             className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                                         >
@@ -369,7 +464,7 @@ export const StatsPage = () => {
                                             Page {currentPage + 1} of {totalPages}
                                         </span>
                                         <button
-                                            onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                                            onClick={() => setCurrentPage((p: number) => Math.min(totalPages - 1, p + 1))}
                                             disabled={currentPage === totalPages - 1}
                                             className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                                         >
@@ -390,42 +485,92 @@ export const StatsPage = () => {
                                 </div>
 
                                 {/* Coverage Grid */}
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
+                                <div className="overflow-x-auto relative">
+                                    {/* Hover Tooltip */}
+                                    {hoveredMonth && (
+                                        <div
+                                            className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-4 px-4 py-3 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl border border-blue-100 min-w-[200px]"
+                                            style={{ left: hoveredMonth.x, top: hoveredMonth.y - 12 }}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                                                    {monthNames[parseInt(hoveredMonth.month) - 1]} {hoveredMonth.year}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-gray-400">
+                                                    {Math.round((hoveredMonth.data.tagged / (hoveredMonth.data.pubmed || 1)) * 100)}% Coverage
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-gray-500">PubMed Volume</span>
+                                                    <span className="text-xs font-bold text-gray-900">{hoveredMonth.data.pubmed.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-gray-500">Tagged & Structured</span>
+                                                    <span className="text-xs font-bold text-emerald-600">{hoveredMonth.data.tagged.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-gray-500">RAG Processed</span>
+                                                    <span className="text-xs font-bold text-blue-600">{hoveredMonth.data.rag.toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                            <div className="mt-2 pt-2 border-t border-gray-50">
+                                                <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="bg-emerald-500 h-full transition-all duration-500"
+                                                        style={{ width: `${Math.min(100, (hoveredMonth.data.tagged / (hoveredMonth.data.pubmed || 1)) * 100)}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <table className="w-full border-collapse">
                                         <thead>
-                                            <tr className="border-b border-gray-100">
-                                                <th className="py-3 px-3 text-left font-bold text-gray-400 uppercase tracking-tighter text-[10px]">Year</th>
-                                                <th className="py-3 px-2 text-right font-bold text-gray-400 uppercase tracking-tighter text-[10px]">Count</th>
-                                                {monthNames.map(m => (
-                                                    <th key={m} className="py-3 px-1 text-center font-bold text-gray-400 uppercase tracking-tighter text-[10px]">{m}</th>
+                                            <tr>
+                                                <th className="p-3 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Year</th>
+                                                {monthNames.map((m) => (
+                                                    <th key={m} className="p-3 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">{m}</th>
                                                 ))}
-                                                <th className="py-3 px-3 text-center font-bold text-gray-400 uppercase tracking-tighter text-[10px]">Gaps</th>
+                                                <th className="p-3 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">Total</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
-                                            {paginatedCoverage.map((yearData) => (
-                                                <tr key={yearData.year} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
-                                                    <td className="py-3 px-3 font-black text-gray-900 text-lg">{yearData.year}</td>
-                                                    <td className="py-3 px-2 text-right font-bold text-blue-600">{yearData.total.toLocaleString()}</td>
-                                                    {Array.from({ length: 12 }, (_, i) => {
-                                                        const monthKey = (i + 1).toString().padStart(2, '0')
-                                                        const count = yearData.months[monthKey] || 0
-                                                        return (
-                                                            <td key={monthKey} className="py-3 px-1 text-center">
-                                                                <div className={`inline-flex items-center justify-center min-w-[2.25rem] h-7 rounded-md text-[10px] font-bold border ${getMonthColor(count)} shadow-sm`}>
-                                                                    {count}
-                                                                </div>
-                                                            </td>
-                                                        )
-                                                    })}
-                                                    <td className="py-3 px-3 text-center">
-                                                        {yearData.gaps.length > 0 ? (
-                                                            <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 text-[10px] font-black border border-red-200">
-                                                                {yearData.gaps.length}
+                                        <tbody className="divide-y divide-gray-50">
+                                            {paginatedCoverage.map((y) => (
+                                                <tr key={y.year} className="hover:bg-gray-50/50 transition-colors">
+                                                    <td className="p-3 font-bold text-gray-900 text-sm">{y.year}</td>
+                                                    {Object.entries(y.months).map(([m, data]) => (
+                                                        <td key={m} className="p-1 text-center">
+                                                            <div
+                                                                onMouseEnter={(e) => {
+                                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                                    setHoveredMonth({
+                                                                        year: y.year,
+                                                                        month: m,
+                                                                        data: data as CoverageMonth,
+                                                                        x: rect.left + rect.width / 2,
+                                                                        y: rect.top
+                                                                    });
+                                                                }}
+                                                                onMouseLeave={() => setHoveredMonth(null)}
+                                                                className={`
+                                                                    h-10 w-full rounded-lg border text-[10px] font-bold 
+                                                                    flex flex-col items-center justify-center transition-all duration-200
+                                                                    cursor-help relative
+                                                                    ${getMonthColor(data as CoverageMonth)}
+                                                                `}
+                                                            >
+                                                                {(data as CoverageMonth).tagged > 0 && (data as CoverageMonth).tagged}
+                                                                {(data as CoverageMonth).rag > 0 && (
+                                                                    <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-blue-500 rounded-full border border-white -mt-0.5 -mr-0.5" />
+                                                                )}
                                                             </div>
-                                                        ) : (
-                                                            <span className="text-green-500 font-bold text-lg">✓</span>
-                                                        )}
+                                                        </td>
+                                                    ))}
+                                                    <td className="p-3 text-right">
+                                                        <span className="px-2 py-1 bg-gray-100 rounded-md text-xs font-bold text-gray-600">
+                                                            {y.total.toLocaleString()}
+                                                        </span>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -435,7 +580,7 @@ export const StatsPage = () => {
 
                                 <div className="flex justify-between items-center py-4 border-t border-gray-50 mt-4 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                                     <span>Showing years {paginatedCoverage[0]?.year} - {paginatedCoverage[paginatedCoverage.length - 1]?.year}</span>
-                                    <span>Updated: {new Date(coverage.generated_at).toLocaleTimeString()}</span>
+                                    <span>Updated: {coverage ? new Date(coverage.generated_at).toLocaleTimeString() : '...'}</span>
                                 </div>
                             </div>
                         ) : (
@@ -445,8 +590,8 @@ export const StatsPage = () => {
                         )}
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     )
 }
 

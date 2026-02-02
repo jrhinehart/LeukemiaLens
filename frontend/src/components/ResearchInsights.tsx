@@ -140,9 +140,11 @@ export function ResearchInsights({
     const [chatInput, setChatInput] = useState('')
     const [isChatLoading, setIsChatLoading] = useState(false)
     const [backendId, setBackendId] = useState<string | null>(null)
+    const [activePollId, setActivePollId] = useState<string | null>(null)
 
     // Smart Search question display
     const [userQuestion, setUserQuestion] = useState<string | null>(null)
+    const [totalArticlesToProcess, setTotalArticlesToProcess] = useState(30)
 
     // Load history on mount
     useEffect(() => {
@@ -173,9 +175,12 @@ export function ResearchInsights({
             setBackendId(null)
             setModelUsed(null)
             setUserQuestion(initialQuestion)
+            setActivePollId(initialInsightId)
+            const count = initialArticleCount || 30
+            setTotalArticlesToProcess(count)
 
             // Start polling for the insight
-            pollInsightStatus(initialInsightId, initialArticleCount || 30)
+            pollInsightStatus(initialInsightId, count)
 
             // Clear the initial props
             onClearInitial?.()
@@ -183,6 +188,10 @@ export function ResearchInsights({
     }, [initialInsightId, initialQuestion, isOpen])
 
     const pollInsightStatus = async (id: string, totalArticles: number) => {
+        setIsLoading(true)
+        setError(null)
+        setActivePollId(id)
+        setTotalArticlesToProcess(totalArticles)
         let attempts = 0
         const maxAttempts = 120 // 4 minutes total (2s intervals)
 
@@ -247,6 +256,14 @@ export function ResearchInsights({
         }, 2000)
     }
 
+    const handleRetryPoll = () => {
+        if (activePollId) {
+            pollInsightStatus(activePollId, totalArticlesToProcess)
+        } else {
+            handleGetInsights()
+        }
+    }
+
     const handleGetInsights = async () => {
         if (articles.length === 0) {
             setError('No articles to analyze. Try adjusting your filters.')
@@ -280,7 +297,7 @@ export function ResearchInsights({
         try {
             const response = await axios.post(`${apiBaseUrl}/api/summarize`, {
                 articles: articlesToAnalyze,
-                query: searchQuery,
+                query: userQuestion || searchQuery, // Prioritize the conversational question
                 filter_summary: generateFilterSummary(searchQuery, selectedFilters)
             })
 
@@ -813,7 +830,7 @@ export function ResearchInsights({
                             <h3 className="text-lg font-bold text-gray-900 mb-2">Analysis Interrupted</h3>
                             <p className="text-sm text-gray-600 mb-8 max-w-xs">{error}</p>
                             <button
-                                onClick={handleGetInsights}
+                                onClick={handleRetryPoll}
                                 className="px-6 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all font-semibold text-sm shadow-md hover:shadow-lg active:scale-95"
                             >
                                 Try Again

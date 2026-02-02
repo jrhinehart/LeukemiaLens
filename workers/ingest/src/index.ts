@@ -105,7 +105,10 @@ async function fetchDetails(env: Env, ids: string[]): Promise<string> {
 
 export default {
     async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-        ctx.waitUntil(this.processIngestion(env));
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        ctx.waitUntil(this.processIngestion(env, null, MAX_RESULTS, 0, false, year, month));
     },
 
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -145,7 +148,15 @@ export default {
         }
 
         // Manual trigger for testing
-        const result = await this.processIngestion(env, searchTermOverride, limit, offset, useAI);
+        const result = await this.processIngestion(
+            env,
+            searchTermOverride,
+            limit,
+            offset,
+            useAI,
+            year ? parseInt(year) : undefined,
+            month ? parseInt(month) : undefined
+        );
         return new Response(`Ingestion for ${year}${month ? '-' + month : ''}: Found ${result.total} total. Ingested ${result.ingested} in this batch (offset ${offset}) ${useAI ? 'using AI' : 'using regex'}.`);
     },
 
@@ -234,11 +245,28 @@ export default {
     },
 
 
-    async processIngestion(env: Env, searchTermOverride: string | null = null, limit: number = MAX_RESULTS, offset: number = 0, useAI: boolean = false) {
-        console.log(`Starting ingestion... term=${searchTermOverride || "default"} limit=${limit} offset=${offset} useAI=${useAI}`);
+    async processIngestion(env: Env, searchTermOverride: string | null = null, limit: number = MAX_RESULTS, offset: number = 0, useAI: boolean = false, year?: number, month?: number) {
+        console.log(`Starting ingestion... term=${searchTermOverride || "default"} limit=${limit} offset=${offset} useAI=${useAI} year=${year} month=${month}`);
         try {
             const { ids, total } = await searchPubmed(env, searchTermOverride, limit, offset);
             console.log(`Found ${ids.length} articles in search batch (Total matching in PubMed: ${total}).`);
+
+            // Save PubMed total to coverage_metrics if year and month are provided
+            if (year && month) {
+                try {
+                    await env.DB.prepare(
+                        `INSERT INTO coverage_metrics (year, month, pubmed_total, last_updated)
+                         VALUES (?, ?, ?, ?)
+                         ON CONFLICT(year, month) DO UPDATE SET
+                            pubmed_total = excluded.pubmed_total,
+                            last_updated = excluded.last_updated`
+                    ).bind(year, month, total, new Date().toISOString()).run();
+                    console.log(`[Coverage] Updated metrics for ${year}-${month}: ${total}`);
+                } catch (e: any) {
+                    console.warn(`[Coverage] Failed to update metrics: ${e.message}`);
+                }
+            }
+
             if (ids.length === 0) return { total, ingested: 0 };
 
             // Deduplicate: Check which PMIDs already exist in our database

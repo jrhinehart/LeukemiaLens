@@ -38,7 +38,6 @@ export function SmartSearchInput({
     const [isLoading, setIsLoading] = useState(false)
     const [parsedFilters, setParsedFilters] = useState<ParsedFilters | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [isExpanded, setIsExpanded] = useState(false)
     const [mode, setMode] = useState<SearchMode>('ask')
     const [noArticlesMessage, setNoArticlesMessage] = useState<string | null>(null)
 
@@ -69,7 +68,6 @@ export function SmartSearchInput({
                     })
                     // Reset after successful submission
                     setQuery('')
-                    setIsExpanded(false)
                 }
             } else {
                 setError(response.data.error || 'Failed to process your question')
@@ -111,7 +109,6 @@ export function SmartSearchInput({
             onApplyFilters(parsedFilters)
             setParsedFilters(null)
             setQuery('')
-            setIsExpanded(false)
             setNoArticlesMessage(null)
         }
     }
@@ -155,132 +152,147 @@ export function SmartSearchInput({
         return labels[key] || key
     }
 
-    if (!isExpanded) {
-        return (
-            <button
-                onClick={() => setIsExpanded(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg font-medium"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
-                </svg>
-                Ask Claude
-            </button>
-        )
-    }
+    // We want the component to be always visible and prominent now
+
 
     return (
-        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-200 shadow-sm">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-purple-600">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
-                    </svg>
-                    <span className="text-sm font-semibold text-purple-800">Ask Claude</span>
-                </div>
-                <button
-                    onClick={() => { setIsExpanded(false); setParsedFilters(null); setError(null); setNoArticlesMessage(null); }}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
+        <div className="bg-white rounded-2xl p-6 lg:p-8 border border-purple-100 shadow-xl overflow-hidden relative group transition-all hover:border-purple-200">
+            {/* Background Decorative Element */}
+            <div className="absolute top-0 right-0 -translate-x-12 -translate-y-12 w-64 h-64 bg-gradient-to-br from-purple-100/30 to-indigo-100/30 rounded-full blur-3xl pointer-events-none"></div>
 
-            {/* Mode Toggle */}
-            {onAskClaude && (
-                <div className="flex gap-1 mb-3 p-1 bg-white rounded-lg border border-purple-200">
-                    <button
-                        onClick={() => { setMode('ask'); handleCancel(); }}
-                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${mode === 'ask'
-                                ? 'bg-purple-600 text-white shadow-sm'
-                                : 'text-gray-600 hover:bg-gray-50'
-                            }`}
-                    >
-                        🤖 Ask a Question
-                    </button>
-                    <button
-                        onClick={() => { setMode('filter'); handleCancel(); }}
-                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${mode === 'filter'
-                                ? 'bg-purple-600 text-white shadow-sm'
-                                : 'text-gray-600 hover:bg-gray-50'
-                            }`}
-                    >
-                        🔍 Apply Filters
-                    </button>
-                </div>
-            )}
-
-            {/* Example hint */}
-            <p className="text-xs text-purple-600 mb-2 italic">
-                {mode === 'ask'
-                    ? 'Try: "What are the latest FLT3 inhibitor results in relapsed AML?"'
-                    : 'Try: "FLT3 mutations in AML from 2023" to set filters'
-                }
-            </p>
-
-            {/* Input */}
-            <div className="relative">
-                <textarea
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={mode === 'ask'
-                        ? "Ask a question about leukemia research..."
-                        : "Describe what you're looking for..."
-                    }
-                    rows={2}
-                    className="w-full px-3 py-2 text-sm border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none bg-white"
-                    disabled={isLoading}
-                />
-            </div>
-
-            {/* Action Button */}
-            {!parsedFilters && !noArticlesMessage && (
-                <button
-                    onClick={mode === 'ask' && onAskClaude ? handleAskClaude : handleParseQuery}
-                    disabled={isLoading || !query.trim()}
-                    className={`w-full mt-3 flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm ${mode === 'ask'
-                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-                            : 'bg-purple-600 hover:bg-purple-700'
-                        }`}
-                >
-                    {isLoading ? (
-                        <>
-                            <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <div className="relative z-10">
+                {/* Header and Mode Toggle in one row for wide screens */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
                             </svg>
-                            {mode === 'ask' ? 'Searching & Analyzing...' : 'Analyzing...'}
-                        </>
-                    ) : (
-                        <>
-                            {mode === 'ask' ? (
-                                <>
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
-                                    </svg>
-                                    Ask Claude
-                                </>
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900 leading-tight">Smart Scientific Search</h2>
+                            <p className="text-xs text-gray-500 font-medium tracking-wide">AI-POWERED INSIGHTS & ANALYSIS</p>
+                        </div>
+                    </div>
+
+                    {onAskClaude && (
+                        <div className="flex p-1 bg-gray-100/80 backdrop-blur-sm rounded-xl border border-gray-200/50 w-full md:w-auto">
+                            <button
+                                onClick={() => { setMode('ask'); handleCancel(); }}
+                                className={`flex-1 md:flex-none px-6 py-2 text-sm font-semibold rounded-lg transition-all ${mode === 'ask'
+                                    ? 'bg-white text-purple-700 shadow-sm ring-1 ring-black/5'
+                                    : 'text-gray-500 hover:text-gray-700'
+                                    }`}
+                            >
+                                Ask Claude
+                            </button>
+                            <button
+                                onClick={() => { setMode('filter'); handleCancel(); }}
+                                className={`flex-1 md:flex-none px-6 py-2 text-sm font-semibold rounded-lg transition-all ${mode === 'filter'
+                                    ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-black/5'
+                                    : 'text-gray-500 hover:text-gray-700'
+                                    }`}
+                            >
+                                Filter Workspace
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+
+                {/* Input with prominent styling */}
+                <div className="relative group">
+                    <textarea
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder={mode === 'ask'
+                            ? "Ask a question (e.g., 'What are the outcomes of VEN-AZA in TP53-mutated AML?')"
+                            : "Enter research requirements (e.g., 'NPM1 mutations in 2024')"
+                        }
+                        rows={1}
+                        className="w-full px-5 py-5 text-lg border-2 border-gray-100 rounded-2xl focus:ring-4 focus:ring-purple-100 focus:border-purple-400 overflow-hidden resize-none bg-gray-50/50 transition-all font-medium placeholder:text-gray-400 group-hover:bg-white"
+                        style={{ minHeight: '80px', maxHeight: '200px' }}
+                        disabled={isLoading}
+                        onInput={(e) => {
+                            const target = e.target as HTMLTextAreaElement;
+                            target.style.height = 'auto';
+                            target.style.height = `${target.scrollHeight}px`;
+                        }}
+                    />
+
+                    {/* Floating Action Button for Desktop */}
+                    <div className="hidden md:block absolute right-3 bottom-3">
+                        <button
+                            onClick={mode === 'ask' && onAskClaude ? handleAskClaude : handleParseQuery}
+                            disabled={isLoading || !query.trim()}
+                            className={`flex items-center gap-2 px-8 py-3 text-white rounded-xl shadow-lg transition-all font-bold text-base active:scale-95 disabled:opacity-50 ${mode === 'ask'
+                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-200'
+                                : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100'
+                                }`}
+                        >
+                            {isLoading ? (
+                                <svg className="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
                             ) : (
                                 <>
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                                    {mode === 'ask' ? 'Run AI Analysis' : 'Parse Filters'}
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                                     </svg>
-                                    Parse Query
                                 </>
                             )}
-                        </>
-                    )}
-                </button>
-            )}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Mobile Action Button */}
+                <div className="md:hidden mt-4">
+                    <button
+                        onClick={mode === 'ask' && onAskClaude ? handleAskClaude : handleParseQuery}
+                        disabled={isLoading || !query.trim()}
+                        className={`w-full flex items-center justify-center gap-3 px-6 py-4 text-white rounded-xl shadow-lg transition-all font-bold text-lg active:scale-95 disabled:opacity-50 ${mode === 'ask'
+                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600'
+                            : 'bg-indigo-600'
+                            }`}
+                    >
+                        {isLoading ? (
+                            <div className="flex items-center gap-3">
+                                <svg className="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Processing...</span>
+                            </div>
+                        ) : (
+                            <>
+                                <span>{mode === 'ask' ? 'Run AI Analysis' : 'Parse Filters'}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                                </svg>
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+
+            {/* Removed redundant action button as it's now integrated above */}
+
 
             {/* Error */}
             {error && (
-                <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center justify-between">
                     {error}
+                    <button
+                        onClick={() => { setParsedFilters(null); setError(null); setNoArticlesMessage(null); }}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
             )}
 

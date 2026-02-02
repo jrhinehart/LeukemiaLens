@@ -624,29 +624,6 @@ function App() {
               </div>
               <div className="sticky top-8 space-y-6 max-h-[calc(100vh-6rem)] overflow-y-auto custom-scrollbar px-2">
 
-                {/* Smart Search - AI-powered natural language query */}
-                <SmartSearchInput
-                  onApplyFilters={(filters: ParsedFilters) => {
-                    // Only set search query if there are unparsed terms
-                    setSearchQuery(filters.q || '')
-                    setSelectedMutation(filters.mutations || [])
-                    setSelectedDisease(filters.diseases || [])
-                    setSelectedTreatment(filters.treatments || [])
-                    setSelectedTag(filters.tags || [])
-                    setStartDate(filters.yearStart || '')
-                    setEndDate(filters.yearEnd || '')
-                    setAuthorFilter(filters.author || '')
-                    setJournalFilter(filters.journal || '')
-                    // Note: useEffect will trigger fetchArticles when state updates
-                  }}
-                  onAskClaude={(result) => {
-                    setSmartSearchInsightId(result.insightId)
-                    setSmartSearchQuestion(result.originalQuery)
-                    setSmartSearchArticleCount(result.articleCount)
-                    setIsInsightsPanelOpen(true)
-                  }}
-                />
-
                 <hr className="border-gray-300" />
 
                 {/* Main Search - Moved to top of filters */}
@@ -819,6 +796,40 @@ function App() {
 
             {/* Main Content Area */}
             <main className="flex-1 min-w-0">
+              {/* Central Smart Search Bar */}
+              <div className="mb-8">
+                <SmartSearchInput
+                  onApplyFilters={(filters: ParsedFilters) => {
+                    // Only set search query if there are unparsed terms
+                    setSearchQuery(filters.q || '')
+                    setSelectedMutation(filters.mutations || [])
+                    setSelectedDisease(filters.diseases || [])
+                    setSelectedTreatment(filters.treatments || [])
+                    setSelectedTag(filters.tags || [])
+                    setStartDate(filters.yearStart || '')
+                    setEndDate(filters.yearEnd || '')
+                    setAuthorFilter(filters.author || '')
+                    setJournalFilter(filters.journal || '')
+                    // Note: useEffect will trigger fetchArticles when state updates
+                  }}
+                  onAskClaude={(result) => {
+                    // Apply extracted filters so the background list matches the question
+                    setSearchQuery(result.filters.q || '')
+                    setSelectedMutation(result.filters.mutations || [])
+                    setSelectedDisease(result.filters.diseases || [])
+                    setSelectedTreatment(result.filters.treatments || [])
+                    setSelectedTag(result.filters.tags || [])
+                    setStartDate(result.filters.yearStart || '')
+                    setEndDate(result.filters.yearEnd || '')
+
+                    setSmartSearchInsightId(result.insightId)
+                    setSmartSearchQuestion(result.originalQuery)
+                    setSmartSearchArticleCount(result.articleCount)
+                    setIsInsightsPanelOpen(true)
+                  }}
+                />
+              </div>
+
               {/* Active Filters Display */}
               {searchQuery && (
                 <div className="mb-6">
