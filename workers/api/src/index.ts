@@ -235,13 +235,15 @@ Available filters:
 - journal: journal name like Blood, Leukemia, JCO, NEJM
 
 Rules:
-1. Only include fields that are clearly indicated in the query
-2. Use uppercase for gene symbols and disease codes
-3. Recognize synonyms: "venetoclax" = "VEN", "azacitidine" = "AZA", "aza" = "AZA"
-4. For date ranges like "from 2020" use yearStart, "until 2023" use yearEnd, "in 2024" use both
-5. "recent" or "latest" means yearStart should be current year minus 2
-6. NEVER put terms in "q" that belong in another filter category - only unrecognized keywords go in "q"
-7. Respond ONLY with valid JSON object, no explanation or markdown`;
+1. ONLY include categorical fields (mutations, diseases, treatments, tags) if you are HIGHLY CONFIDENT (>95%) that the term is an exact match for that category.
+2. If you are GUESSING, unsure of the correct category, or if the term is a general medical concept (e.g., "inhibitor", "relapsed", "new study"), put it in the "q" field.
+3. PRESERVE as much technical intent as possible from the user's question by moving unrecognized terms or complex phrases to "q".
+4. NEVER drop information. If it doesn't fit a specific filter, it MUST go into "q".
+5. Use uppercase for gene symbols and disease codes.
+6. Recognize synonyms: "venetoclax" = "VEN", "azacitidine" = "AZA".
+7. For date ranges like "from 2020" use yearStart, "until 2023" use yearEnd, "in 2024" use both.
+8. "recent" or "latest" means yearStart should be current year minus 2.
+9. Respond ONLY with valid JSON object, no explanation or markdown.`;
 
     try {
         const response = await c.env.AI.run('@cf/meta/llama-2-7b-chat-int8', {
@@ -304,12 +306,11 @@ Available filters:
 - yearEnd: publication end year (YYYY format)
 
 Rules:
-1. Only include fields that are clearly indicated in the query
-2. Use uppercase for gene symbols and disease codes
-3. Recognize synonyms: "venetoclax" = "VEN", "azacitidine" = "AZA"
-4. For date ranges like "from 2020" use yearStart, "until 2023" use yearEnd, "in 2024" use both
-5. "recent" or "latest" means yearStart should be current year minus 2
-6. Respond ONLY with valid JSON object, no explanation or markdown`;
+1. ONLY include categorical fields (mutations, diseases, treatments, tags) if you are HIGHLY CONFIDENT (>95%) that the term is an exact match for that category.
+2. If you are GUESSING, unsure of the correct category, or if the term is a general medical concept, put it in the "q" field.
+3. PRESERVE as much technical intent as possible. All terms not 100% matched to a filter MUST go into the "q" field.
+4. "recent" or "latest" means yearStart should be current year minus 2.
+5. Respond ONLY with valid JSON object, no explanation or markdown.`;
 
         let filters: any = {};
         try {
