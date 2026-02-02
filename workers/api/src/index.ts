@@ -1347,52 +1347,61 @@ app.get('/api/coverage', async (c) => {
             }
         };
 
-        pubmedMetrics.results?.forEach((row: any) => {
-            const y = row.year.toString();
-            const m = row.month.toString().padStart(2, '0');
+        // 1. PubMed Totals
+        (pubmedMetrics.results || []).forEach((row: any) => {
+            const y = String(row.year);
+            const m = String(row.month).padStart(2, '0');
             ensurePath(y, m);
-            statsByYear[y][m].pubmed = row.count || 0;
+            statsByYear[y][m].pubmed = Number(row.count) || 0;
         });
 
-        taggedMetrics.results?.forEach((row: any) => {
-            const y = row.year;
-            const m = row.month;
+        // 2. Tagged Totals
+        (taggedMetrics.results || []).forEach((row: any) => {
+            const y = String(row.year);
+            const m = String(row.month).padStart(2, '0');
             ensurePath(y, m);
-            statsByYear[y][m].tagged = row.count || 0;
+            statsByYear[y][m].tagged = Number(row.count) || 0;
         });
 
-        ragMetrics.results?.forEach((row: any) => {
-            const y = row.year;
-            const m = row.month;
+        // 3. RAG Totals
+        (ragMetrics.results || []).forEach((row: any) => {
+            const y = String(row.year);
+            const m = String(row.month).padStart(2, '0');
             ensurePath(y, m);
-            statsByYear[y][m].rag = row.count || 0;
+            statsByYear[y][m].rag = Number(row.count) || 0;
         });
 
         // Build final coverage array
-        const coverage = yearlyTotals.results?.map((row: any) => {
-            const year = row.year;
-            const yearData = statsByYear[year] || {};
-            const months: Record<string, any> = {};
+        const coverage = (yearlyTotals.results || []).map((row: any) => {
+            const yearStr = String(row.year);
+            const yearData = statsByYear[yearStr] || {};
+            const months: Record<string, { pubmed: number, tagged: number, rag: number }> = {};
 
-            // Fill in all 12 months
+            // Fill in all 12 months explicitly
             for (let m = 1; m <= 12; m++) {
                 const monthKey = m.toString().padStart(2, '0');
-                months[monthKey] = yearData[monthKey] || { pubmed: 0, tagged: 0, rag: 0 };
+                const data = yearData[monthKey] || { pubmed: 0, tagged: 0, rag: 0 };
+                // Ensure it's a fresh object and not a reference to potentially mutated data
+                months[monthKey] = {
+                    pubmed: Number(data.pubmed) || 0,
+                    tagged: Number(data.tagged) || 0,
+                    rag: Number(data.rag) || 0
+                };
             }
 
             return {
-                year,
-                total: row.count, // Total tagged in this year
+                year: yearStr,
+                total: Number(row.count), // Total tagged in this year
                 months,
                 gaps: Object.entries(months)
-                    .filter(([_, data]: [any, any]) => data.tagged === 0)
+                    .filter(([_, data]) => data.tagged === 0)
                     .map(([month]) => month)
             };
-        }) || [];
+        });
 
         // Overall summary
-        const totalArticles = yearlyTotals.results?.reduce((sum: number, row: any) => sum + row.count, 0) || 0;
-        const yearsWithData = yearlyTotals.results?.length || 0;
+        const totalArticles = coverage.reduce((sum, y) => sum + y.total, 0);
+        const yearsWithData = coverage.length;
         const totalGaps = coverage.reduce((sum, y) => sum + y.gaps.length, 0);
 
         return c.json({
@@ -1402,12 +1411,15 @@ app.get('/api/coverage', async (c) => {
                 total_month_gaps: totalGaps
             },
             coverage,
+            v: "2.1", // Deployment version tracker
             generated_at: new Date().toISOString()
         }, 200, {
-            'Cache-Control': 'public, max-age=600' // Cache for 10 minutes
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
         });
     } catch (e: any) {
-        return c.json({ error: e.message }, 500);
+        return c.json({ error: e.message, stack: e.stack }, 500);
     }
 });
 

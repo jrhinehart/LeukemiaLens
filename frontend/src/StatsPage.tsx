@@ -131,17 +131,22 @@ export const StatsPage = () => {
         fetchRAGStats()
     }, [])
 
-    const getMonthColor = (data: CoverageMonth) => {
-        if (!data || !data.pubmed || data.pubmed === 0) {
-            return data?.tagged > 0 ? 'bg-blue-200 text-blue-900 border-blue-300' : 'bg-gray-50 border-gray-200'
+    const getMonthColor = (data: any) => {
+        if (!data) return 'bg-gray-50 border-gray-200';
+
+        // Handle both object {pubmed, tagged, rag} and legacy number (tagged count)
+        const pubmed = typeof data === 'object' ? (data.pubmed || 0) : 0;
+        const tagged = typeof data === 'object' ? (data.tagged || 0) : Number(data);
+
+        if (pubmed === 0) {
+            return tagged > 0 ? 'bg-blue-200 text-blue-900 border-blue-300' : 'bg-gray-50 border-gray-200';
         }
 
-        const coveragePercent = (data.tagged / data.pubmed) * 100
-
-        if (coveragePercent === 0) return 'bg-gray-100 text-gray-500 border-gray-200'
-        if (coveragePercent < 50) return 'bg-red-200 text-red-900 border-red-300'
-        if (coveragePercent < 75) return 'bg-amber-200 text-amber-950 border-amber-300'
-        return 'bg-emerald-300 text-emerald-950 border-emerald-400 shadow-sm'
+        const coveragePercent = (tagged / pubmed) * 100;
+        if (coveragePercent === 0) return 'bg-gray-100 text-gray-500 border-gray-200';
+        if (coveragePercent < 50) return 'bg-red-200 text-red-900 border-red-300';
+        if (coveragePercent < 75) return 'bg-amber-200 text-amber-950 border-amber-300';
+        return 'bg-emerald-300 text-emerald-950 border-emerald-400 shadow-sm';
     }
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -539,41 +544,58 @@ export const StatsPage = () => {
                                             {paginatedCoverage.map((y) => (
                                                 <tr key={y.year} className="hover:bg-gray-50/50 transition-colors">
                                                     <td className="p-3 font-bold text-gray-900 text-sm">{y.year}</td>
-                                                    {Object.entries(y.months).map(([m, data]) => (
-                                                        <td key={m} className="p-1 text-center">
-                                                            <div
-                                                                onMouseEnter={(e) => {
-                                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                                    const monthData = y.months[m];
-                                                                    setHoveredMonth({
-                                                                        year: y.year,
-                                                                        month: m,
-                                                                        data: { ...monthData },
-                                                                        x: rect.left + rect.width / 2,
-                                                                        y: rect.top
-                                                                    });
-                                                                }}
-                                                                onMouseLeave={() => setHoveredMonth(null)}
-                                                                className={`
-                                                                    h-8 w-full rounded-md border text-[10px] font-black 
-                                                                    flex items-center justify-center transition-all duration-150
-                                                                    cursor-help relative
-                                                                    ${getMonthColor(data as CoverageMonth)}
-                                                                `}
-                                                            >
-                                                                {((data as any).pubmed || 0) > 0 ? (
-                                                                    <span className="relative text-gray-950 font-black drop-shadow-sm">
-                                                                        {Math.round(((data as any).tagged / (data as any).pubmed) * 100)}%
-                                                                    </span>
-                                                                ) : ((data as any).tagged || 0) > 0 ? (
-                                                                    <span className="relative text-gray-950 font-black">{(data as any).tagged}</span>
-                                                                ) : null}
-                                                                {((data as any).rag || 0) > 0 && (
-                                                                    <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-blue-600 rounded-full border border-white shadow-sm" />
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    ))}
+                                                    {monthNames.map((_, i) => {
+                                                        const monthKey = (i + 1).toString().padStart(2, '0');
+                                                        const data = y.months[monthKey];
+                                                        return (
+                                                            <td key={monthKey} className="p-1 text-center">
+                                                                <div
+                                                                    onMouseEnter={(e) => {
+                                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                                        const monthData = y.months[monthKey];
+                                                                        setHoveredMonth({
+                                                                            year: y.year,
+                                                                            month: monthKey,
+                                                                            data: typeof monthData === 'object' ? { ...monthData } : { pubmed: 0, tagged: Number(monthData), rag: 0 },
+                                                                            x: rect.left + rect.width / 2,
+                                                                            y: rect.top
+                                                                        });
+                                                                    }}
+                                                                    onMouseLeave={() => setHoveredMonth(null)}
+                                                                    className={`
+                                                                        h-8 w-full rounded-md border text-[10px] font-black 
+                                                                        flex items-center justify-center transition-all duration-150
+                                                                        cursor-help relative
+                                                                        ${getMonthColor(data)}
+                                                                    `}
+                                                                >
+                                                                    {(() => {
+                                                                        const pubmed = typeof data === 'object' ? (data.pubmed || 0) : 0;
+                                                                        const tagged = typeof data === 'object' ? (data.tagged || 0) : Number(data);
+
+                                                                        if (pubmed > 0) {
+                                                                            return (
+                                                                                <span className="relative text-gray-950 font-black drop-shadow-sm">
+                                                                                    {Math.round((tagged / pubmed) * 100)}%
+                                                                                </span>
+                                                                            );
+                                                                        } else if (tagged > 0) {
+                                                                            return (
+                                                                                <span className="relative text-gray-950 font-black">{tagged}</span>
+                                                                            );
+                                                                        }
+                                                                        return null;
+                                                                    })()}
+                                                                    {(() => {
+                                                                        const rag = typeof data === 'object' ? (data.rag || 0) : 0;
+                                                                        return rag > 0 ? (
+                                                                            <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-blue-600 rounded-full border border-white shadow-sm" />
+                                                                        ) : null;
+                                                                    })()}
+                                                                </div>
+                                                            </td>
+                                                        );
+                                                    })}
                                                     <td className="p-3 text-right">
                                                         <span className="px-2 py-1 bg-gray-100 rounded-md text-xs font-bold text-gray-600">
                                                             {y.total.toLocaleString()}
