@@ -132,17 +132,16 @@ export const StatsPage = () => {
     }, [])
 
     const getMonthColor = (data: CoverageMonth) => {
-        if (data.pubmed === 0) {
-            return data.tagged > 0 ? 'bg-blue-500/20 border-blue-500/10' : 'bg-gray-50 border-gray-100'
+        if (!data || data.pubmed === 0) {
+            return data?.tagged > 0 ? 'bg-blue-50/30 text-blue-400 border-blue-100' : 'bg-gray-50 border-gray-100'
         }
 
         const coveragePercent = (data.tagged / data.pubmed) * 100
 
-        if (coveragePercent === 0) return 'bg-red-50 text-red-300 border-red-100'
-        if (coveragePercent < 20) return 'bg-emerald-50 text-emerald-600 border-emerald-100'
-        if (coveragePercent < 50) return 'bg-emerald-100 text-emerald-700 border-emerald-200'
-        if (coveragePercent < 80) return 'bg-emerald-200 text-emerald-800 border-emerald-300'
-        return 'bg-emerald-500 text-white border-emerald-600 shadow-sm'
+        if (coveragePercent === 0) return 'bg-gray-50 text-gray-300 border-gray-100'
+        if (coveragePercent < 50) return 'bg-red-50 text-red-400 border-red-100/50'
+        if (coveragePercent < 75) return 'bg-amber-50 text-amber-500 border-amber-100/50'
+        return 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm'
     }
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -476,12 +475,13 @@ export const StatsPage = () => {
                                 </div>
 
                                 {/* Legend */}
-                                <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-gray-500">
-                                    <span className="text-gray-400">Heatmap:</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-100 border border-red-200"></span> 0</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-yellow-100 border border-yellow-200"></span> 1-9</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-100 border border-blue-200"></span> 10-49</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-100 border border-green-200"></span> 50+</span>
+                                <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    <span>Heatmap:</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-gray-50 border border-gray-200"></span> 0%</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-50 border border-red-100/50"></span> {'<'}50%</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-50 border border-amber-100/50"></span> 50-75%</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-50 border border-emerald-100"></span> {'>'}75%</span>
+                                    <span className="flex items-center gap-1.5 ml-2"><span className="w-2 h-2 rounded-full bg-blue-500"></span> RAG Ready</span>
                                 </div>
 
                                 {/* Coverage Grid */}
@@ -494,31 +494,31 @@ export const StatsPage = () => {
                                         >
                                             <div className="flex items-center justify-between mb-2">
                                                 <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
-                                                    {monthNames[parseInt(hoveredMonth.month) - 1]} {hoveredMonth.year}
+                                                    {monthNames[parseInt(hoveredMonth.month) - 1] || 'Month'} {hoveredMonth.year}
                                                 </span>
                                                 <span className="text-[10px] font-bold text-gray-400">
-                                                    {Math.round((hoveredMonth.data.tagged / (hoveredMonth.data.pubmed || 1)) * 100)}% Coverage
+                                                    {hoveredMonth.data?.pubmed ? Math.round((hoveredMonth.data.tagged / hoveredMonth.data.pubmed) * 100) : 0}% Coverage
                                                 </span>
                                             </div>
                                             <div className="space-y-1.5">
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-xs text-gray-500">PubMed Volume</span>
-                                                    <span className="text-xs font-bold text-gray-900">{hoveredMonth.data.pubmed.toLocaleString()}</span>
+                                                    <span className="text-xs font-bold text-gray-900">{(hoveredMonth.data?.pubmed || 0).toLocaleString()}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-xs text-gray-500">Tagged & Structured</span>
-                                                    <span className="text-xs font-bold text-emerald-600">{hoveredMonth.data.tagged.toLocaleString()}</span>
+                                                    <span className="text-xs font-bold text-emerald-600">{(hoveredMonth.data?.tagged || 0).toLocaleString()}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-xs text-gray-500">RAG Processed</span>
-                                                    <span className="text-xs font-bold text-blue-600">{hoveredMonth.data.rag.toLocaleString()}</span>
+                                                    <span className="text-xs font-bold text-blue-600">{(hoveredMonth.data?.rag || 0).toLocaleString()}</span>
                                                 </div>
                                             </div>
                                             <div className="mt-2 pt-2 border-t border-gray-50">
                                                 <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
                                                     <div
                                                         className="bg-emerald-500 h-full transition-all duration-500"
-                                                        style={{ width: `${Math.min(100, (hoveredMonth.data.tagged / (hoveredMonth.data.pubmed || 1)) * 100)}%` }}
+                                                        style={{ width: `${Math.min(100, (hoveredMonth.data?.pubmed ? (hoveredMonth.data.tagged / hoveredMonth.data.pubmed) * 100 : 0))}%` }}
                                                     />
                                                 </div>
                                             </div>
@@ -554,15 +554,19 @@ export const StatsPage = () => {
                                                                 }}
                                                                 onMouseLeave={() => setHoveredMonth(null)}
                                                                 className={`
-                                                                    h-10 w-full rounded-lg border text-[10px] font-bold 
-                                                                    flex flex-col items-center justify-center transition-all duration-200
+                                                                    h-8 w-full rounded-md border text-[8.5px] font-bold 
+                                                                    flex flex-col items-center justify-center transition-all duration-150
                                                                     cursor-help relative
                                                                     ${getMonthColor(data as CoverageMonth)}
                                                                 `}
                                                             >
-                                                                {(data as CoverageMonth).tagged > 0 && (data as CoverageMonth).tagged}
+                                                                {(data as CoverageMonth).pubmed > 0 ? (
+                                                                    <span>{Math.round(((data as CoverageMonth).tagged / (data as CoverageMonth).pubmed) * 100)}%</span>
+                                                                ) : (data as CoverageMonth).tagged > 0 ? (
+                                                                    <span>{(data as CoverageMonth).tagged}</span>
+                                                                ) : null}
                                                                 {(data as CoverageMonth).rag > 0 && (
-                                                                    <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-blue-500 rounded-full border border-white -mt-0.5 -mr-0.5" />
+                                                                    <div className="absolute top-0.5 right-0.5 w-1 h-1 bg-blue-400 rounded-full" />
                                                                 )}
                                                             </div>
                                                         </td>

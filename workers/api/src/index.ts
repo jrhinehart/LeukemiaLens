@@ -429,7 +429,7 @@ Rules:
             insightId = Date.now().toString(36) + Math.random().toString(36).substring(2);
         }
 
-        const truncatedArticles = enhancedArticles.slice(0, 30);
+        const truncatedArticles = enhancedArticles.slice(0, 50);
         const filterSummary = Object.entries(filters)
             .filter(([_, v]) => v && (Array.isArray(v) ? v.length > 0 : true))
             .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
@@ -512,7 +512,7 @@ app.post('/api/summarize', async (c) => {
             console.warn('crypto.randomUUID failed, using fallback:', insightId);
         }
 
-        const truncatedArticles = articles.slice(0, 30);
+        const truncatedArticles = articles.slice(0, 50);
 
         // Defensive mapping for analyzed articles JSON
         const analyzedBrief = JSON.stringify(truncatedArticles.map(a => ({
@@ -640,10 +640,63 @@ async function callLLMWithFallback(c: any, prompt: string, system: string, maxTo
 }
 
 async function orchestrateMapReduceSummary(c: any, insightId: string, articles: any[], query: string | undefined) {
+    let articlesToProcess = articles;
+
+    // Phase 0: Intelligent Relevance Selection (only if query/question is provided)
+    if (query && articles.length > 20) {
+        console.log(`[Insights] Running relevance selection for ${articles.length} articles...`);
+        const selectionPrompt = `You are a medical research assistant. I have ${articles.length} articles found by a database search.
+The user has a specific question: "${query}"
+
+Identify which articles are most relevant and necessary to provide a comprehensive, technically accurate answer.
+Focus on clinical trials, metrics, and direct evidence related to the question.
+
+ARTICLES:
+${articles.map((a, i) => `[#${i + 1}] ${a.title}\nAbstract: ${a.abstract ? a.abstract.substring(0, 300) + '...' : 'N/A'}`).join('\n\n')}
+
+Rules:
+1. Select at most 22 articles.
+2. Respond ONLY with a JSON array of the article numbers, e.g., [1, 3, 5, 10, ...].
+3. No explanation or markdown.`;
+
+        try {
+            const { text: selectionText } = await callLLMWithFallback(
+                c,
+                selectionPrompt,
+                "Scientific relevance selector. Output JSON array of indices only.",
+                512
+            );
+
+            const selectedIndices = JSON.parse(selectionText.match(/\[.*\]/)?.[0] || "[]");
+            if (Array.isArray(selectedIndices) && selectedIndices.length > 0) {
+                articlesToProcess = selectedIndices
+                    .map(idx => articles[idx - 1])
+                    .filter(Boolean);
+                console.log(`[Insights] Pruned ${articles.length} -> ${articlesToProcess.length} relevant articles.`);
+
+                // Update DB with the pruned count so the UI matches
+                const analyzedBrief = JSON.stringify(articlesToProcess.map((a, i) => ({
+                    num: i + 1,
+                    title: a.title || 'Untitled',
+                    year: a.year || (a.pub_date && typeof a.pub_date === 'string' ? a.pub_date.substring(0, 4) : 'N/A')
+                })));
+
+                await c.env.DB.prepare(`
+                    UPDATE insights SET 
+                        article_count = ?, 
+                        analyzed_articles_json = ? 
+                    WHERE id = ?
+                `).bind(articlesToProcess.length, analyzedBrief, insightId).run();
+            }
+        } catch (e) {
+            console.error("[Insights] Selection phase failed, falling back to all articles:", e);
+        }
+    }
+
     const batchSize = 10;
     const batches: any[] = [];
-    for (let i = 0; i < articles.length; i += batchSize) {
-        batches.push(articles.slice(i, i + batchSize));
+    for (let i = 0; i < articlesToProcess.length; i += batchSize) {
+        batches.push(articlesToProcess.slice(i, i + batchSize));
     }
 
     try {
@@ -697,7 +750,7 @@ async function orchestrateMapReduceSummary(c: any, insightId: string, articles: 
                         }
 
                         if (content) {
-                            const articleNum = articles.findIndex(a => (a.pubmed_id || a.pmid || a.pubmedId) === doc.pmid) + 1;
+                            const articleNum = articlesToProcess.findIndex(a => (a.pubmed_id || a.pmid || a.pubmedId) === doc.pmid) + 1;
                             return `Ref [#${articleNum}]:\n${content}\n\n`;
                         }
                         return "";
@@ -754,7 +807,7 @@ Provide a dense bulleted list of technical highlights for this batch.`;
         const allFullTextPmids = new Set<string>();
         mappedResults.forEach(r => r.fullTextPmids?.forEach((p: string) => allFullTextPmids.add(String(p))));
 
-        const updatedAnalyzedArticles = articles.map((a, i) => {
+        const updatedAnalyzedArticles = articlesToProcess.map((a, i) => {
             const pmid = String(a.pubmed_id || a.pmid || '');
             return {
                 num: i + 1,
@@ -800,7 +853,7 @@ Your task is to synthesize these into a single, cohesive, high-level scientific 
 Structure your response with these exact sections:
 ## Key Findings & Comparative Efficacy
 - Synthesize major trends and outcome metrics.
-- Cite EVERY article number [#1, #2... #50] where data was drawn from.
+- Cite EVERY article number [#1, #2... #${articlesToProcess.length}] where data was drawn from.
 - Distinguish between clinical (RCTs/cohorts) and pre-clinical (lab/cell line) evidence.
 
 ## Therapeutic Landscapes
