@@ -132,8 +132,8 @@ export const StatsPage = () => {
     }, [])
 
     const getMonthColor = (data: CoverageMonth) => {
-        if (!data || data.pubmed === 0) {
-            return data?.tagged > 0 ? 'bg-blue-200 text-blue-900 border-blue-300' : 'bg-gray-100 border-gray-200'
+        if (!data || !data.pubmed || data.pubmed === 0) {
+            return data?.tagged > 0 ? 'bg-blue-200 text-blue-900 border-blue-300' : 'bg-gray-50 border-gray-200'
         }
 
         const coveragePercent = (data.tagged / data.pubmed) * 100
@@ -497,7 +497,7 @@ export const StatsPage = () => {
                                                     {monthNames[parseInt(hoveredMonth.month) - 1] || 'Month'} {hoveredMonth.year}
                                                 </span>
                                                 <span className="text-[10px] font-bold text-gray-400">
-                                                    {hoveredMonth.data?.pubmed ? Math.round((hoveredMonth.data.tagged / hoveredMonth.data.pubmed) * 100) : 0}% Coverage
+                                                    {(hoveredMonth.data?.pubmed && hoveredMonth.data.pubmed > 0) ? Math.round((hoveredMonth.data.tagged / hoveredMonth.data.pubmed) * 100) : 0}% Coverage
                                                 </span>
                                             </div>
                                             <div className="space-y-1.5">
@@ -518,7 +518,7 @@ export const StatsPage = () => {
                                                 <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
                                                     <div
                                                         className="bg-emerald-500 h-full transition-all duration-500"
-                                                        style={{ width: `${Math.min(100, (hoveredMonth.data?.pubmed ? (hoveredMonth.data.tagged / hoveredMonth.data.pubmed) * 100 : 0))}%` }}
+                                                        style={{ width: `${Math.min(100, (hoveredMonth.data?.pubmed && hoveredMonth.data.pubmed > 0 ? (hoveredMonth.data.tagged / hoveredMonth.data.pubmed) * 100 : 0))}%` }}
                                                     />
                                                 </div>
                                             </div>
@@ -544,10 +544,11 @@ export const StatsPage = () => {
                                                             <div
                                                                 onMouseEnter={(e) => {
                                                                     const rect = e.currentTarget.getBoundingClientRect();
+                                                                    const monthData = y.months[m];
                                                                     setHoveredMonth({
                                                                         year: y.year,
                                                                         month: m,
-                                                                        data: { ...data } as CoverageMonth,
+                                                                        data: { ...monthData },
                                                                         x: rect.left + rect.width / 2,
                                                                         y: rect.top
                                                                     });
@@ -555,20 +556,20 @@ export const StatsPage = () => {
                                                                 onMouseLeave={() => setHoveredMonth(null)}
                                                                 className={`
                                                                     h-8 w-full rounded-md border text-[10px] font-black 
-                                                                    flex flex-col items-center justify-center transition-all duration-150
-                                                                    cursor-help relative overflow-hidden
+                                                                    flex items-center justify-center transition-all duration-150
+                                                                    cursor-help relative
                                                                     ${getMonthColor(data as CoverageMonth)}
                                                                 `}
                                                             >
-                                                                {((data as CoverageMonth).pubmed || 0) > 0 ? (
-                                                                    <span className="relative z-10 text-gray-950/90 drop-shadow-sm">
-                                                                        {Math.round(((data as CoverageMonth).tagged / (data as CoverageMonth).pubmed) * 100)}%
+                                                                {((data as any).pubmed || 0) > 0 ? (
+                                                                    <span className="relative text-gray-950 font-black drop-shadow-sm">
+                                                                        {Math.round(((data as any).tagged / (data as any).pubmed) * 100)}%
                                                                     </span>
-                                                                ) : ((data as CoverageMonth).tagged || 0) > 0 ? (
-                                                                    <span className="relative z-10 text-gray-950/90">{(data as CoverageMonth).tagged}</span>
+                                                                ) : ((data as any).tagged || 0) > 0 ? (
+                                                                    <span className="relative text-gray-950 font-black">{(data as any).tagged}</span>
                                                                 ) : null}
-                                                                {(data as CoverageMonth).rag > 0 && (
-                                                                    <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-blue-500 rounded-full border border-white/50 shadow-sm z-20" />
+                                                                {((data as any).rag || 0) > 0 && (
+                                                                    <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-blue-600 rounded-full border border-white shadow-sm" />
                                                                 )}
                                                             </div>
                                                         </td>
