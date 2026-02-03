@@ -135,18 +135,17 @@ export const StatsPage = () => {
         if (!data) return 'bg-gray-50 border-gray-200';
 
         // Handle both object {pubmed, tagged, rag} and legacy number (tagged count)
-        const pubmed = typeof data === 'object' ? (data.pubmed || 0) : 0;
         const tagged = typeof data === 'object' ? (data.tagged || 0) : Number(data);
 
-        if (pubmed === 0) {
-            return tagged > 0 ? 'bg-blue-200 text-blue-900 border-blue-300' : 'bg-gray-50 border-gray-200';
+        if (tagged === 0) {
+            return 'bg-gray-50 border-gray-200';
         }
 
-        const coveragePercent = (tagged / pubmed) * 100;
-        if (coveragePercent === 0) return 'bg-gray-100 text-gray-500 border-gray-200';
-        if (coveragePercent < 50) return 'bg-red-200 text-red-900 border-red-300';
-        if (coveragePercent < 75) return 'bg-amber-200 text-amber-950 border-amber-300';
-        return 'bg-emerald-300 text-emerald-950 border-emerald-400 shadow-sm';
+        // Color based on article count tiers (approximate monthly volumes)
+        if (tagged >= 800) return 'bg-emerald-300 text-emerald-950 border-emerald-400 shadow-sm';
+        if (tagged >= 500) return 'bg-blue-200 text-blue-900 border-blue-300';
+        if (tagged >= 200) return 'bg-amber-200 text-amber-950 border-amber-300';
+        return 'bg-gray-100 text-gray-600 border-gray-200';
     }
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -481,11 +480,12 @@ export const StatsPage = () => {
 
                                 {/* Legend */}
                                 <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                    <span>Heatmap:</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-gray-50 border border-gray-200"></span> 0%</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-200 border border-red-300"></span> {'<'}50%</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-200 border border-amber-300"></span> 50-75%</span>
-                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-300 border border-emerald-400"></span> {'>'}75%</span>
+                                    <span>Article Count:</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-gray-50 border border-gray-200"></span> None</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-gray-100 border border-gray-200"></span> {'<'}200</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-200 border border-amber-300"></span> 200-499</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-200 border border-blue-300"></span> 500-799</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-300 border border-emerald-400"></span> 800+</span>
                                     <span className="flex items-center gap-1.5 ml-2"><span className="w-2 h-2 rounded-full bg-blue-500"></span> RAG Ready</span>
                                 </div>
 
@@ -502,14 +502,10 @@ export const StatsPage = () => {
                                                     {monthNames[parseInt(hoveredMonth.month) - 1] || 'Month'} {hoveredMonth.year}
                                                 </span>
                                                 <span className="text-[10px] font-bold text-gray-400">
-                                                    {(hoveredMonth.data?.pubmed && hoveredMonth.data.pubmed > 0) ? Math.round((hoveredMonth.data.tagged / hoveredMonth.data.pubmed) * 100) : 0}% Coverage
+                                                    {(hoveredMonth.data?.tagged || 0).toLocaleString()} Articles
                                                 </span>
                                             </div>
                                             <div className="space-y-1.5">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-xs text-gray-500">PubMed Volume</span>
-                                                    <span className="text-xs font-bold text-gray-900">{(hoveredMonth.data?.pubmed || 0).toLocaleString()}</span>
-                                                </div>
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-xs text-gray-500">Tagged & Structured</span>
                                                     <span className="text-xs font-bold text-emerald-600">{(hoveredMonth.data?.tagged || 0).toLocaleString()}</span>
@@ -518,15 +514,25 @@ export const StatsPage = () => {
                                                     <span className="text-xs text-gray-500">RAG Processed</span>
                                                     <span className="text-xs font-bold text-blue-600">{(hoveredMonth.data?.rag || 0).toLocaleString()}</span>
                                                 </div>
+                                                {hoveredMonth.data?.tagged > 0 && (
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xs text-gray-500">RAG Coverage</span>
+                                                        <span className="text-xs font-bold text-purple-600">
+                                                            {Math.round((hoveredMonth.data?.rag || 0) / hoveredMonth.data.tagged * 100)}%
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="mt-2 pt-2 border-t border-gray-50">
-                                                <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="bg-emerald-500 h-full transition-all duration-500"
-                                                        style={{ width: `${Math.min(100, (hoveredMonth.data?.pubmed && hoveredMonth.data.pubmed > 0 ? (hoveredMonth.data.tagged / hoveredMonth.data.pubmed) * 100 : 0))}%` }}
-                                                    />
+                                            {hoveredMonth.data?.tagged > 0 && hoveredMonth.data?.rag > 0 && (
+                                                <div className="mt-2 pt-2 border-t border-gray-50">
+                                                    <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="bg-blue-500 h-full transition-all duration-500"
+                                                            style={{ width: `${Math.min(100, (hoveredMonth.data.rag / hoveredMonth.data.tagged) * 100)}%` }}
+                                                        />
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
                                         </div>
                                     )}
 
@@ -570,18 +576,13 @@ export const StatsPage = () => {
                                                                     `}
                                                                 >
                                                                     {(() => {
-                                                                        const pubmed = typeof data === 'object' ? (data.pubmed || 0) : 0;
                                                                         const tagged = typeof data === 'object' ? (data.tagged || 0) : Number(data);
 
-                                                                        if (pubmed > 0) {
+                                                                        if (tagged > 0) {
                                                                             return (
                                                                                 <span className="relative text-gray-950 font-black drop-shadow-sm">
-                                                                                    {Math.round((tagged / pubmed) * 100)}%
+                                                                                    {tagged >= 1000 ? `${(tagged / 1000).toFixed(1)}k` : tagged}
                                                                                 </span>
-                                                                            );
-                                                                        } else if (tagged > 0) {
-                                                                            return (
-                                                                                <span className="relative text-gray-950 font-black">{tagged}</span>
                                                                             );
                                                                         }
                                                                         return null;
