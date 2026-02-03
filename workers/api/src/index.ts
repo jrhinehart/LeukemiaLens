@@ -813,8 +813,12 @@ Provide a dense bulleted list of technical highlights for this batch.`;
             return {
                 num: i + 1,
                 title: a.title || 'Untitled',
+                authors: a.authors || 'Unknown',
+                journal: a.journal || 'Research Database',
+                pubDate: a.pub_date || 'N/A',
                 year: a.year || (a.pub_date && typeof a.pub_date === 'string' ? a.pub_date.substring(0, 4) : 'N/A'),
                 pmid: pmid,
+                url: pmid ? `https://pubmed.ncbi.nlm.nih.gov/${pmid}/` : null,
                 hasFullText: allFullTextPmids.has(pmid)
             };
         });

@@ -45,4 +45,4 @@ npx tsx scripts/backfill-production.ts --start-year 2000 --end-year 2005
    --gpu - enables GPU processing
 
 # Load .env and run backfill
-npx tsx scripts/backfill-production.ts --local --start-year 2025 --month 11 --with-rag --gpu
+npx tsx scripts/backfill-production.ts --local --start-year 2024 --month 1 --with-rag --gpu

@@ -20,6 +20,10 @@ interface AnalyzedArticle {
     year: string
     url?: string
     hasFullText?: boolean
+    authors?: string
+    journal?: string
+    pubDate?: string
+    pmid?: string
 }
 
 interface InsightEntry {
@@ -421,16 +425,19 @@ export function ResearchInsights({
     }
 
     const handleExportCSVOnly = () => {
-        let csv = 'PMID,Title,Authors,Journal,PubDate,Mutations,Diseases\n'
+        let csv = 'PMID,Title,Authors,Journal,PubDate,Mutations,Diseases,Link\n'
         articles.forEach(a => {
+            const pmid = a.pubmed_id || ''
+            const link = pmid ? `https://pubmed.ncbi.nlm.nih.gov/${pmid.replace('PMID:', '')}/` : ''
             const row = [
-                a.pubmed_id || '',
+                pmid,
                 `"${(a.title || '').replace(/"/g, '""')}"`,
                 `"${(a.authors || '').replace(/"/g, '""')}"`,
                 `"${(a.journal || '').replace(/"/g, '""')}"`,
                 a.pub_date || '',
                 `"${(a.mutations || []).join(', ')}"`,
-                `"${(a.diseases || []).join(', ')}"`
+                `"${(a.diseases || []).join(', ')}"`,
+                link
             ]
             csv += row.join(',') + '\n'
         })
@@ -575,6 +582,17 @@ export function ResearchInsights({
     const renderInlineMarkdown = (text: string): React.ReactNode => {
         const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|Article #\d+|#\d+)/g)
 
+        const handleArticleClick = () => {
+            setShowArticleList(true)
+            // Scroll to references section after a brief delay for DOM update
+            setTimeout(() => {
+                const referencesSection = document.getElementById('scientific-references-section')
+                if (referencesSection) {
+                    referencesSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
+            }, 100)
+        }
+
         return parts.map((part, i) => {
             if (part.match(/^\*\*[^*]+\*\*$/) || part.match(/^__[^_]+__$/)) {
                 return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>
@@ -583,7 +601,36 @@ export function ResearchInsights({
                 return <code key={i} className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">{part.slice(1, -1)}</code>
             }
             if (part.match(/^(Article )?#\d+$/)) {
-                return <span key={i} className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium text-sm">{part}</span>
+                const numMatch = part.match(/#(\d+)/)
+                const articleNum = numMatch ? parseInt(numMatch[1], 10) : 0
+                const article = analyzedArticles.find(a => a.num === articleNum)
+
+                if (article?.url) {
+                    return (
+                        <a
+                            key={i}
+                            href={article.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium text-sm hover:bg-purple-200 hover:text-purple-800 transition-colors cursor-pointer inline-flex items-center gap-1"
+                            title={article.title}
+                        >
+                            {part}
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                            </svg>
+                        </a>
+                    )
+                }
+                return (
+                    <button
+                        key={i}
+                        onClick={() => handleArticleClick()}
+                        className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium text-sm hover:bg-purple-200 hover:text-purple-800 transition-colors cursor-pointer"
+                    >
+                        {part}
+                    </button>
+                )
             }
             return part
         })
@@ -871,7 +918,7 @@ export function ResearchInsights({
 
                             {/* Reference Section */}
                             {analyzedArticles.length > 0 && (
-                                <div className="border-t border-gray-100 pt-8">
+                                <div id="scientific-references-section" className="border-t border-gray-100 pt-8">
                                     <button
                                         onClick={() => setShowArticleList(!showArticleList)}
                                         className="w-full flex items-center justify-between mb-4 group/btn"
@@ -902,8 +949,27 @@ export function ResearchInsights({
                                                         <h4 className="text-sm font-semibold text-gray-900 group-hover:text-purple-700 transition-colors leading-snug">
                                                             {article.title}
                                                         </h4>
-                                                        <div className="mt-2 flex items-center gap-3">
-                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{article.year}</span>
+                                                        {/* Author & Journal Line */}
+                                                        {(article.authors || article.journal) && (
+                                                            <p className="text-xs text-gray-500 mt-1 truncate">
+                                                                {article.authors && (
+                                                                    <span className="font-medium">{article.authors.split(',')[0]?.trim()}{article.authors.includes(',') ? ' et al.' : ''}</span>
+                                                                )}
+                                                                {article.authors && article.journal && ' • '}
+                                                                {article.journal && (
+                                                                    <span className="italic">{article.journal}</span>
+                                                                )}
+                                                            </p>
+                                                        )}
+                                                        <div className="mt-2 flex items-center gap-3 flex-wrap">
+                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                                                {article.pubDate || article.year}
+                                                            </span>
+                                                            {article.pmid && (
+                                                                <span className="text-[10px] font-medium text-gray-400">
+                                                                    PMID: {article.pmid}
+                                                                </span>
+                                                            )}
                                                             {article.hasFullText && (
                                                                 <span className="flex items-center gap-1 text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-widest border border-blue-100/50">
                                                                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
