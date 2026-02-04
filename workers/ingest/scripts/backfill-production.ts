@@ -86,6 +86,9 @@ interface BackfillProgress {
     failedPmids: string[];  // Track individual failed PMIDs
     startTime: number;
     currentSegment?: string;
+    ragCompleted: number;    // Segments with RAG completed
+    gpuCompleted: number;    // Segments with GPU completed
+    completedSegmentLabels: Set<string>; // Track unique labels of completed segments
 }
 
 interface ArticleData {
@@ -115,6 +118,9 @@ function printProgress(progress: BackfillProgress) {
     console.log('\n--- Progress Report ---');
     console.log(`  Segments: ${progress.completedSegments}/${progress.totalSegments} (${percentComplete}%)`);
     console.log(`  Articles: ${progress.articlesIngested} ingested, ${progress.articlesFailed} failed`);
+    if (progress.ragCompleted > 0 || progress.gpuCompleted > 0) {
+        console.log(`  RAG: ${progress.ragCompleted} segments, GPU: ${progress.gpuCompleted} segments`);
+    }
     console.log(`  Elapsed Time: ${elapsedMin} minutes`);
     if (progress.currentSegment) {
         console.log(`  Current: ${progress.currentSegment}`);
@@ -126,10 +132,85 @@ function printProgress(progress: BackfillProgress) {
 }
 
 // ==========================================
+// UTILITIES
+// ==========================================
+async function fetchWithRetry(url: string, init?: RequestInit, maxRetries: number = 3): Promise<Response> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(url, init);
+
+            // NCBI rate limit or server error
+            if (response.status === 429 || response.status >= 500) {
+                if (attempt < maxRetries) {
+                    const delay = Math.pow(2, attempt) * 1000;
+                    console.log(`  ⚠️ Request failed (${response.status} ${response.statusText}), retrying in ${delay / 1000}s... (Attempt ${attempt}/${maxRetries})`);
+                    await sleep(delay);
+                    continue;
+                }
+            }
+
+            return response;
+        } catch (error: any) {
+            if (attempt < maxRetries) {
+                const delay = Math.pow(2, attempt) * 1000;
+                console.log(`  ⚠️ Network error (${error.message}), retrying in ${delay / 1000}s... (Attempt ${attempt}/${maxRetries})`);
+                await sleep(delay);
+            } else {
+                throw error;
+            }
+        }
+    }
+    throw new Error(`Failed to fetch ${url} after ${maxRetries} attempts`);
+}
+
+// ==========================================
+// STATE MANAGEMENT (Checkpointing)
+// ==========================================
+const STATE_FILE = path.join(__dirname, '../backfill-state.json');
+
+class StateManager {
+    static load(): Partial<BackfillOptions> & { completed: string[] } {
+        if (!fs.existsSync(STATE_FILE)) return { completed: [] };
+        try {
+            const data = fs.readFileSync(STATE_FILE, 'utf8');
+            return JSON.parse(data);
+        } catch (e) {
+            console.warn('  ⚠️ Failed to load state file:', e);
+            return { completed: [] };
+        }
+    }
+
+    static save(options: BackfillOptions, progress: BackfillProgress) {
+        try {
+            const data = {
+                startYear: options.startYear,
+                endYear: options.endYear,
+                granular: options.granular,
+                month: options.month,
+                withRag: options.withRag,
+                withGpu: options.withGpu,
+                completed: Array.from(progress.completedSegmentLabels),
+                lastUpdate: new Date().toISOString()
+            };
+            fs.writeFileSync(STATE_FILE, JSON.stringify(data, null, 2));
+        } catch (e) {
+            console.error('  ⚠️ Failed to save state file:', e);
+        }
+    }
+
+    static clear() {
+        if (fs.existsSync(STATE_FILE)) {
+            fs.unlinkSync(STATE_FILE);
+            console.log('  ♻️ Progress state cleared.');
+        }
+    }
+}
+
+// ==========================================
 // D1 REST API (Local Mode)
 // ==========================================
 async function queryD1(sql: string, params: any[] = []): Promise<any> {
-    const response = await fetch(
+    const response = await fetchWithRetry(
         `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database/${DATABASE_ID}/query`,
         {
             method: 'POST',
@@ -176,7 +257,7 @@ async function searchPubmed(term: string, limit: number, offset: number): Promis
         params.append('api_key', NCBI_API_KEY);
     }
 
-    const response = await fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?${params.toString()}`);
+    const response = await fetchWithRetry(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?${params.toString()}`);
     const data = await response.json() as any;
 
     return {
@@ -200,7 +281,7 @@ async function fetchDetails(ids: string[]): Promise<string> {
         params.append('api_key', NCBI_API_KEY);
     }
 
-    const response = await fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?${params.toString()}`);
+    const response = await fetchWithRetry(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?${params.toString()}`);
     return await response.text();
 }
 
@@ -363,6 +444,63 @@ async function saveArticle(article: ArticleData): Promise<number | null> {
 
 
 // ==========================================
+// POST-INGEST STEPS (RAG + GPU per segment)
+// ==========================================
+async function runPostIngestSteps(options: BackfillOptions, progress: BackfillProgress, year: number, month?: number, dryRun: boolean = false) {
+    const { execSync } = await import('child_process');
+    const segmentLabel = month ? `${year}-${month.toString().padStart(2, '0')}` : `${year}`;
+
+    // RAG DOCUMENT FETCH
+    if (options.withRag && !dryRun) {
+        console.log(`\n  [${segmentLabel}] Step 2/3: Running RAG document fetch...`);
+
+        let fetchCmd = `npx tsx scripts/fetch-pmc-fulltext.ts --year ${year}`;
+        if (month) {
+            fetchCmd += ` --month ${month}`;
+        }
+        fetchCmd += ` --limit ${options.limit || 5000}`;
+
+        try {
+            execSync(fetchCmd, {
+                cwd: path.join(__dirname, '..'),
+                stdio: 'inherit'
+            });
+            progress.ragCompleted++;
+            console.log(`  [${segmentLabel}] ✅ RAG document fetch complete!`);
+        } catch (err: any) {
+            console.error(`  [${segmentLabel}] ⚠️ RAG document fetch failed:`, err.message);
+        }
+    }
+
+    // GPU VECTORIZATION
+    if (options.withGpu && !dryRun) {
+        console.log(`\n  [${segmentLabel}] Step 3/3: Running GPU vectorization...`);
+
+        let gpuCmd = `python ../../rag-processing/backfill_gpu.py`;
+        gpuCmd += ` --workers ${options.workers}`;
+        gpuCmd += ` --resume`;
+        gpuCmd += ` --limit 0`; // Unlimited processing
+        if (options.includeErrors) {
+            gpuCmd += ` --include-errors`;
+        }
+
+        try {
+            execSync(gpuCmd, {
+                cwd: path.join(__dirname, '..'),
+                stdio: 'inherit'
+            });
+            progress.gpuCompleted++;
+            console.log(`  [${segmentLabel}] ✅ GPU vectorization complete!`);
+        } catch (err: any) {
+            console.error(`  [${segmentLabel}] ⚠️ GPU vectorization failed:`, err.message);
+        }
+    }
+
+    // Segment completion summary
+    console.log(`\n  [${segmentLabel}] ✅ SEGMENT COMPLETE`);
+}
+
+// ==========================================
 // LOCAL MODE EXECUTION
 // ==========================================
 async function backfillLocal(options: BackfillOptions, progress: BackfillProgress) {
@@ -374,9 +512,16 @@ async function backfillLocal(options: BackfillOptions, progress: BackfillProgres
             const segmentLabel = options.granular || options.month
                 ? `${year}-${m.toString().padStart(2, '0')}`
                 : `${year}`;
+
+            if (progress.completedSegmentLabels.has(segmentLabel)) {
+                console.log(`  ⏩ Skipping [${segmentLabel}] (already completed)`);
+                progress.completedSegments++;
+                continue;
+            }
+
             progress.currentSegment = segmentLabel;
 
-            console.log(`\n[${segmentLabel}] Starting local ingestion...`);
+            console.log(`\n[${segmentLabel}] Step 1/3: Starting article ingestion...`);
 
             const searchTerm = buildSearchTerm(year, options.granular || options.month ? m : undefined);
 
@@ -472,6 +617,12 @@ async function backfillLocal(options: BackfillOptions, progress: BackfillProgres
                 progress.failedSegments.push(`${segmentLabel}: ${error.message}`);
             }
 
+            // Run RAG + GPU for this month before moving to next
+            const monthForPostIngest = options.granular || options.month ? m : undefined;
+            await runPostIngestSteps(options, progress, year, monthForPostIngest, options.dryRun);
+
+            progress.completedSegmentLabels.add(segmentLabel);
+            StateManager.save(options, progress);
             progress.completedSegments++;
         }
 
@@ -494,6 +645,13 @@ async function backfillWorker(options: BackfillOptions, progress: BackfillProgre
             const segmentLabel = options.granular || options.month
                 ? `${year}-${m.toString().padStart(2, '0')}`
                 : `${year}`;
+
+            if (progress.completedSegmentLabels.has(segmentLabel)) {
+                console.log(`  ⏩ Skipping [${segmentLabel}] (already completed)`);
+                progress.completedSegments++;
+                continue;
+            }
+
             progress.currentSegment = segmentLabel;
 
             console.log(`\n[${segmentLabel}] Starting Worker ingestion...`);
@@ -550,6 +708,10 @@ async function backfillWorker(options: BackfillOptions, progress: BackfillProgre
                 }
             }
 
+            if (!stopLoop || currentOffset >= totalForSegment) {
+                progress.completedSegmentLabels.add(segmentLabel);
+                StateManager.save(options, progress);
+            }
             progress.completedSegments++;
         }
 
@@ -588,8 +750,18 @@ async function backfillProduction(options: BackfillOptions) {
         articlesIngested: 0,
         articlesFailed: 0,
         failedPmids: [],
-        startTime: Date.now()
+        startTime: Date.now(),
+        ragCompleted: 0,
+        gpuCompleted: 0,
+        completedSegmentLabels: new Set<string>()
     };
+
+    // Load state
+    const savedState = StateManager.load();
+    if (savedState.completed?.length) {
+        console.log(`  ℹ️ Resuming from saved state (${savedState.completed.length} segments already done)`);
+        savedState.completed.forEach(s => progress.completedSegmentLabels.add(s));
+    }
 
     console.log('='.repeat(60));
     console.log('LEUKEMIALENS PRODUCTION BACKFILL');
@@ -614,16 +786,37 @@ async function backfillProduction(options: BackfillOptions) {
         await sleep(3000);
     }
 
-    // Execute in appropriate mode
-    if (options.local) {
-        await backfillLocal(options, progress);
-    } else {
-        await backfillWorker(options, progress);
+    // Graceful shutdown handler
+    process.on('SIGINT', () => {
+        console.log('\n\n🛑 Interrupted! Saving state...');
+        StateManager.save(options, progress);
+        process.exit(0);
+    });
+
+    try {
+        // Execute in appropriate mode
+        if (options.local) {
+            await backfillLocal(options, progress);
+        } else {
+            await backfillWorker(options, progress);
+        }
+    } catch (e: any) {
+        console.error('\n❌ CRITICAL ERROR during backfill:', e.message);
+        StateManager.save(options, progress);
     }
 
     console.log('\n' + '='.repeat(60));
     console.log('BACKFILL COMPLETE');
     printProgress(progress);
+
+    if (progress.completedSegmentLabels.size > 0) {
+        console.log('  Finished segments:', Array.from(progress.completedSegmentLabels).join(', '));
+    }
+
+    // Cleanup state if fully complete
+    if (progress.completedSegments === progress.totalSegments && progress.failedSegments.length === 0) {
+        StateManager.clear();
+    }
 
     if (progress.failedSegments.length > 0) {
         console.log('\n⚠️  Failed Segments:');
@@ -648,11 +841,13 @@ async function backfillProduction(options: BackfillOptions) {
     }
 
     // ============================================
-    // RAG DOCUMENT FETCH (Optional)
+    // RAG DOCUMENT FETCH (Optional - batch mode)
     // ============================================
-    if (options.withRag && !options.dryRun) {
+    // Skip batch RAG if local mode with granular - already ran per-segment
+    const ranPerSegment = options.local && (options.granular || options.month);
+    if (options.withRag && !options.dryRun && !ranPerSegment) {
         console.log('\n' + '='.repeat(60));
-        console.log('TRIGGERING RAG DOCUMENT FETCH');
+        console.log('TRIGGERING RAG DOCUMENT FETCH (BATCH)');
         console.log('='.repeat(60));
 
         let fetchLimit = options.limit || Math.max(progress.articlesIngested, 1000);
@@ -681,11 +876,12 @@ async function backfillProduction(options: BackfillOptions) {
     }
 
     // ============================================
-    // GPU BACKFILL (Optional)
+    // GPU BACKFILL (Optional - batch mode)
     // ============================================
-    if (options.withGpu && !options.dryRun) {
+    // Skip batch GPU if local mode with granular - already ran per-segment
+    if (options.withGpu && !options.dryRun && !ranPerSegment) {
         console.log('\n' + '='.repeat(60));
-        console.log('TRIGGERING GPU VECTORIZATION');
+        console.log('TRIGGERING GPU VECTORIZATION (BATCH)');
         console.log('='.repeat(60));
 
         let gpuCmd = `python ../../rag-processing/backfill_gpu.py`;

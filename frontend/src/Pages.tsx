@@ -5,19 +5,19 @@ export const AboutPage = () => {
             <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Mission</h2>
                 <div className="prose prose-lg max-w-none">
-                    <p className="text-gray-700 leading-relaxed mb-4">
+                    <p className="text-gray-700 leading-relaxed mb-3">
                         LeukemiaLens is intended to empower researchers and clinicians by aggregating the latest scientific findings about Leukemia of all sorts from PubMed.
                         We categorize articles by mutations, diseases, and topics to help you drill down faster, then use cutting edge AI to provide you with a summary of the articles and ask further questions.
                     </p>
-                    <p className="text-gray-700 leading-relaxed">
+                    <p className="text-gray-700 leading-relaxed mb-3">
                         Along with that, we also want to provide additional learning resources to the leukemia and bone marrow transplant community.
                         We are currently working on a series of articles that will provide a comprehensive overview of leukemia and bone marrow transplant.
                     </p>
-                    <p className="text-gray-700 leading-relaxed">
+                    <p className="text-gray-700 leading-relaxed mb-3">
                         As an AML patient and bone marrow transplant survivor myself, I wanted to provide additional resources to the leukemia and bone marrow transplant community.
                         I found it hard to navigate the vast amount of information available during my journey.
                     </p>
-                    <p className="text-gray-700 leading-relaxed">
+                    <p className="text-gray-700 leading-relaxed mb-3">
                         I created LeukemiaLens in order to help others along this journey, whether it be patients and caregivers navigating a new diagnosis, or researchers and transplant physicians that need to constantly stay up to date with the latest research and treatment options.
                         Looking around the web, there didn't seem to be a good solution for filtering the large amount of information available on PubMed and other sources in ways that made sense for leukemia and bone marrow transplant research.
                         With that in mind, I thought that current breakthroughs in AI and cloud infrastructure would allow me to create a solution that would be both fast and scalable, and most importantly, helpful to the community.
@@ -29,7 +29,7 @@ export const AboutPage = () => {
             <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Usage & Licensing</h2>
                 <div className="prose prose-lg max-w-none">
-                    <p className="text-gray-700 leading-relaxed mb-4">
+                    <p className="text-gray-700 leading-relaxed mb-3">
                         LeukemiaLens is provided as a free service to the research and medical community. Our goal is to accelerate
                         leukemia research and improve patient outcomes by making scientific literature more accessible and discoverable.
                     </p>

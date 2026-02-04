@@ -43,6 +43,7 @@ npx tsx scripts/backfill-production.ts --start-year 2000 --end-year 2005
    Backfill Production DB and kick off Full-text Fetching and GPU Processing.
    --with-rag - enables RAG processing
    --gpu - enables GPU processing
+   --granular - enables granular processing (month by month)
 
 # Load .env and run backfill
-npx tsx scripts/backfill-production.ts --local --start-year 2024 --month 1 --with-rag --gpu
+npx tsx scripts/backfill-production.ts --local --start-year 2024 --month 7 --granular --with-rag --gpu
