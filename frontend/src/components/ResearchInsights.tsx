@@ -934,58 +934,64 @@ export function ResearchInsights({
 
                                     {showArticleList && (
                                         <div className="grid gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                                            {analyzedArticles.map((article) => (
-                                                <a
-                                                    key={article.num}
-                                                    href={article.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="group flex gap-4 p-4 bg-white border border-gray-100 rounded-xl hover:border-purple-200 hover:shadow-sm transition-all"
-                                                >
-                                                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gray-50 text-gray-400 border border-gray-100 flex items-center justify-center font-bold text-xs group-hover:bg-purple-50 group-hover:text-purple-600 group-hover:border-purple-100 transition-colors">
-                                                        {article.num}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="text-sm font-semibold text-gray-900 group-hover:text-purple-700 transition-colors leading-snug">
-                                                            {article.title}
-                                                        </h4>
-                                                        {/* Author & Journal Line */}
-                                                        {(article.authors || article.journal) && (
-                                                            <p className="text-xs text-gray-500 mt-1 truncate">
-                                                                {article.authors && (
-                                                                    <span className="font-medium">{article.authors.split(',')[0]?.trim()}{article.authors.includes(',') ? ' et al.' : ''}</span>
-                                                                )}
-                                                                {article.authors && article.journal && ' • '}
-                                                                {article.journal && (
-                                                                    <span className="italic">{article.journal}</span>
-                                                                )}
-                                                            </p>
-                                                        )}
-                                                        <div className="mt-2 flex items-center gap-3 flex-wrap">
-                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                                                {article.pubDate || article.year}
-                                                            </span>
-                                                            {article.pmid && (
-                                                                <span className="text-[10px] font-medium text-gray-400">
-                                                                    PMID: {article.pmid}
-                                                                </span>
-                                                            )}
-                                                            {article.hasFullText && (
-                                                                <span className="flex items-center gap-1 text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-widest border border-blue-100/50">
-                                                                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                                                    Full-Text Analysed
-                                                                </span>
-                                                            )}
+                                            {analyzedArticles.map((article) => {
+                                                // Generate URL from PMID if article.url is not available
+                                                const articleUrl = article.url || (article.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${article.pmid.replace('PMID:', '')}/` : undefined);
+                                                return (
+                                                    <a
+                                                        key={article.num}
+                                                        href={articleUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className={`group flex gap-4 p-4 bg-white border border-gray-100 rounded-xl hover:border-purple-200 hover:shadow-sm transition-all ${articleUrl ? 'cursor-pointer' : 'cursor-default'}`}
+                                                        onClick={(e) => { if (!articleUrl) e.preventDefault(); }}
+                                                    >
+                                                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gray-50 text-gray-400 border border-gray-100 flex items-center justify-center font-bold text-xs group-hover:bg-purple-50 group-hover:text-purple-600 group-hover:border-purple-100 transition-colors">
+                                                            {article.num}
                                                         </div>
-                                                    </div>
-                                                    {/* External Link Icon */}
-                                                    <div className="flex-shrink-0 w-6 h-6 text-gray-300 group-hover:text-purple-500 transition-colors self-center">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                                                        </svg>
-                                                    </div>
-                                                </a>
-                                            ))}
+                                                        <div className="flex-1 min-w-0">
+                                                            <h4 className="text-sm font-semibold text-gray-900 group-hover:text-purple-700 transition-colors leading-snug">
+                                                                {article.title}
+                                                            </h4>
+                                                            {/* Author & Journal Line */}
+                                                            {(article.authors || article.journal) && (
+                                                                <p className="text-xs text-gray-500 mt-1 truncate">
+                                                                    {article.authors && (
+                                                                        <span className="font-medium">{article.authors.split(',')[0]?.trim()}{article.authors.includes(',') ? ' et al.' : ''}</span>
+                                                                    )}
+                                                                    {article.authors && article.journal && ' • '}
+                                                                    {article.journal && (
+                                                                        <span className="italic">{article.journal}</span>
+                                                                    )}
+                                                                </p>
+                                                            )}
+                                                            <div className="mt-2 flex items-center gap-3 flex-wrap">
+                                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                                                    {article.pubDate || article.year}
+                                                                </span>
+                                                                {article.pmid && (
+                                                                    <span className="text-[10px] font-medium text-gray-400">
+                                                                        PMID: {article.pmid}
+                                                                    </span>
+                                                                )}
+                                                                {article.hasFullText && (
+                                                                    <span className="flex items-center gap-1 text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-widest border border-blue-100/50">
+                                                                        <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                                                        Full-Text Analysed
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {/* External Link Icon */}
+                                                        <div className="flex-shrink-0 w-6 h-6 text-gray-300 group-hover:text-purple-500 transition-colors self-center">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                                            </svg>
+                                                        </div>
+                                                    </a>
+                                                );
+                                            })}
+
                                         </div>
                                     )}
                                 </div>

@@ -14,11 +14,11 @@ export const AboutPage = () => {
                         We are currently working on a series of articles that will provide a comprehensive overview of leukemia and bone marrow transplant.
                     </p>
                     <p className="text-gray-700 leading-relaxed">
-                        My name is Josh Rhinehart, and I am the creator of LeukemiaLens.
                         As an AML patient and bone marrow transplant survivor myself, I wanted to provide additional resources to the leukemia and bone marrow transplant community.
-                        I found it hard to navigate the vast amount of information available during my journey, and I have been studying biology for years.
+                        I found it hard to navigate the vast amount of information available during my journey.
                     </p>
-                    <p className="text-gray-700 leading-relaxed">I created LeukemiaLens in order to help others along this journey, whether it be patients and caregivers navigating a new diagnosis, or researchers and transplant physicians that need to constantly stay up to date with the latest research and treatment options.
+                    <p className="text-gray-700 leading-relaxed">
+                        I created LeukemiaLens in order to help others along this journey, whether it be patients and caregivers navigating a new diagnosis, or researchers and transplant physicians that need to constantly stay up to date with the latest research and treatment options.
                         Looking around the web, there didn't seem to be a good solution for filtering the large amount of information available on PubMed and other sources in ways that made sense for leukemia and bone marrow transplant research.
                         With that in mind, I thought that current breakthroughs in AI and cloud infrastructure would allow me to create a solution that would be both fast and scalable, and most importantly, helpful to the community.
                     </p>

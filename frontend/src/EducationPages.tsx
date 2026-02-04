@@ -28,6 +28,7 @@ const RelatedTopics: React.FC<{ currentTopic: string; onNavigate: (topic: string
         { id: 'transplant', label: 'Stem Cell Transplants', icon: '🏥' },
         { id: 'lab-results', label: 'Lab Results', icon: '🔬' },
         { id: 'clinical-trials', label: 'Clinical Trials', icon: '🧪' },
+        { id: 'history', label: 'History of Leukemia', icon: '📜' },
     ];
 
     return (
@@ -987,6 +988,288 @@ export const ClinicalTrialsPage: React.FC<EducationPageProps> = ({ onNavigateToL
                 </div>
 
                 <RelatedTopics currentTopic="clinical-trials" onNavigate={onNavigateToLearn} />
+            </div>
+        </div>
+    );
+};
+
+export const LeukemiaHistoryPage: React.FC<EducationPageProps> = ({ onNavigateToLearn }) => {
+    return (
+        <div className="py-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                <div className="flex items-center gap-3 mb-6">
+                    <span className="text-4xl">📜</span>
+                    <h1 className="text-3xl font-bold text-gray-900">History of Leukemia</h1>
+                </div>
+
+                <div className="prose prose-lg max-w-none text-gray-700">
+                    <p className="lead text-xl text-gray-600 mb-6">
+                        The story of leukemia spans over 175 years—from its first description as a mysterious blood disease
+                        to today's precision medicine and cellular therapies. Understanding this history provides perspective
+                        on how far treatment has come and the remarkable discoveries that made it possible.
+                    </p>
+
+                    {/* ===== EARLY DISCOVERIES ===== */}
+                    <h2 className="text-2xl font-bold text-gray-900 mt-10 mb-4 flex items-center gap-2">
+                        <span className="text-amber-500">🔍</span> Early Discoveries (1845-1900)
+                    </h2>
+                    <p>
+                        Before leukemia had a name, physicians noticed a puzzling condition where patients' blood appeared
+                        milky or "purulent" (pus-like) without any obvious infection.
+                    </p>
+
+                    <div className="bg-gradient-to-r from-amber-50 to-yellow-50 p-6 rounded-xl border border-amber-100 my-6">
+                        <h3 className="font-bold text-amber-900 mb-3">1845: The Birth of Leukemia</h3>
+                        <p className="text-amber-800 text-sm mb-4">
+                            Two physicians independently described the disease that same year:
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-white/60 p-4 rounded-lg">
+                                <h4 className="font-bold text-amber-900">John Hughes Bennett (Edinburgh)</h4>
+                                <p className="text-xs text-amber-700">Called it "leucocythemia" (white cell blood) after observing a patient with massively enlarged spleen and liver.</p>
+                            </div>
+                            <div className="bg-white/60 p-4 rounded-lg">
+                                <h4 className="font-bold text-amber-900">Rudolf Virchow (Berlin)</h4>
+                                <p className="text-xs text-amber-700">Named it "leukämie" (white blood) and correctly identified it as a disease of the blood-forming organs, not an infection.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-gray-50 p-5 rounded-xl border border-gray-200 my-6">
+                        <h4 className="font-bold text-gray-900 mb-2">Rudolf Virchow: The Father of Modern Pathology</h4>
+                        <p className="text-sm text-gray-700">
+                            Virchow's contributions extended far beyond naming leukemia. He established that all cells come from
+                            other cells ("omnis cellula e cellula"), revolutionizing our understanding of disease. His work laid
+                            the foundation for understanding cancer as a cellular disease.
+                        </p>
+                    </div>
+
+                    <p>
+                        By the late 1800s, physicians distinguished between <strong>acute</strong> (rapidly fatal) and
+                        <strong>chronic</strong> (slower progressing) forms. Paul Ehrlich developed staining techniques
+                        that allowed differentiation between cell types, leading to the classification of myeloid vs. lymphoid leukemias.
+                    </p>
+
+                    {/* ===== DARK ERA & EARLY TRIALS ===== */}
+                    <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-4 flex items-center gap-2">
+                        <span className="text-gray-500">⚫</span> The Era of No Treatment (1900-1940s)
+                    </h2>
+                    <p>
+                        For nearly a century after its discovery, acute leukemia was universally fatal. Treatment consisted
+                        only of supportive care—blood transfusions (once available) and arsenic compounds that provided
+                        minimal, temporary benefit.
+                    </p>
+                    <div className="bg-gray-100 p-5 rounded-xl border border-gray-200 my-4">
+                        <p className="text-gray-700 text-sm italic">
+                            "The diagnosis of acute leukemia was tantamount to a death sentence. Most patients survived only
+                            weeks to months after diagnosis."
+                        </p>
+                    </div>
+
+                    {/* ===== DAWN OF CHEMOTHERAPY ===== */}
+                    <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-4 flex items-center gap-2">
+                        <span className="text-blue-500">💊</span> Dawn of Chemotherapy (1940s-1960s)
+                    </h2>
+
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100 my-6">
+                        <h3 className="font-bold text-blue-900 mb-3">Sidney Farber: The Father of Modern Chemotherapy</h3>
+                        <p className="text-blue-800 text-sm mb-4">
+                            In 1948, Dr. Sidney Farber at Boston Children's Hospital achieved the first remissions in childhood
+                            acute lymphoblastic leukemia (ALL) using <strong>aminopterin</strong>, a folic acid antagonist.
+                        </p>
+                        <div className="bg-white/60 p-4 rounded-lg">
+                            <p className="text-xs text-blue-700">
+                                Although remissions were temporary, this proved that chemical agents could fight cancer — a revolutionary
+                                concept that launched the entire field of chemotherapy. Farber later helped establish the
+                                National Cancer Institute and what became the Dana-Farber Cancer Institute.
+                            </p>
+                        </div>
+                    </div>
+
+                    <h3 className="text-xl font-bold text-gray-800 mt-8 mb-3">Key Developments</h3>
+                    <div className="space-y-4 my-6">
+                        <div className="flex gap-4 items-start">
+                            <span className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full text-sm shrink-0">1948</span>
+                            <div>
+                                <h4 className="font-bold text-gray-900">First Chemotherapy Remissions</h4>
+                                <p className="text-sm text-gray-600">Farber's aminopterin produces temporary remissions in childhood ALL.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-4 items-start">
+                            <span className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full text-sm shrink-0">1950s</span>
+                            <div>
+                                <h4 className="font-bold text-gray-900">6-Mercaptopurine (6-MP)</h4>
+                                <p className="text-sm text-gray-600">Gertrude Elion and George Hitchings develop 6-MP, still used in ALL maintenance today. They later won the Nobel Prize.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-4 items-start">
+                            <span className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full text-sm shrink-0">1960s</span>
+                            <div>
+                                <h4 className="font-bold text-gray-900">Combination Chemotherapy</h4>
+                                <p className="text-sm text-gray-600">Researchers discover that combining multiple drugs produces better, longer-lasting remissions than single agents.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-4 items-start">
+                            <span className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full text-sm shrink-0">1973</span>
+                            <div>
+                                <h4 className="font-bold text-gray-900">Cytarabine + Anthracycline (7+3)</h4>
+                                <p className="text-sm text-gray-600">The "7+3" regimen is established for AML and remains a backbone of treatment 50+ years later.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ===== BONE MARROW TRANSPLANT ===== */}
+                    <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-4 flex items-center gap-2">
+                        <span className="text-green-500">🏥</span> The Transplant Revolution (1968-1990s)
+                    </h2>
+
+                    <div className="bg-gradient-to-r from-green-50 to-teal-50 p-6 rounded-xl border border-green-100 my-6">
+                        <h3 className="font-bold text-green-900 mb-3">E. Donnall Thomas: Pioneer of Bone Marrow Transplantation</h3>
+                        <p className="text-green-800 text-sm mb-4">
+                            Dr. E. Donnall Thomas performed the first successful bone marrow transplant between unrelated
+                            individuals in 1968 at the Fred Hutchinson Cancer Research Center in Seattle.
+                        </p>
+                        <div className="bg-white/60 p-4 rounded-lg">
+                            <p className="text-xs text-green-700">
+                                Despite decades of skepticism and many failures, Thomas persisted in developing transplantation
+                                as a curative therapy. He received the Nobel Prize in Physiology or Medicine in 1990 for this work,
+                                which has since saved hundreds of thousands of lives.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+                        <div className="bg-green-50 p-5 rounded-xl border border-green-100">
+                            <h4 className="font-bold text-green-900 mb-2">Key Milestones</h4>
+                            <ul className="text-sm text-green-700 space-y-2">
+                                <li>• <strong>1956:</strong> First identical twin transplant</li>
+                                <li>• <strong>1968:</strong> First matched sibling donor transplant</li>
+                                <li>• <strong>1973:</strong> First unrelated donor transplant</li>
+                                <li>• <strong>1988:</strong> First cord blood transplant</li>
+                            </ul>
+                        </div>
+                        <div className="bg-teal-50 p-5 rounded-xl border border-teal-100">
+                            <h4 className="font-bold text-teal-900 mb-2">Major Advances</h4>
+                            <ul className="text-sm text-teal-700 space-y-2">
+                                <li>• HLA typing and matching</li>
+                                <li>• GVHD prevention strategies</li>
+                                <li>• Reduced-intensity conditioning</li>
+                                <li>• Haploidentical transplantation</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <p>
+                        Learn more about modern transplant approaches on our{' '}
+                        <button onClick={() => onNavigateToLearn('transplant')} className="text-blue-600 font-bold underline">
+                            Stem Cell Transplants page
+                        </button>.
+                    </p>
+
+                    {/* ===== MODERN ERA ===== */}
+                    <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-4 flex items-center gap-2">
+                        <span className="text-purple-500">🎯</span> The Modern Era: Targeted & Cellular Therapies (2000-Present)
+                    </h2>
+                    <p>
+                        The 21st century brought a revolution in understanding leukemia at the molecular level, leading to
+                        treatments that target specific genetic abnormalities.
+                    </p>
+
+                    <div className="space-y-4 my-6">
+                        <div className="border-l-4 border-purple-400 pl-4">
+                            <h4 className="font-bold text-gray-900">2001: Imatinib (Gleevec) for CML</h4>
+                            <p className="text-sm text-gray-600">
+                                The first targeted therapy transformed CML from a fatal disease to a manageable chronic condition.
+                                Imatinib targets the BCR-ABL fusion protein present in nearly all CML cases.
+                            </p>
+                        </div>
+                        <div className="border-l-4 border-indigo-400 pl-4">
+                            <h4 className="font-bold text-gray-900">2017: CAR-T Cell Therapy</h4>
+                            <p className="text-sm text-gray-600">
+                                FDA approval of Kymriah for relapsed/refractory ALL marked the first gene therapy approved in the US.
+                                CAR-T reprograms patients' own immune cells to attack cancer.
+                            </p>
+                        </div>
+                        <div className="border-l-4 border-blue-400 pl-4">
+                            <h4 className="font-bold text-gray-900">2018+: Venetoclax Combinations</h4>
+                            <p className="text-sm text-gray-600">
+                                BCL-2 inhibition with venetoclax combined with hypomethylating agents provides effective
+                                treatment for older AML patients who cannot tolerate intensive chemotherapy.
+                            </p>
+                        </div>
+                        <div className="border-l-4 border-green-400 pl-4">
+                            <h4 className="font-bold text-gray-900">2020s: Menin Inhibitors & Beyond</h4>
+                            <p className="text-sm text-gray-600">
+                                New targeted agents continue to emerge for specific genetic subtypes, moving toward truly
+                                personalized treatment based on each patient's unique leukemia genetics.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* ===== KEY INSTITUTIONS ===== */}
+                    <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-4 flex items-center gap-2">
+                        <span className="text-red-500">🏛️</span> Pioneering Institutions
+                    </h2>
+                    <p>
+                        Many institutions have made foundational contributions to leukemia research and treatment:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <h4 className="font-bold text-gray-900 text-sm">Fred Hutchinson Cancer Center (Seattle)</h4>
+                            <p className="text-xs text-gray-600">Pioneered bone marrow transplantation under E. Donnall Thomas.</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <h4 className="font-bold text-gray-900 text-sm">Dana-Farber Cancer Institute (Boston)</h4>
+                            <p className="text-xs text-gray-600">Founded by Sidney Farber; leader in pediatric leukemia research.</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <h4 className="font-bold text-gray-900 text-sm">MD Anderson Cancer Center (Houston)</h4>
+                            <p className="text-xs text-gray-600">Major contributions to leukemia classification and treatment protocols.</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <h4 className="font-bold text-gray-900 text-sm">Memorial Sloan Kettering (New York)</h4>
+                            <p className="text-xs text-gray-600">Pioneered combination chemotherapy and CAR-T development.</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <h4 className="font-bold text-gray-900 text-sm">OHSU Knight Cancer Institute (Portland)</h4>
+                            <p className="text-xs text-gray-600">Leader in leukemia genomics research and targeted therapy development.</p>
+                        </div>
+                    </div>
+
+                    {/* ===== LOOKING FORWARD ===== */}
+                    <div className="mt-10 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
+                        <h3 className="text-lg font-bold text-purple-900 mb-2">🔮 Looking Forward</h3>
+                        <p className="text-purple-800 text-sm">
+                            The pace of discovery continues to accelerate. Today's research focuses on minimal residual disease
+                            monitoring, novel immunotherapies, CRISPR gene editing, and understanding why some patients develop
+                            resistance. The goal: cure more patients with fewer side effects.
+                        </p>
+                    </div>
+
+                    {/* ===== EXTERNAL RESOURCES ===== */}
+                    <div className="mt-10 p-6 bg-blue-50 rounded-xl border border-blue-100">
+                        <h3 className="font-bold text-blue-900 mb-4">📚 Learn More</h3>
+                        <div className="space-y-3">
+                            <div>
+                                <ExternalLink href="https://www.lls.org/who-we-are/our-history">
+                                    Leukemia & Lymphoma Society History
+                                </ExternalLink>
+                            </div>
+                            <div>
+                                <ExternalLink href="https://www.cancer.gov/research/progress/250-years-milestones">
+                                    250 Years of Cancer Research Milestones (NCI)
+                                </ExternalLink>
+                            </div>
+                            <div>
+                                <ExternalLink href="https://www.fredhutch.org/en/about/about-the-hutch.html">
+                                    Fred Hutchinson Cancer Center History
+                                </ExternalLink>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <RelatedTopics currentTopic="history" onNavigate={onNavigateToLearn} />
             </div>
         </div>
     );

@@ -5,7 +5,7 @@ import { AboutPage, ContactPage, ResourcesPage } from './Pages'
 import { StatsPage } from './StatsPage'
 import { LandingPage } from './LandingPage'
 import { DiseasePage } from './DiseasePage'
-import { BloodCellProductionPage, MutationsPage, RiskStratificationPage, StemCellTransplantPage, LabResultsPage, ClinicalTrialsPage } from './EducationPages'
+import { BloodCellProductionPage, MutationsPage, RiskStratificationPage, StemCellTransplantPage, LabResultsPage, ClinicalTrialsPage, LeukemiaHistoryPage } from './EducationPages'
 import { CommonTreatmentsPage, MedicationsPage } from './TreatmentPages'
 import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput, ResearchInsights, ResourcesLayout, ConfirmationModal } from './components'
 import type { ParsedFilters } from './components'
@@ -68,7 +68,7 @@ function App() {
   // Page routing - check URL pathname
   type Page = 'home' | 'about' | 'contact' | 'resources' | 'stats' | 'search' | 'myeloid' | 'lymphoid' | 'myeloma' |
     'learn-blood-cells' | 'learn-mutations' | 'learn-risk' | 'learn-transplant' | 'learn-lab-results' | 'learn-clinical-trials' |
-    'learn-treatments' | 'learn-medications' |
+    'learn-treatments' | 'learn-medications' | 'learn-history' |
     'disease-aml' | 'disease-mds' | 'disease-cml' | 'disease-mpn' | 'disease-all' | 'disease-cll' | 'disease-mm';
 
   const [currentPage, setCurrentPage] = useState<Page>(() => {
@@ -89,6 +89,7 @@ function App() {
     if (path === '/learn/transplant') return 'learn-transplant'
     if (path === '/learn/lab-results') return 'learn-lab-results'
     if (path === '/learn/clinical-trials') return 'learn-clinical-trials'
+    if (path === '/learn/history') return 'learn-history'
     if (path.startsWith('/disease/')) return `disease-${path.split('/')[2]}` as Page
     return 'home'
   })
@@ -114,6 +115,7 @@ function App() {
       else if (path === '/learn/transplant') setCurrentPage('learn-transplant')
       else if (path === '/learn/lab-results') setCurrentPage('learn-lab-results')
       else if (path === '/learn/clinical-trials') setCurrentPage('learn-clinical-trials')
+      else if (path === '/learn/history') setCurrentPage('learn-history')
       else if (path.startsWith('/disease/')) setCurrentPage(`disease-${path.split('/')[2]}` as Page)
       else setCurrentPage('home')
     }
@@ -142,6 +144,7 @@ function App() {
     else if (path === '/learn/transplant') targetPage = 'learn-transplant';
     else if (path === '/learn/lab-results') targetPage = 'learn-lab-results';
     else if (path === '/learn/clinical-trials') targetPage = 'learn-clinical-trials';
+    else if (path === '/learn/history') targetPage = 'learn-history';
     else if (path.startsWith('/disease/')) targetPage = `disease-${path.split('/')[2]}` as Page;
 
     setCurrentPage(targetPage);
@@ -458,6 +461,7 @@ function App() {
     'learn-transplant': { component: StemCellTransplantPage, title: 'Stem Cell Transplants', navId: 'transplant' },
     'learn-lab-results': { component: LabResultsPage, title: 'Lab Results', navId: 'lab-results' },
     'learn-clinical-trials': { component: ClinicalTrialsPage, title: 'Clinical Trials', navId: 'clinical-trials' },
+    'learn-history': { component: LeukemiaHistoryPage, title: 'History of Leukemia', navId: 'history' },
   };
 
   if (currentPage in educationPages) {
