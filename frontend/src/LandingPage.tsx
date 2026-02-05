@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import bannerImage from './assets/LL-logo-banner.jpg';
 import nmdpLogo from './assets/nmdp-logo.png';
 import redcrossLogo from './assets/redcross-logo.png';
@@ -11,15 +11,6 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToDisease, onStartSearch, onNavigateToPage, onNavigateToLearn }) => {
-    const [showBetaBanner, setShowBetaBanner] = useState<boolean>(() => {
-        const dismissed = localStorage.getItem('betaBannerDismissed');
-        return dismissed !== 'true';
-    });
-
-    const dismissBetaBanner = () => {
-        setShowBetaBanner(false);
-        localStorage.setItem('betaBannerDismissed', 'true');
-    };
 
     return (
         <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-50">
@@ -39,30 +30,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToDisease, o
                     </svg>
                 </div>
 
-                {/* Beta Overlay Banner */}
-                {showBetaBanner && (
-                    <div className="absolute top-4 right-4 z-30 max-w-xs md:max-w-sm bg-white/90 backdrop-blur-xl border border-blue-200 rounded-2xl p-4 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-500">
-                        <button
-                            onClick={dismissBetaBanner}
-                            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors"
-                            aria-label="Dismiss banner"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                        <div className="flex gap-3">
-                            <span className="text-xl">🧪</span>
-                            <div className="text-left">
-                                <h3 className="text-gray-900 font-bold text-sm mb-1">Welcome to LeukemiaLens Beta!</h3>
-                                <p className="text-gray-600 text-xs leading-relaxed">
-                                    Our database now contains over <strong className="text-blue-700">12,000+ research articles</strong> with full 2025 coverage ingested.
-                                    Visit the <button onClick={() => onNavigateToPage('stats')} className="text-blue-600 underline font-medium hover:text-blue-800">Stats</button> page for details.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10 flex flex-col items-center text-center">
                     <img src={bannerImage} alt="LeukemiaLens" className="h-20 md:h-24 object-contain mb-4 drop-shadow-xl" />

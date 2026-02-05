@@ -65,6 +65,7 @@ const NAV_TREE: NavItem[] = [
             { id: 'transplant', label: 'Transplants', path: '/learn/transplant' },
             { id: 'lab-results', label: 'Lab Results', path: '/learn/lab-results' },
             { id: 'clinical-trials', label: 'Clinical Trials', path: '/learn/clinical-trials' },
+            { id: 'history', label: 'History of Leukemia', path: '/learn/history' },
         ]
     },
     {
