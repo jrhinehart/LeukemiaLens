@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { DISEASE_DEEP_DIVES } from './disease-content';
 
 interface NewsItem {
     title: string;
@@ -24,6 +25,7 @@ interface DiseaseInfo {
     name: string;
     headerQuestion: string;
     description: string;
+    extendedDescription?: string; // Multi-paragraph detailed intro for pages with deep dives
     subDiseases: SubDiseaseInfo[];
     treatments: TreatmentInfo[];
     diseases: string[]; // Sub-disease abbreviations for filtering
@@ -131,8 +133,9 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
     aml: {
         id: 'aml',
         name: 'Acute Myeloid Leukemia',
-        headerQuestion: 'What is AML?',
-        description: 'AML is a rapid-growing cancer of the bone marrow and blood. It is the most common acute leukemia in adults. In AML, the bone marrow makes many abnormal myeloblasts (a type of white blood cell), red blood cells, or platelets.',
+        headerQuestion: 'What is Acute Myeloid Leukemia (AML)?',
+        description: 'AML is a rapid-growing cancer of the bone marrow and blood. It is the most common acute leukemia in adults.',
+        extendedDescription: 'Acute Myeloid Leukemia (AML) is a rapid-growing cancer of the bone marrow and blood. It is the most common acute leukemia in adults. In AML, the bone marrow makes many abnormal myeloblasts, red blood cells, or platelets.\n\nAML is characterized by the rapid proliferation of abnormal myeloid cells through a process called "maturation arrest". Instead of developing into healthy, functional blood cells, these immature cells accumulate in the bone marrow, crowding out healthy production and leading to life-threatening complications.',
         subDiseases: [],
         treatments: [
             { name: 'Induction Therapy (7+3 chemotherapy)', url: 'https://bloodcancerunited.org/blood-cancer/leukemia/acute-myeloid-leukemia-aml/treatment#toc-1' },
@@ -256,140 +259,225 @@ export const DiseasePage: React.FC<DiseasePageProps> = ({ groupId, apiBaseUrl, o
 
     if (!info) return <div>Disease Group not found</div>;
 
+    const DeepDive = DISEASE_DEEP_DIVES[groupId];
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 py-6">
             {/* Main Info */}
             <div className="lg:col-span-2 space-y-8">
-                <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <span className="text-blue-600">ℹ️</span> {info.headerQuestion}
-                    </h2>
-                    <p className="text-gray-700 text-lg leading-relaxed">
-                        {info.description}
-                    </p>
+                {DeepDive ? (
+                    <>
+                        {/* Generic template for diseases with deep dive content */}
+                        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                <span className="text-blue-600">ℹ️</span> {info.headerQuestion}
+                            </h2>
+                            <div className="text-gray-700 text-lg leading-relaxed whitespace-pre-wrap">
+                                {info.extendedDescription || info.description}
+                            </div>
 
-                    {/* Sub-disease breakout */}
-                    <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {info.subDiseases.map((sd) => (
-                            <button
-                                key={sd.abbrev}
-                                onClick={() => {
-                                    if (onNavigate) {
-                                        onNavigate(`disease-${sd.abbrev.toLowerCase()}`, `/disease/${sd.abbrev.toLowerCase()}`);
-                                    }
-                                }}
-                                className="text-left bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100 hover:border-blue-300 hover:shadow-md transition-all group"
-                            >
-                                <div className="flex items-center gap-3 mb-2">
-                                    <span className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm font-bold group-hover:bg-blue-700">
-                                        {sd.abbrev}
-                                    </span>
-                                    <h3 className="font-bold text-gray-900 group-hover:text-blue-800">{sd.name}</h3>
-                                </div>
-                                <p className="text-gray-700 text-sm leading-relaxed">
-                                    {sd.description}
+                            {/* Treatments absorbed into introduction if it's a deep dive page */}
+                            <h3 className="text-lg font-bold text-gray-900 mt-8 mb-3 flex items-center gap-2">
+                                <span className="text-green-600">💊</span> Primary Treatment Approaches
+                            </h3>
+                            {groupId === 'aml' && (
+                                <p className="text-gray-600 text-sm mb-4">
+                                    Treatment for AML depends on subtype, genetic mutations, patient age, and fitness.
+                                    The main categories include:
                                 </p>
-                                <div className="mt-3 text-xs font-bold text-blue-600 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    Learn more <span>→</span>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </section>
+                            )}
+                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {info.treatments.map((t, idx) => (
+                                    <li key={idx}>
+                                        <a
+                                            href={t.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-green-50 hover:border-green-200 transition-all group h-full"
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <div className="h-6 w-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center flex-shrink-0 text-xs font-bold transition-colors group-hover:bg-green-200">
+                                                    {idx + 1}
+                                                </div>
+                                                <span className="text-gray-800 font-medium group-hover:text-green-800">{t.name}</span>
+                                            </div>
+                                            <span className="text-gray-400 group-hover:text-green-500 ml-2">→</span>
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
 
-                <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <span className="text-green-600">💊</span> Common Treatments
-                    </h2>
-                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {info.treatments.map((t, idx) => (
-                            <li key={idx}>
+                        <DeepDive />
+
+                        {/* Tools & Focused Research — at the end for deep dive pages */}
+                        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                <span className="text-indigo-600">🛠️</span> Tools & Focused Research
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="p-6 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl border border-indigo-100">
+                                    <h3 className="font-bold text-indigo-900 mb-2">Scientific Literature</h3>
+                                    <p className="text-sm text-indigo-700 mb-4">Search thousands of PubMed articles curated for {info.name}.</p>
+                                    <button
+                                        onClick={() => onStartSearch(info.diseases[0])}
+                                        className="w-full bg-indigo-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
+                                    >
+                                        Start Scientific Search
+                                    </button>
+                                </div>
+                                <div className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-100">
+                                    <h3 className="font-bold text-amber-900 mb-2">Clinical Trials</h3>
+                                    <p className="text-sm text-amber-700 mb-4">Explore actively recruiting clinical trials for this disease group.</p>
+                                    <a
+                                        href={`https://clinicaltrials.gov/search?term=${encodeURIComponent(info.clinicalTrialsQuery)}&aggFilters=status:rec`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-block w-full text-center bg-amber-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-amber-700 transition-colors shadow-sm"
+                                    >
+                                        View Clinical Trials
+                                    </a>
+                                </div>
+                            </div>
+                        </section>
+                    </>
+                ) : (
+                    <>
+                        {/* Original fallback layout for pages without specific deep dive content */}
+                        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                <span className="text-blue-600">ℹ️</span> {info.headerQuestion}
+                            </h2>
+                            <p className="text-gray-700 text-lg leading-relaxed">
+                                {info.description}
+                            </p>
+
+                            {/* Sub-disease breakout */}
+                            {info.subDiseases.length > 0 && (
+                                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {info.subDiseases.map((sd) => (
+                                        <button
+                                            key={sd.abbrev}
+                                            onClick={() => {
+                                                if (onNavigate) {
+                                                    onNavigate(`disease-${sd.abbrev.toLowerCase()}`, `/disease/${sd.abbrev.toLowerCase()}`);
+                                                }
+                                            }}
+                                            className="text-left bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100 hover:border-blue-300 hover:shadow-md transition-all group"
+                                        >
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <span className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm font-bold group-hover:bg-blue-700">
+                                                    {sd.abbrev}
+                                                </span>
+                                                <h3 className="font-bold text-gray-900 group-hover:text-blue-800">{sd.name}</h3>
+                                            </div>
+                                            <p className="text-gray-700 text-sm leading-relaxed">
+                                                {sd.description}
+                                            </p>
+                                            <div className="mt-3 text-xs font-bold text-blue-600 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                Learn more <span>→</span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+
+                        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                <span className="text-green-600">💊</span> Common Treatments
+                            </h2>
+                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {info.treatments.map((t, idx) => (
+                                    <li key={idx}>
+                                        <a
+                                            href={t.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-green-50 hover:border-green-200 transition-all group h-full"
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <div className="h-6 w-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center flex-shrink-0 text-xs font-bold transition-colors group-hover:bg-green-200">
+                                                    {idx + 1}
+                                                </div>
+                                                <span className="text-gray-800 font-medium group-hover:text-green-800">{t.name}</span>
+                                            </div>
+                                            <span className="text-gray-400 group-hover:text-green-500 ml-2">→</span>
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
+
+                        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                <span className="text-indigo-600">🛠️</span> Tools & Focused Research
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="p-6 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl border border-indigo-100">
+                                    <h3 className="font-bold text-indigo-900 mb-2">Scientific Literature</h3>
+                                    <p className="text-sm text-indigo-700 mb-4">Search thousands of PubMed articles curated for {info.name}.</p>
+                                    <button
+                                        onClick={() => onStartSearch(info.diseases[0])}
+                                        className="w-full bg-indigo-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
+                                    >
+                                        Start Scientific Search
+                                    </button>
+                                </div>
+                                <div className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-100">
+                                    <h3 className="font-bold text-amber-900 mb-2">Clinical Trials</h3>
+                                    <p className="text-sm text-amber-700 mb-4">Explore actively recruiting clinical trials for this disease group.</p>
+                                    <a
+                                        href={`https://clinicaltrials.gov/search?term=${encodeURIComponent(info.clinicalTrialsQuery)}&aggFilters=status:rec`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-block w-full text-center bg-amber-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-amber-700 transition-colors shadow-sm"
+                                    >
+                                        View Clinical Trials
+                                    </a>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                                <span className="text-red-600">🤝</span> Support & Resources
+                            </h2>
+                            <div className="space-y-4">
                                 <a
-                                    href={t.url}
+                                    href="https://www.lls.org/caregiver-support"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100 hover:bg-green-50 hover:border-green-200 transition-all group h-full"
+                                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-red-50 hover:border-red-200 border border-transparent transition-all group"
                                 >
-                                    <div className="flex items-start gap-3">
-                                        <div className="h-6 w-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center flex-shrink-0 text-xs font-bold transition-colors group-hover:bg-green-200">
-                                            {idx + 1}
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl">🆘</span>
+                                        <div>
+                                            <h4 className="font-bold text-gray-900 group-hover:text-red-700">LLS Caregiver Support</h4>
+                                            <p className="text-sm text-gray-600">Resources and communities for those caring for patients.</p>
                                         </div>
-                                        <span className="text-gray-800 font-medium group-hover:text-green-800">{t.name}</span>
                                     </div>
-                                    <span className="text-gray-400 group-hover:text-green-500 ml-2">→</span>
+                                    <span className="text-gray-400 group-hover:text-red-500">→</span>
                                 </a>
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-
-                <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                        <span className="text-indigo-600">🛠️</span> Tools & Focused Research
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="p-6 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl border border-indigo-100">
-                            <h3 className="font-bold text-indigo-900 mb-2">Scientific Literature</h3>
-                            <p className="text-sm text-indigo-700 mb-4">Search thousands of PubMed articles curated for {info.name}.</p>
-                            <button
-                                onClick={() => onStartSearch(info.diseases[0])}
-                                className="w-full bg-indigo-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
-                            >
-                                Start Scientific Search
-                            </button>
-                        </div>
-                        <div className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-100">
-                            <h3 className="font-bold text-amber-900 mb-2">Clinical Trials</h3>
-                            <p className="text-sm text-amber-700 mb-4">Explore actively recruiting clinical trials for this disease group.</p>
-                            <a
-                                href={`https://clinicaltrials.gov/search?term=${encodeURIComponent(info.clinicalTrialsQuery)}&aggFilters=status:rec`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-block w-full text-center bg-amber-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-amber-700 transition-colors shadow-sm"
-                            >
-                                View Clinical Trials
-                            </a>
-                        </div>
-                    </div>
-                </section>
-
-                <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                        <span className="text-red-600">🤝</span> Support & Resources
-                    </h2>
-                    <div className="space-y-4">
-                        <a
-                            href="https://www.lls.org/caregiver-support"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-red-50 hover:border-red-200 border border-transparent transition-all group"
-                        >
-                            <div className="flex items-center gap-3">
-                                <span className="text-2xl">🆘</span>
-                                <div>
-                                    <h4 className="font-bold text-gray-900 group-hover:text-red-700">LLS Caregiver Support</h4>
-                                    <p className="text-sm text-gray-600">Resources and communities for those caring for patients.</p>
-                                </div>
+                                <a
+                                    href="https://www.lls.org/support-resources/financial-support"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-green-50 hover:border-green-200 border border-transparent transition-all group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl">💰</span>
+                                        <div>
+                                            <h4 className="font-bold text-gray-900 group-hover:text-green-700">Financial Assistance</h4>
+                                            <p className="text-sm text-gray-600">Help with treatment costs and clinical trial expenses.</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-gray-400 group-hover:text-green-500">→</span>
+                                </a>
                             </div>
-                            <span className="text-gray-400 group-hover:text-red-500">→</span>
-                        </a>
-                        <a
-                            href="https://www.lls.org/support-resources/financial-support"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-green-50 hover:border-green-200 border border-transparent transition-all group"
-                        >
-                            <div className="flex items-center gap-3">
-                                <span className="text-2xl">💰</span>
-                                <div>
-                                    <h4 className="font-bold text-gray-900 group-hover:text-green-700">Financial Assistance</h4>
-                                    <p className="text-sm text-gray-600">Help with treatment costs and clinical trial expenses.</p>
-                                </div>
-                            </div>
-                            <span className="text-gray-400 group-hover:text-green-500">→</span>
-                        </a>
-                    </div>
-                </section>
+                        </section>
+                    </>
+                )}
             </div>
 
             {/* News Feed */}
