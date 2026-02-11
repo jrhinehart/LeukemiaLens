@@ -126,14 +126,24 @@ app.get('/api/search', async (c) => {
         query += ` WHERE ` + constraints.join(' AND ');
     }
 
+    // Build a COUNT query with the same filters (no LIMIT/OFFSET)
+    const countQuery = query.replace('SELECT DISTINCT s.*', 'SELECT COUNT(DISTINCT s.id) as total');
+    const countParams = [...params];
+
     query += ` ORDER BY s.pub_date DESC LIMIT ? OFFSET ?`;
     params.push(parseInt(limit), parseInt(offset));
 
     try {
-        const { results } = await c.env.DB.prepare(query).bind(...params).run();
+        // Run both queries in parallel
+        const [searchRes, countRes] = await Promise.all([
+            c.env.DB.prepare(query).bind(...params).run(),
+            c.env.DB.prepare(countQuery).bind(...countParams).run()
+        ]);
+        const results = searchRes.results;
+        const totalCount = (countRes.results?.[0] as any)?.total ?? results.length;
 
         // Create list of IDs to fetch their mutations efficiently
-        if (results.length === 0) return c.json([]);
+        if (results.length === 0) return c.json({ articles: [], totalCount: 0 });
 
         const studyIds = results.map((r: any) => r.id);
 
@@ -205,7 +215,7 @@ app.get('/api/search', async (c) => {
             };
         });
 
-        return c.json(enhancedResults);
+        return c.json({ articles: enhancedResults, totalCount });
     } catch (e: any) {
         return c.json({ error: e.message }, 500);
     }

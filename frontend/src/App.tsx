@@ -154,6 +154,7 @@ function App() {
 
 
   const [articles, setArticles] = useState<Article[]>([])
+  const [totalMatchCount, setTotalMatchCount] = useState<number | null>(null)
 
   // Filters
   const [selectedMutation, setSelectedMutation] = useState<string[]>([])
@@ -297,7 +298,12 @@ function App() {
         paramsSerializer: { serialize: paramsSerializer }
       })
 
-      const mapped = res.data.map((r: any) => ({
+      // Handle both new { articles, totalCount } and legacy array response
+      const responseData = res.data;
+      const rawArticles = Array.isArray(responseData) ? responseData : responseData.articles || [];
+      const totalCount = Array.isArray(responseData) ? null : responseData.totalCount ?? null;
+
+      const mapped = rawArticles.map((r: any) => ({
         pubmed_id: r.source_id ? r.source_id.replace('PMID:', '') : String(r.id),
         title: r.title,
         abstract: r.abstract,
@@ -313,6 +319,7 @@ function App() {
         full_text_type: r.full_text_type
       }))
       setArticles(mapped)
+      setTotalMatchCount(totalCount)
     } catch (err: any) {
       console.error(err)
       setError({
@@ -360,6 +367,7 @@ function App() {
     setStartDate("")
     setEndDate("")
     setArticles([])
+    setTotalMatchCount(null)
   }
 
   const handleExport = () => {
@@ -869,7 +877,11 @@ function App() {
                     </svg>
                   </button>
                   <h2 className="text-lg font-bold text-gray-900">
-                    {articles.length > 0 ? `${articles.length} Research Articles` : 'Search Results'}
+                    {articles.length > 0
+                      ? totalMatchCount !== null && totalMatchCount > articles.length
+                        ? `Showing ${articles.length.toLocaleString()} of ${totalMatchCount.toLocaleString()} Research Articles`
+                        : `${articles.length.toLocaleString()} Research Articles`
+                      : 'Search Results'}
                   </h2>
                 </div>
                 <div className="flex items-center gap-2">
