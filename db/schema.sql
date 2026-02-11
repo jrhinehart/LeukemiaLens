@@ -182,7 +182,6 @@ CREATE TABLE IF NOT EXISTS chunks (
     id TEXT PRIMARY KEY,              -- UUID
     document_id TEXT NOT NULL,        -- FK to documents
     chunk_index INTEGER NOT NULL,     -- Order within document
-    content TEXT NOT NULL,            -- Chunk text content
     start_page INTEGER,               -- Starting page in source doc
     end_page INTEGER,                 -- Ending page in source doc
     section_header TEXT,              -- Section header if detected

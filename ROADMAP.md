@@ -37,12 +37,14 @@ This document tracks planned features, architectural decisions, and design instr
 ## Roadmap
 
 ### 🚀 In Progress
-- [ ] User Authentication with Clerk
+- [ ] **User Authentication (Clerk) & API Access Restriction**: Secure endpoints to prevent unauthorized usage and implement per-user rate limiting.
+- [ ] **API Security Layer**: Implement strict input validation (Zod) and consider HMAC request signing for sensitive state-changing operations to prevent replay attacks or parameter tampering.
 - [ ] PDF Generation and R2 Storage for Research Insights (Downloadable Reports)
 
 ### 📋 Planned (High Priority)
 - [ ] Enhanced Patient Knowledge Graph
 - [ ] Real-time Clinical Trial matching
+- [ ] **Research Collections**: Ability to curate and persist tangible sets of articles that survive beyond individual searches, enabling longitudinal AI analysis and cross-study comparisons.
 
 ### 💡 Future Ideas
 - [ ] 
@@ -71,57 +73,10 @@ This document tracks planned features, architectural decisions, and design instr
 <!-- Add any additional notes, brainstorming, or reference links -->
 
 ### Hybrid Ingestion Strategy and AI Pipeline:
-No GPU needed, and your low CPU + 70% RAM setup is workable for a CPU‑only RAG pipeline, especially with Claude handling the heavy inference.
-
-### CPU‑only RAG is realistic
-
-With Claude in the cloud via AI Gateway, your Unraid container handles lighter tasks: PDF → text extraction, chunking, embedding generation (small CPU‑optimized models), and R2/D1 sync. Users run full CPU‑only RAG on similar Unraid setups with 3‑7B quantized models at usable speeds (3‑10 tokens/sec). [starkinsider](https://www.starkinsider.com/2025/08/starkmind-building-an-at-home-llm-with-rag-not-really-that-hard.html)
-
-### RAM strategy (70% baseline)
-
-Your ~30% headroom is enough if managed:
-- **Set strict limits**: In Unraid Docker advanced view → Extra Parameters: `--memory=4G --cpus=2.0` (or fractional) per RAG container. This prevents swapping/lockups even under spikes. [reddit](https://www.reddit.com/r/unRAID/comments/ctul23/how_do_i_limit_ramcpu_usage_of_docker_containers/)
-- **Prioritize**: Use small embedding models (e.g., all‑MiniLM‑L6‑v2, ~90MB) that fit in 1‑2 GB. Offload full LLM to Claude. [reddit](https://www.reddit.com/r/Rag/comments/1qafa53/best_practices_for_running_a_cpuonly_rag_chatbot/)
-- **Monitor/audit**: Check `docker stats` and Unraid dashboard; pause low‑priority of your 20 containers during ingestion if needed. Total addition: 4‑8 GB for the stack. [reddit](https://www.reddit.com/r/unRAID/comments/1jt2hr0/unraid_unresponsive_high_docker_ram_usage_and/)
-
-### CPU utilization
-
-Your low baseline is perfect—RAG bursts to 100% on a few cores during parsing/embedding:
-- **Pin cores**: Extra Parameters: `--cpuset-cpus="4-7"` (isolate 4 cores for RAG). Keeps other containers responsive. [youtube](https://www.youtube.com/watch?v=f8ieFDCRkLs)
-- **Batch process**: Run ingestion as scheduled jobs (not always‑on) to avoid sustained load. [starkinsider](https://www.starkinsider.com/2025/08/starkmind-building-an-at-home-llm-with-rag-not-really-that-hard.html)
-- **Modern CPU bonus**: If Intel 12th+ gen or AMD Zen 3+, enable performance governor for 20‑50% faster single‑threaded tasks. [youtube](https://www.youtube.com/watch?v=f8ieFDCRkLs)
-
-### Recommended container stack
-```
-PDF Parser (pdfcpu/tika) → Text Chunker → Embedding (sentence-transformers CPU) → R2 Upload → Query API (FastAPI + FAISS/whoosh index)
-```
-```
-Docker Compose:
-├── pdfcpu:latest (parse → text files)
-├── sentence-transformers (embed → numpy)
-├── FastAPI + FAISS (query endpoint → R2 sync)
-└── Cron job for batch ingest
-```
-
-Tune embeddings with pip install onnxruntime sentence-transformers[onnx] for Ryzen speedups.
-
-This runs comfortably without upgrades for <50 docs/hour. Test embedding speed first: ollama run nomic-embed-text on a sample doc. If viable, you're set.
-
-- All CPU‑friendly, low‑memory; total ~6 GB RAM, 4 cores peak.
-- Proven on Unraid without GPU. [starkinsider](https://www.starkinsider.com/2025/08/starkmind-building-an-at-home-llm-with-rag-not-really-that-hard.html)
-
-### Quick validation steps
-1. Spin up Ollama container (CPU mode, 3B model) → test embedding speed.
-2. Add pdfplumber Docker → parse a sample doc.
-3. If RAM hits 90%+, add 16 GB stick (~$30) or trim other containers.
-
-This keeps everything local except Claude, leveraging your spare CPU headroom effectively. Share your CPU model and total RAM for a tuned config.
+Workers can perform API calls and simple fetching and uploading, or smaller models for chunking and parsing, but the chunking and embedding can leverage local hardware when available to offload costs and improve performance. Workers AI can handle small batches of embedding generation on an ongoing basis, but large batches should be processed locally.
 
 
-
-
-
-### High-level request flow for Clerk authentication:
+### High-level request flow for Clerk user authentication:
 User hits your Pages SPA; Clerk frontend components handle sign up / sign in and maintain a session token (JWT) in cookie or header.
 
 SPA calls your API routes (Workers) and sends the Clerk session token in the Authorization: Bearer <token> header (or relies on the __session cookie).

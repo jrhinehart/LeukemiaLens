@@ -1,4 +1,5 @@
 import React from 'react';
+import myelomaSpectrum from '../assets/myeloma-spectrum.png';
 
 // ─── MGUS Deep Dive Educational Content ────────────────────────────
 const MGUSDeepDive: React.FC = () => (
@@ -14,6 +15,18 @@ const MGUSDeepDive: React.FC = () => (
                 but at levels too low to cause symptoms or organ damage. MGUS is remarkably common — present in
                 ~3-4% of adults over 50 and ~5% over 70.
             </p>
+
+            <div className="my-8 bg-teal-50 rounded-xl border border-teal-100 p-6 flex flex-col items-center">
+                <img
+                    src={myelomaSpectrum}
+                    alt="The Plasma Cell Disorder Spectrum"
+                    className="max-w-2xl h-auto rounded-lg shadow-sm mb-4"
+                />
+                <p className="text-sm text-teal-700 text-center italic">
+                    Figure 1: The spectrum of plasma cell disorders. MGUS is the
+                    earliest pre-malignant stage on this pathway.
+                </p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
                 <div className="bg-teal-50 p-5 rounded-xl border border-teal-100">

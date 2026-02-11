@@ -1676,13 +1676,13 @@ __name(__classPrivateFieldGet, "__classPrivateFieldGet");
 
 // node_modules/@anthropic-ai/sdk/internal/utils/uuid.mjs
 var uuid4 = /* @__PURE__ */ __name(function() {
-  const { crypto } = globalThis;
-  if (crypto?.randomUUID) {
-    uuid4 = crypto.randomUUID.bind(crypto);
-    return crypto.randomUUID();
+  const { crypto: crypto2 } = globalThis;
+  if (crypto2?.randomUUID) {
+    uuid4 = crypto2.randomUUID.bind(crypto2);
+    return crypto2.randomUUID();
   }
   const u8 = new Uint8Array(1);
-  const randomByte = crypto ? () => crypto.getRandomValues(u8)[0] : () => Math.random() * 255 & 255;
+  const randomByte = crypto2 ? () => crypto2.getRandomValues(u8)[0] : () => Math.random() * 255 & 255;
   return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (+c ^ randomByte() & 15 >> +c / 4).toString(16));
 }, "uuid4");
 
@@ -7158,6 +7158,499 @@ app.get("/api/news/:disease", async (c) => {
       // Cache news for 1 hour
     });
   } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/pmc/check/:pmcid", async (c) => {
+  const pmcid = c.req.param("pmcid");
+  const normalizedPmcid = pmcid.toUpperCase().startsWith("PMC") ? pmcid.toUpperCase() : `PMC${pmcid}`;
+  try {
+    const response = await fetch(
+      `https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi?id=${normalizedPmcid}`
+    );
+    if (!response.ok) {
+      return c.json({
+        available: false,
+        error: `PMC API returned status ${response.status}`
+      });
+    }
+    const xmlText = await response.text();
+    if (xmlText.includes("<error")) {
+      const errorMatch = xmlText.match(/<error[^>]*>([^<]*)<\/error>/);
+      return c.json({
+        available: false,
+        pmcid: normalizedPmcid,
+        error: errorMatch?.[1] || "Article not found in PMC Open Access"
+      });
+    }
+    const recordMatch = xmlText.match(
+      /<record[^>]*id="([^"]+)"[^>]*citation="([^"]+)"[^>]*license="([^"]+)"[^>]*retracted="([^"]+)"[^>]*>/
+    );
+    if (!recordMatch) {
+      return c.json({
+        available: false,
+        pmcid: normalizedPmcid,
+        error: "Could not parse PMC response"
+      });
+    }
+    const links = [];
+    const linkRegex = /<link[^>]*format="([^"]+)"[^>]*updated="([^"]+)"[^>]*href="([^"]+)"[^>]*\/>/g;
+    let linkMatch;
+    while ((linkMatch = linkRegex.exec(xmlText)) !== null) {
+      links.push({
+        format: linkMatch[1],
+        updated: linkMatch[2],
+        href: linkMatch[3]
+      });
+    }
+    const record = {
+      pmcid: recordMatch[1],
+      citation: recordMatch[2],
+      license: recordMatch[3],
+      retracted: recordMatch[4] === "yes",
+      links
+    };
+    return c.json({
+      available: true,
+      pmcid: normalizedPmcid,
+      record
+    });
+  } catch (e) {
+    return c.json({
+      available: false,
+      pmcid: normalizedPmcid,
+      error: e.message
+    }, 500);
+  }
+});
+app.get("/api/pmc/convert/:pmid", async (c) => {
+  const pmid = c.req.param("pmid");
+  try {
+    const response = await fetch(
+      `https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/?ids=${pmid}&format=json`
+    );
+    if (!response.ok) {
+      return c.json({ pmid, error: "Conversion API error" }, 500);
+    }
+    const data = await response.json();
+    const record = data.records?.[0];
+    if (!record || record.status === "error") {
+      return c.json({
+        pmid,
+        pmcid: null,
+        error: record?.errmsg || "No PMC ID found for this PMID"
+      });
+    }
+    return c.json({
+      pmid: record.pmid,
+      pmcid: record.pmcid || null,
+      doi: record.doi || null
+    });
+  } catch (e) {
+    return c.json({ pmid, error: e.message }, 500);
+  }
+});
+app.post("/api/documents/upload", async (c) => {
+  try {
+    const contentType = c.req.header("content-type") || "";
+    let documentData;
+    let fileBuffer = null;
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await c.req.formData();
+      const file = formData.get("file");
+      const metadata = formData.get("metadata");
+      if (!file) {
+        return c.json({
+          success: false,
+          error: "No file provided"
+        }, 400);
+      }
+      fileBuffer = await file.arrayBuffer();
+      documentData = metadata ? JSON.parse(metadata) : {};
+      documentData.filename = documentData.filename || file.name;
+      documentData.fileSize = fileBuffer.byteLength;
+      if (!documentData.format) {
+        const ext = file.name.split(".").pop()?.toLowerCase();
+        if (ext === "pdf") documentData.format = "pdf";
+        else if (ext === "xml") documentData.format = "xml";
+        else if (ext === "txt") documentData.format = "txt";
+        else documentData.format = "pdf";
+      }
+    } else {
+      documentData = await c.req.json();
+      if (documentData.content) {
+        const binaryString = atob(documentData.content);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        fileBuffer = bytes.buffer;
+        documentData.fileSize = fileBuffer.byteLength;
+      }
+    }
+    if (!documentData.filename) {
+      return c.json({
+        success: false,
+        error: "Filename is required"
+      }, 400);
+    }
+    if (!documentData.source) {
+      documentData.source = "manual";
+    }
+    if (!documentData.format) {
+      documentData.format = "pdf";
+    }
+    const docId = crypto.randomUUID();
+    const r2Key = documentData.pmcid ? `pmc/${documentData.pmcid}/${documentData.filename}` : `uploads/${docId}/${documentData.filename}`;
+    if (fileBuffer) {
+      await c.env.DOCUMENTS.put(r2Key, fileBuffer, {
+        customMetadata: {
+          pmcid: documentData.pmcid || "",
+          pmid: documentData.pmid || "",
+          format: documentData.format,
+          source: documentData.source
+        }
+      });
+    }
+    await c.env.DB.prepare(`
+            INSERT INTO documents (
+                id, pmcid, pmid, study_id, filename, source, format, 
+                license, r2_key, file_size, status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `).bind(
+      docId,
+      documentData.pmcid || null,
+      documentData.pmid || null,
+      documentData.studyId || null,
+      documentData.filename,
+      documentData.source,
+      documentData.format,
+      documentData.license || null,
+      r2Key,
+      documentData.fileSize || null,
+      fileBuffer ? "pending" : "awaiting_upload"
+    ).run();
+    const doc = await c.env.DB.prepare(
+      "SELECT * FROM documents WHERE id = ?"
+    ).bind(docId).first();
+    return c.json({
+      success: true,
+      document: doc
+    });
+  } catch (e) {
+    console.error("Document upload error:", e);
+    return c.json({
+      success: false,
+      error: e.message
+    }, 500);
+  }
+});
+app.get("/api/documents", async (c) => {
+  const { status, source, limit = "50", offset = "0" } = c.req.query();
+  try {
+    let query = "SELECT * FROM documents";
+    const constraints = [];
+    const params = [];
+    if (status) {
+      constraints.push("status = ?");
+      params.push(status);
+    }
+    if (source) {
+      constraints.push("source = ?");
+      params.push(source);
+    }
+    if (constraints.length > 0) {
+      query += " WHERE " + constraints.join(" AND ");
+    }
+    query += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+    params.push(parseInt(limit), parseInt(offset));
+    const { results } = await c.env.DB.prepare(query).bind(...params).run();
+    let countQuery = "SELECT COUNT(*) as total FROM documents";
+    if (constraints.length > 0) {
+      countQuery += " WHERE " + constraints.join(" AND ");
+    }
+    const countResult = await c.env.DB.prepare(countQuery).bind(...params.slice(0, -2)).first();
+    return c.json({
+      documents: results,
+      total: countResult?.total || 0,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/documents/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const doc = await c.env.DB.prepare(
+      "SELECT * FROM documents WHERE id = ?"
+    ).bind(id).first();
+    if (!doc) {
+      return c.json({ error: "Document not found" }, 404);
+    }
+    const r2Object = await c.env.DOCUMENTS.head(doc.r2_key);
+    return c.json({
+      document: doc,
+      fileExists: !!r2Object,
+      httpMetadata: r2Object?.httpMetadata,
+      size: r2Object?.size
+    });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/documents/:id/content", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const doc = await c.env.DB.prepare(
+      "SELECT * FROM documents WHERE id = ?"
+    ).bind(id).first();
+    if (!doc) {
+      return c.json({ error: "Document not found" }, 404);
+    }
+    const r2Object = await c.env.DOCUMENTS.get(doc.r2_key);
+    if (!r2Object) {
+      return c.json({ error: "File not found in storage" }, 404);
+    }
+    const contentType = doc.format === "pdf" ? "application/pdf" : doc.format === "xml" ? "application/xml" : "text/plain";
+    return new Response(r2Object.body, {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="${doc.filename}"`
+      }
+    });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.patch("/api/documents/:id/status", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => null);
+  if (!body || !body.status) {
+    return c.json({ error: "Status is required" }, 400);
+  }
+  try {
+    const updates = ["status = ?"];
+    const params = [body.status];
+    if (body.status === "ready") {
+      updates.push("processed_at = datetime('now')");
+    }
+    if (body.errorMessage !== void 0) {
+      updates.push("error_message = ?");
+      params.push(body.errorMessage);
+    }
+    if (body.chunkCount !== void 0) {
+      updates.push("chunk_count = ?");
+      params.push(body.chunkCount);
+    }
+    params.push(id);
+    await c.env.DB.prepare(
+      `UPDATE documents SET ${updates.join(", ")} WHERE id = ?`
+    ).bind(...params).run();
+    const doc = await c.env.DB.prepare(
+      "SELECT * FROM documents WHERE id = ?"
+    ).bind(id).first();
+    return c.json({ success: true, document: doc });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/rag/stats", async (c) => {
+  try {
+    const [totalDocs, byStatus, bySource, byFormat] = await Promise.all([
+      c.env.DB.prepare("SELECT COUNT(*) as count FROM documents").first(),
+      c.env.DB.prepare(`
+                SELECT status, COUNT(*) as count 
+                FROM documents 
+                GROUP BY status
+            `).all(),
+      c.env.DB.prepare(`
+                SELECT source, COUNT(*) as count 
+                FROM documents 
+                GROUP BY source
+            `).all(),
+      c.env.DB.prepare(`
+                SELECT format, COUNT(*) as count 
+                FROM documents 
+                GROUP BY format
+            `).all()
+    ]);
+    const statusCounts = {};
+    byStatus.results?.forEach((r) => statusCounts[r.status] = r.count);
+    const sourceCounts = {};
+    bySource.results?.forEach((r) => sourceCounts[r.source] = r.count);
+    const formatCounts = {};
+    byFormat.results?.forEach((r) => formatCounts[r.format] = r.count);
+    return c.json({
+      totalDocuments: totalDocs?.count || 0,
+      byStatus: statusCounts,
+      bySource: sourceCounts,
+      byFormat: formatCounts,
+      generatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.get("/api/documents/:id/chunks", async (c) => {
+  const docId = c.req.param("id");
+  const { limit = "100", offset = "0" } = c.req.query();
+  try {
+    const { results } = await c.env.DB.prepare(`
+            SELECT * FROM chunks 
+            WHERE document_id = ? 
+            ORDER BY chunk_index 
+            LIMIT ? OFFSET ?
+        `).bind(docId, parseInt(limit), parseInt(offset)).run();
+    const countResult = await c.env.DB.prepare(
+      "SELECT COUNT(*) as total FROM chunks WHERE document_id = ?"
+    ).bind(docId).first();
+    return c.json({
+      chunks: results,
+      total: countResult?.total || 0,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.post("/api/chunks/batch", async (c) => {
+  try {
+    const body = await c.req.json();
+    if (!body.documentId || !body.chunks || body.chunks.length === 0) {
+      return c.json({
+        success: false,
+        chunksCreated: 0,
+        vectorsUpserted: 0,
+        error: "documentId and chunks are required"
+      }, 400);
+    }
+    const doc = await c.env.DB.prepare(
+      "SELECT id FROM documents WHERE id = ?"
+    ).bind(body.documentId).first();
+    if (!doc) {
+      return c.json({
+        success: false,
+        chunksCreated: 0,
+        vectorsUpserted: 0,
+        error: "Document not found"
+      }, 404);
+    }
+    let chunksCreated = 0;
+    let vectorsUpserted = 0;
+    const batchSize = 10;
+    for (let i = 0; i < body.chunks.length; i += batchSize) {
+      const batch = body.chunks.slice(i, i + batchSize);
+      for (const chunk of batch) {
+        await c.env.DB.prepare(`
+                    INSERT INTO chunks (
+                        id, document_id, chunk_index, content,
+                        start_page, end_page, section_header, token_count,
+                        embedding_id, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                `).bind(
+          chunk.id,
+          body.documentId,
+          chunk.chunkIndex,
+          chunk.content,
+          chunk.startPage || null,
+          chunk.endPage || null,
+          chunk.sectionHeader || null,
+          chunk.tokenCount || null,
+          chunk.id
+          // Use chunk ID as embedding ID
+        ).run();
+        chunksCreated++;
+      }
+      const vectors = batch.map((chunk) => ({
+        id: chunk.id,
+        values: chunk.embedding,
+        metadata: {
+          documentId: body.documentId,
+          chunkIndex: chunk.chunkIndex,
+          sectionHeader: chunk.sectionHeader || ""
+        }
+      }));
+      await c.env.VECTORIZE.upsert(vectors);
+      vectorsUpserted += vectors.length;
+    }
+    await c.env.DB.prepare(
+      "UPDATE documents SET chunk_count = ? WHERE id = ?"
+    ).bind(chunksCreated, body.documentId).run();
+    return c.json({
+      success: true,
+      chunksCreated,
+      vectorsUpserted
+    });
+  } catch (e) {
+    console.error("Batch chunk error:", e);
+    return c.json({
+      success: false,
+      chunksCreated: 0,
+      vectorsUpserted: 0,
+      error: e.message
+    }, 500);
+  }
+});
+app.get("/api/chunks/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const chunk = await c.env.DB.prepare(
+      "SELECT * FROM chunks WHERE id = ?"
+    ).bind(id).first();
+    if (!chunk) {
+      return c.json({ error: "Chunk not found" }, 404);
+    }
+    return c.json(chunk);
+  } catch (e) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+app.post("/api/rag/search", async (c) => {
+  try {
+    const body = await c.req.json();
+    if (!body.query) {
+      return c.json({ error: "Query is required" }, 400);
+    }
+    const topK = body.topK || 5;
+    const embeddingResult = await c.env.AI.run("@cf/baai/bge-base-en-v1.5", {
+      text: body.query
+    });
+    if (!embeddingResult.data || !embeddingResult.data[0]) {
+      return c.json({ error: "Failed to generate query embedding" }, 500);
+    }
+    const searchResults = await c.env.VECTORIZE.query(
+      embeddingResult.data[0],
+      { topK, returnValues: false, returnMetadata: "all" }
+    );
+    const chunkIds = searchResults.matches.map((m) => m.id);
+    if (chunkIds.length === 0) {
+      return c.json({ matches: [], query: body.query });
+    }
+    const placeholders = chunkIds.map(() => "?").join(",");
+    const { results: chunks } = await c.env.DB.prepare(`
+            SELECT c.*, d.filename, d.pmcid
+            FROM chunks c
+            JOIN documents d ON c.document_id = d.id
+            WHERE c.id IN (${placeholders})
+        `).bind(...chunkIds).run();
+    const matches = searchResults.matches.map((match2) => {
+      const chunk = chunks?.find((c2) => c2.id === match2.id);
+      return {
+        id: match2.id,
+        score: match2.score,
+        chunk,
+        metadata: match2.metadata
+      };
+    });
+    return c.json({
+      query: body.query,
+      matches
+    });
+  } catch (e) {
+    console.error("RAG search error:", e);
     return c.json({ error: e.message }, 500);
   }
 });

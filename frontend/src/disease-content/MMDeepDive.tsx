@@ -1,4 +1,6 @@
 import React from 'react';
+import myelomaBoneLesion from '../assets/myeloma-bone-lesion.png';
+import myelomaSpectrum from '../assets/myeloma-spectrum.png';
 
 // ─── MM Deep Dive Educational Content ────────────────────────────
 const MMDeepDive: React.FC = () => (
@@ -108,6 +110,17 @@ const MMDeepDive: React.FC = () => (
                 Understanding this spectrum is critical because it creates opportunities for early detection and
                 potentially <strong>interceptive therapy</strong> before full myeloma develops.
             </p>
+
+            <div className="my-8 bg-purple-50 rounded-xl border border-purple-100 p-6 flex flex-col items-center">
+                <img
+                    src={myelomaSpectrum}
+                    alt="The Plasma Cell Disorder Spectrum"
+                    className="max-w-2xl h-auto rounded-lg shadow-sm mb-4"
+                />
+                <p className="text-sm text-purple-700 text-center italic">
+                    Figure 1: The spectrum of plasma cell disorders, from pre-malignant MGUS to active Multiple Myeloma.
+                </p>
+            </div>
 
             <div className="space-y-4 my-6">
                 <div className="bg-green-50 p-5 rounded-xl border border-green-200">
@@ -229,6 +242,18 @@ const MMDeepDive: React.FC = () => (
                         fractures, and spinal cord compression. Unlike other cancers with bone metastases, myeloma bone lesions
                         <strong> do not heal</strong> even after successful treatment, because osteoblast suppression persists.
                     </p>
+
+                    <div className="mt-6 bg-white rounded-lg border border-rose-200 p-4 flex flex-col items-center">
+                        <img
+                            src={myelomaBoneLesion}
+                            alt="Mechanism of Myeloma Bone Destruction"
+                            className="max-w-xl h-auto rounded shadow-sm mb-4"
+                        />
+                        <p className="text-xs text-rose-700 text-center italic">
+                            Figure 2: The imbalance between osteoclasts (bone-eating) and osteoblasts (bone-building)
+                            driven by myeloma cell signaling, leading to lytic lesions.
+                        </p>
+                    </div>
                 </div>
                 <div className="bg-rose-50 p-4 rounded-xl border border-rose-100">
                     <h4 className="font-bold text-rose-800 mb-2">🫘 Kidney Damage</h4>

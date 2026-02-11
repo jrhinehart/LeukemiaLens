@@ -1,4 +1,5 @@
 import React from 'react';
+import myelomaSpectrum from '../assets/myeloma-spectrum.png';
 
 // ─── SMM Deep Dive Educational Content ────────────────────────────
 const SMMDeepDive: React.FC = () => (
@@ -14,6 +15,18 @@ const SMMDeepDive: React.FC = () => (
                 abnormal plasma cell burden is significantly higher, and the <strong>risk of progression is
                     much greater</strong>, especially in the first 5 years.
             </p>
+
+            <div className="my-8 bg-amber-50 rounded-xl border border-amber-100 p-6 flex flex-col items-center">
+                <img
+                    src={myelomaSpectrum}
+                    alt="The Plasma Cell Disorder Spectrum"
+                    className="max-w-2xl h-auto rounded-lg shadow-sm mb-4"
+                />
+                <p className="text-sm text-amber-700 text-center italic">
+                    Figure 1: The spectrum of plasma cell disorders. SMM is a middle stage
+                    between pre-malignant MGUS and active Multiple Myeloma.
+                </p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
                 <div className="bg-amber-50 p-5 rounded-xl border border-amber-100">

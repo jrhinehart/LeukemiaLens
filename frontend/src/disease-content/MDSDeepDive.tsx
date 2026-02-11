@@ -1,4 +1,5 @@
 import React from 'react';
+import mdsIneffective from '../assets/mds-ineffective-hematopoiesis.png';
 
 // ─── MDS Deep Dive Educational Content ────────────────────────────
 const MDSDeepDive: React.FC = () => (
@@ -14,6 +15,18 @@ const MDSDeepDive: React.FC = () => (
                 hypercellular) but produces <strong>defective blood cells that die before they mature</strong>.
                 This paradox — a busy marrow but low blood counts — is the defining feature of the disease.
             </p>
+
+            <div className="my-8 bg-violet-50 rounded-xl border border-violet-100 p-6 flex flex-col items-center">
+                <img
+                    src={mdsIneffective}
+                    alt="Ineffective Hematopoiesis Mechanism"
+                    className="max-w-xl h-auto rounded-lg shadow-sm mb-4"
+                />
+                <p className="text-sm text-violet-700 text-center italic">
+                    Figure 1: Ineffective hematopoiesis. Precursor cells in the marrow fail to mature
+                    and undergo premature death (apoptosis), leading to low counts in the blood.
+                </p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
                 <div className="bg-red-50 p-5 rounded-xl border border-red-100">

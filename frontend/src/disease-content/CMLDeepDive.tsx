@@ -1,4 +1,5 @@
 import React from 'react';
+import philadelphiaChromosome from '../assets/philadelphia-chromosome.png';
 
 // ─── CML Deep Dive Educational Content ────────────────────────────
 const CMLDeepDive: React.FC = () => (
@@ -14,6 +15,17 @@ const CMLDeepDive: React.FC = () => (
                 chromosomal abnormality linked to any cancer and remains one of the most important discoveries in
                 cancer biology.
             </p>
+
+            <div className="my-8 bg-amber-50 rounded-xl border border-amber-100 p-6 flex flex-col items-center">
+                <img
+                    src={philadelphiaChromosome}
+                    alt="Philadelphia Chromosome t(9;22) Translocation"
+                    className="max-w-xl h-auto rounded-lg shadow-sm mb-4"
+                />
+                <p className="text-sm text-amber-700 text-center italic">
+                    Figure 1: The reciprocal translocation between chromosomes 9 and 22 that creates the BCR-ABL1 fusion gene.
+                </p>
+            </div>
 
             <h3 className="text-lg font-bold text-gray-900 mt-6 mb-3">How It Forms</h3>
             <p className="text-gray-700 leading-relaxed mb-4">

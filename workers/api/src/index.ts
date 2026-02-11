@@ -736,7 +736,7 @@ Rules:
                     const docIds = fullTextDocs.map((d: any) => d.id);
 
                     const { results: chunksMetadata } = await c.env.DB.prepare(`
-                        SELECT id, document_id, content, chunk_index FROM chunks 
+                        SELECT id, document_id, chunk_index FROM chunks 
                         WHERE document_id IN (${docIds.map(() => '?').join(',')}) AND chunk_index < 5
                     `).bind(...docIds).run();
 
@@ -757,7 +757,7 @@ Rules:
 
                         if (!content && chunksMetadata) {
                             const docChunks = (chunksMetadata as any[]).filter(ch => ch.document_id === doc.id);
-                            content = docChunks.map(ch => ch.content).filter(Boolean).join("\n");
+                            // Note: R2 fetch is now the primary source. If fetch fails, we skip content for this doc.
                         }
 
                         if (content) {
@@ -2089,10 +2089,10 @@ app.post('/api/chunks/batch', async (c) => {
             for (const chunk of batch) {
                 await c.env.DB.prepare(`
                     INSERT INTO chunks (
-                        id, document_id, chunk_index, content,
+                        id, document_id, chunk_index,
                         start_page, end_page, section_header, token_count,
                         embedding_id, created_at
-                    ) VALUES (?, ?, ?, '', ?, ?, ?, ?, ?, datetime('now'))
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 `).bind(
                     chunk.id,
                     body.documentId,
@@ -2349,7 +2349,7 @@ app.post('/api/rag/query', async (c) => {
         const placeholders = chunkIds.map(() => '?').join(',');
 
         const { results: dbChunks } = await c.env.DB.prepare(`
-            SELECT c.id, c.content, c.start_page, c.end_page, c.document_id,
+            SELECT c.id, c.start_page, c.end_page, c.document_id,
                    d.filename, d.pmcid
             FROM chunks c
             JOIN documents d ON c.document_id = d.id
@@ -2401,10 +2401,7 @@ app.post('/api/rag/query', async (c) => {
                 }
             }
 
-            // Fallback to D1 content for legacy chunks
-            if (!content && chunk.content) {
-                content = chunk.content;
-            }
+            // Fallback: This used to check D1 content but now relies strictly on R2.
 
             if (!content) return null;
 

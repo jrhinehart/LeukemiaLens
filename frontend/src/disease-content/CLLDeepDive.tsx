@@ -1,4 +1,5 @@
 import React from 'react';
+import cllBcl2 from '../assets/cll-bcl2.png';
 
 // ─── CLL Deep Dive Educational Content ────────────────────────────
 const CLLDeepDive: React.FC = () => (
@@ -17,7 +18,14 @@ const CLLDeepDive: React.FC = () => (
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
                 <div className="bg-sky-50 p-5 rounded-xl border border-sky-100">
-                    <h4 className="font-bold text-sky-800 mb-2">🛡️ The BCL-2 Survival Pathway</h4>
+                    <h4 className="font-bold text-sky-800 mb-3">🛡️ The BCL-2 Survival Pathway</h4>
+                    <div className="bg-white rounded-lg border border-sky-200 p-4 mb-3 flex flex-col items-center">
+                        <img
+                            src={cllBcl2}
+                            alt="BCL-2 Survival Pathway"
+                            className="max-w-full h-auto rounded shadow-sm"
+                        />
+                    </div>
                     <p className="text-sm text-sky-700 mb-2">
                         CLL cells massively overexpress <strong>BCL-2</strong> — the key anti-apoptotic protein that
                         blocks programmed cell death. This is the fundamental survival mechanism of CLL:

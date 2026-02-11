@@ -1,4 +1,5 @@
 import React from 'react';
+import allDifferentiation from '../assets/all-differentiation.png';
 
 // ─── ALL Deep Dive Educational Content ────────────────────────────
 const ALLDeepDive: React.FC = () => (
@@ -13,6 +14,18 @@ const ALLDeepDive: React.FC = () => (
                 <strong> hematopoietic stem cells (HSCs)</strong> in the bone marrow. These stem cells first commit to one of
                 two main lineages: <strong>myeloid</strong> or <strong>lymphoid</strong>. ALL specifically affects the lymphoid lineage.
             </p>
+
+            <div className="my-8 bg-blue-50 rounded-xl border border-blue-100 p-6 flex flex-col items-center">
+                <img
+                    src={allDifferentiation}
+                    alt="Lymphoid Differentiation Map"
+                    className="max-w-full h-auto rounded-lg shadow-sm mb-4"
+                />
+                <p className="text-sm text-blue-700 text-center italic">
+                    Figure 1: The lymphoid differentiation cascade. ALL occurs when lymphoblasts (precursors)
+                    fail to mature and begin multiplying uncontrollably.
+                </p>
+            </div>
 
             <h3 className="text-lg font-bold text-gray-900 mt-6 mb-3">The Lymphoid Differentiation Cascade</h3>
             <p className="text-gray-700 leading-relaxed mb-4">
