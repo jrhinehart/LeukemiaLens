@@ -32,6 +32,15 @@ interface RefinementResult {
 }
 
 async function refineAndParseQuery(c: any, rawQuery: string): Promise<RefinementResult> {
+    // Fast-path for extremely short queries (e.g. "FLT3", "AML")
+    if (rawQuery.trim().split(/\s+/).length <= 2 && /^[a-zA-Z0-9\s]+$/.test(rawQuery)) {
+        return {
+            refinedQuery: rawQuery.toUpperCase(),
+            intent: 'simple',
+            isMedical: true,
+            filters: { q: rawQuery }
+        };
+    }
     const systemPrompt = `You are a medical query optimizer and filter extractor for LeukemiaLens.
     Your task is to:
     1. Fix typos in medical terms and expand acronyms (e.g. "flt3" -> "FLT3", "SCT" -> "Stem Cell Transplant").
@@ -595,15 +604,17 @@ async function callLLMWithFallback(c: any, prompt: string, system: string, maxTo
         console.warn(`[LLM] WARNING: ANTHROPIC_API_KEY is MISSING in worker environment.`);
     }
 
-    // List of models to try in sequence (including 2026-era models)
-    const models = [
-        'claude-3-5-sonnet-latest',   // Most reliable standard alias
-        'claude-3-haiku-20240307',    // Fast fallback
-        'claude-sonnet-4-5',          // Potential future models
-        'claude-sonnet-4',
-        'claude-3-5-sonnet-20241022',
-        'claude-3-5-sonnet-20240620'
+    // List of models to try in sequence
+    let models = [
+        'claude-3-5-sonnet-latest',
+        'claude-3-haiku-20240307',
+        'claude-3-5-sonnet-20241022'
     ];
+
+    // Speed optimization: Use Haiku first for simple questions
+    if (system.toLowerCase().includes('basic question') || system.toLowerCase().includes('simple')) {
+        models = ['claude-3-haiku-20240307', 'claude-3-5-sonnet-latest'];
+    }
 
     for (const model of models) {
         try {
@@ -851,7 +862,14 @@ Provide a dense bulleted list of technical highlights for this batch.`;
 
         // Build the reduce prompt - use question-answering format when query exists
         const reducePrompt = query
-            ? `You are a medical research assistant answering a specific question from the scientific literature.
+            ? (intent === 'simple'
+                ? `You are a medical research assistant. Answer the user's question directly and concisely based on the research abstracts below.
+                
+USER QUESTION: ${query}
+
+RESEARCH DATA:
+${combinedHighlights}`
+                : `You are a medical research assistant answering a specific question from the scientific literature.
 
 USER QUESTION: ${query}
 
@@ -877,7 +895,7 @@ Based on the research data below, synthesize a comprehensive answer. Structure y
 - Note if evidence is preliminary vs. established
 
 RESEARCH DATA:
-${combinedHighlights}`
+${combinedHighlights}`)
             : `You are a medical research synthesis expert specializing in hematological malignancies. I will provide you with technical summary highlights for articles. 
 Your task is to synthesize these into a single, cohesive, high-level scientific report.
 
@@ -910,7 +928,7 @@ ${combinedHighlights}`;
             c,
             reducePrompt,
             systemPrompt,
-            4096
+            intent === 'simple' ? 1024 : 4096
         );
 
         // Update persistence
@@ -2336,13 +2354,13 @@ app.post('/api/rag/query', async (c) => {
             return c.json({ error: 'Query is required' }, 400);
         }
 
-        const topK = Math.min(body.topK || 15, 50);
-        const maxContextTokens = body.maxContextTokens || 150000;
-
         // Step 0: Refine and Classify (Consolidated call)
         const refinement = await refineAndParseQuery(c, body.query);
         const processingQuery = refinement.refinedQuery;
         const processingIntent = refinement.intent;
+
+        const topK = processingIntent === 'simple' ? 8 : Math.min(body.topK || 15, 50);
+        const maxContextTokens = body.maxContextTokens || 150000;
 
         // Step 1: Generate query embedding
         const embeddingResult = await c.env.AI.run('@cf/baai/bge-base-en-v1.5', {
@@ -2392,9 +2410,9 @@ app.post('/api/rag/query', async (c) => {
             chunksByDoc.get(docId)!.push(chunk);
         }
 
-        // Fetch chunk content from R2 for each document
+        // Fetch chunk content from R2 in parallel
         const documentContentMap = new Map<string, any>();
-        for (const docId of documentIds) {
+        await Promise.all(Array.from(documentIds).map(async (docId) => {
             try {
                 const r2Key = `chunks/${docId}.json`;
                 const object = await c.env.DOCUMENTS.get(r2Key);
@@ -2403,9 +2421,9 @@ app.post('/api/rag/query', async (c) => {
                     documentContentMap.set(docId, data);
                 }
             } catch (e) {
-                console.warn(`Failed to fetch chunk content from R2 for ${docId}:`, e);
+                console.warn(`[RAG] Failed parallel R2 fetch for ${docId}:`, e);
             }
-        }
+        }));
 
         // Combine with scores and get content from R2 or fallback to D1
         const scoredChunks = searchResults.matches.map(match => {
@@ -2480,7 +2498,7 @@ Please provide a comprehensive answer based on these sources, citing them with [
             c,
             userPrompt,
             systemPrompt,
-            4096
+            processingIntent === 'simple' ? 1024 : 4096
         );
 
         // Step 6: Persist follow-up to history if insightId provided
