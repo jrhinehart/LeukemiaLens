@@ -13,14 +13,23 @@
  */
 import React from 'react';
 import AMLDeepDive from './AMLDeepDive';
+import ALLDeepDive from './ALLDeepDive';
+import MMDeepDive from './MMDeepDive';
+import CMLDeepDive from './CMLDeepDive';
+import MDSDeepDive from './MDSDeepDive';
+import CLLDeepDive from './CLLDeepDive';
+import MPNDeepDive from './MPNDeepDive';
+import MGUSDeepDive from './MGUSDeepDive';
+import SMMDeepDive from './SMMDeepDive';
 
 export const DISEASE_DEEP_DIVES: Record<string, React.FC> = {
     aml: AMLDeepDive,
-    // Future deep dives:
-    // cml: CMLDeepDive,
-    // all: ALLDeepDive,
-    // cll: CLLDeepDive,
-    // mds: MDSDeepDive,
-    // mpn: MPNDeepDive,
-    // mm: MMDeepDive,
+    all: ALLDeepDive,
+    mm: MMDeepDive,
+    cml: CMLDeepDive,
+    mds: MDSDeepDive,
+    cll: CLLDeepDive,
+    mpn: MPNDeepDive,
+    mgus: MGUSDeepDive,
+    smm: SMMDeepDive,
 };

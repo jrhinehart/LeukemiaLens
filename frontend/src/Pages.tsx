@@ -280,6 +280,39 @@ export const ResourcesPage = ({ onNavigateToLearn }: { onNavigateToLearn: (topic
                         </div>
                         <p className="text-sm text-gray-600">How trials work, where to find them, and questions to ask.</p>
                     </a>
+                    <a
+                        href="/learn/treatments"
+                        onClick={(e) => { e.preventDefault(); onNavigateToLearn('treatments'); }}
+                        className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-pink-300 hover:shadow-md transition-all group"
+                    >
+                        <div className="flex items-center gap-3 mb-2">
+                            <span className="text-2xl">💊</span>
+                            <h3 className="font-semibold text-gray-900 group-hover:text-pink-600">Treatments</h3>
+                        </div>
+                        <p className="text-sm text-gray-600">Overview of treatment approaches including chemotherapy, targeted therapy, and immunotherapy.</p>
+                    </a>
+                    <a
+                        href="/learn/medications"
+                        onClick={(e) => { e.preventDefault(); onNavigateToLearn('medications'); }}
+                        className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-emerald-300 hover:shadow-md transition-all group"
+                    >
+                        <div className="flex items-center gap-3 mb-2">
+                            <span className="text-2xl">💉</span>
+                            <h3 className="font-semibold text-gray-900 group-hover:text-emerald-600">Medications</h3>
+                        </div>
+                        <p className="text-sm text-gray-600">Common leukemia medications, how they work, and what to expect.</p>
+                    </a>
+                    <a
+                        href="/learn/history"
+                        onClick={(e) => { e.preventDefault(); onNavigateToLearn('history'); }}
+                        className="block p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:border-amber-300 hover:shadow-md transition-all group"
+                    >
+                        <div className="flex items-center gap-3 mb-2">
+                            <span className="text-2xl">📜</span>
+                            <h3 className="font-semibold text-gray-900 group-hover:text-amber-600">History of Leukemia</h3>
+                        </div>
+                        <p className="text-sm text-gray-600">The journey from earliest descriptions to modern targeted therapies and immunotherapy breakthroughs.</p>
+                    </a>
                 </div>
             </section>
 

@@ -69,7 +69,7 @@ function App() {
   type Page = 'home' | 'about' | 'contact' | 'resources' | 'stats' | 'search' | 'myeloid' | 'lymphoid' | 'myeloma' |
     'learn-blood-cells' | 'learn-mutations' | 'learn-risk' | 'learn-transplant' | 'learn-lab-results' | 'learn-clinical-trials' |
     'learn-treatments' | 'learn-medications' | 'learn-history' |
-    'disease-aml' | 'disease-mds' | 'disease-cml' | 'disease-mpn' | 'disease-all' | 'disease-cll' | 'disease-mm';
+    'disease-aml' | 'disease-mds' | 'disease-cml' | 'disease-mpn' | 'disease-all' | 'disease-cll' | 'disease-mm' | 'disease-mgus' | 'disease-smm';
 
   const [currentPage, setCurrentPage] = useState<Page>(() => {
     const path = window.location.pathname
@@ -230,14 +230,16 @@ function App() {
     fetchStats()
     fetchOntology()
 
-    // Handle hash navigation
+    // Handle hash navigation (legacy support — only if hash is present)
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
       if (hash === 'about' || hash === 'contact' || hash === 'resources') {
         setCurrentPage(hash)
-      } else {
+      } else if (hash) {
+        // Only override to 'home' if there's actually a hash that we don't recognize
         setCurrentPage('home')
       }
+      // If no hash, don't override — let the pathname-based routing from useState handle it
     }
     handleHashChange()
     window.addEventListener('hashchange', handleHashChange)

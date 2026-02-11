@@ -17,6 +17,8 @@
 /disease/all /index.html 200
 /disease/cll /index.html 200
 /disease/mm /index.html 200
+/disease/mgus /index.html 200
+/disease/smm /index.html 200
 /learn/blood-cells /index.html 200
 /learn/mutations /index.html 200
 /learn/risk /index.html 200
@@ -25,4 +27,5 @@
 /learn/transplant /index.html 200
 /learn/lab-results /index.html 200
 /learn/clinical-trials /index.html 200
+/learn/history /index.html 200
 

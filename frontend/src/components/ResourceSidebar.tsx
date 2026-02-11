@@ -47,6 +47,8 @@ const NAV_TREE: NavItem[] = [
                 label: 'Plasma Cell Disorders',
                 children: [
                     { id: 'myeloma', label: 'Multiple Myeloma', path: '/myeloma' },
+                    { id: 'mgus', label: 'MGUS', path: '/disease/mgus' },
+                    { id: 'smm', label: 'Smoldering Myeloma', path: '/disease/smm' },
                     { id: 'mm', label: 'Active Myeloma', path: '/disease/mm' },
                 ]
             }

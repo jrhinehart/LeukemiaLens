@@ -148,8 +148,9 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
     mds: {
         id: 'mds',
         name: 'Myelodysplastic Syndromes',
-        headerQuestion: 'What is MDS?',
+        headerQuestion: 'What are Myelodysplastic Syndromes (MDS)?',
         description: 'MDS is a group of cancers in which immature blood cells in the bone marrow do not mature or become healthy blood cells. It is often referred to as a "bone marrow failure" disorder.',
+        extendedDescription: 'Myelodysplastic Syndromes (MDS) are a heterogeneous group of bone marrow disorders characterized by ineffective hematopoiesis — the bone marrow is active but produces defective blood cells that die before maturing, leading to cytopenias (low blood counts) despite a cellular marrow.\n\nMDS ranges from indolent conditions with isolated anemia (survival >10 years) to aggressive forms with excess blasts that may transform to AML (survival <1 year). About 30% of MDS cases progress to acute myeloid leukemia. Risk stratification using IPSS-R and the newer molecular IPSS-M is essential for guiding treatment decisions, which range from supportive care to allogeneic stem cell transplant.',
         subDiseases: [],
         treatments: [
             { name: 'Hypomethylating Agents (Azacitidine, Decitabine)', url: 'https://bloodcancerunited.org/blood-cancer/leukemia/acute-myeloid-leukemia-aml/treatment#toc-1' },
@@ -162,8 +163,9 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
     cml: {
         id: 'cml',
         name: 'Chronic Myeloid Leukemia',
-        headerQuestion: 'What is CML?',
+        headerQuestion: 'What is Chronic Myeloid Leukemia (CML)?',
         description: 'CML is a slow-growing cancer that starts in the blood-forming cells of the bone marrow. It is characterized by the presence of the Philadelphia chromosome, which creates the BCR-ABL1 oncogene.',
+        extendedDescription: 'Chronic Myeloid Leukemia (CML) is a myeloproliferative neoplasm caused by the Philadelphia chromosome — a reciprocal translocation between chromosomes 9 and 22 that creates the BCR-ABL1 fusion oncogene. This constitutively active tyrosine kinase drives uncontrolled proliferation of myeloid cells.\n\nCML is one of the greatest success stories in cancer medicine. The development of tyrosine kinase inhibitors (TKIs), beginning with imatinib (Gleevec®) in 2001, transformed CML from a fatal disease into a manageable chronic condition with near-normal life expectancy. Some patients can even achieve treatment-free remission — safely stopping therapy while maintaining undetectable disease.',
         subDiseases: [],
         treatments: [
             { name: 'Tyrosine Kinase Inhibitors (Imatinib, Dasatinib, Nilotinib)', url: 'https://bloodcancerunited.org/blood-cancer-care/adults/types-blood-cancer-treatment/drug-therapies' },
@@ -175,8 +177,9 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
     mpn: {
         id: 'mpn',
         name: 'Myeloproliferative Neoplasms',
-        headerQuestion: 'What are MPNs?',
+        headerQuestion: 'What are Myeloproliferative Neoplasms (MPNs)?',
         description: 'MPNs are a group of rare blood cancers in which the bone marrow overproduces certain types of blood cells, such as red blood cells, white blood cells, or platelets.',
+        extendedDescription: 'Myeloproliferative Neoplasms (MPNs) are a group of chronic blood cancers in which the bone marrow overproduces mature blood cells. The three classic BCR-ABL1-negative MPNs are Polycythemia Vera (PV — excess red cells), Essential Thrombocythemia (ET — excess platelets), and Myelofibrosis (MF — progressive bone marrow scarring).\n\nAbout 90% of MPNs are driven by mutations in one of three genes — JAK2, CALR, or MPL — all converging on constitutive JAK-STAT signaling. Treatment ranges from phlebotomy and aspirin in low-risk PV to JAK inhibitors (ruxolitinib, fedratinib, pacritinib, momelotinib) and stem cell transplant in myelofibrosis.',
         subDiseases: [],
         treatments: [
             { name: 'JAK Inhibitors (Ruxolitinib, Fedratinib)', url: 'https://bloodcancerunited.org/blood-cancer-care/adults/types-blood-cancer-treatment/drug-therapies' },
@@ -188,8 +191,9 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
     all: {
         id: 'all',
         name: 'Acute Lymphoblastic Leukemia',
-        headerQuestion: 'What is ALL?',
+        headerQuestion: 'What is Acute Lymphoblastic Leukemia (ALL)?',
         description: 'ALL is a fast-growing cancer of the white blood cells called lymphocytes. It is the most common type of cancer in children, but it also affects adults.',
+        extendedDescription: 'Acute Lymphoblastic Leukemia (ALL) is a fast-growing cancer of the bone marrow and blood that affects the lymphoid lineage of white blood cells. It is the most common cancer in children, but it also occurs in adults — with a second peak in incidence after age 50.\n\nIn ALL, the bone marrow produces large numbers of immature lymphocytes called lymphoblasts. These abnormal cells crowd out healthy blood cell production and can spread to the lymph nodes, spleen, liver, central nervous system, and other organs. ALL is classified as either B-cell ALL (~85%) or T-cell ALL (~15%), based on which type of lymphocyte is affected.',
         subDiseases: [],
         treatments: [
             { name: 'Intensive Chemotherapy', url: 'https://bloodcancerunited.org/blood-cancer/leukemia/acute-lymphoblastic-leukemia-all/treatment' },
@@ -202,8 +206,9 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
     cll: {
         id: 'cll',
         name: 'Chronic Lymphocytic Leukemia',
-        headerQuestion: 'What is CLL?',
+        headerQuestion: 'What is Chronic Lymphocytic Leukemia (CLL)?',
         description: 'CLL is a slow-growing cancer of the B-lymphocytes. It usually affects older adults and often progresses very slowly over many years.',
+        extendedDescription: 'Chronic Lymphocytic Leukemia (CLL) is a cancer of mature B-lymphocytes that accumulate in the blood, bone marrow, and lymph nodes. It is the most common leukemia in Western adults, with a median age at diagnosis of ~70 years. CLL and Small Lymphocytic Lymphoma (SLL) are the same disease differing only in clinical presentation.\n\nCLL is primarily a disease of failed apoptosis rather than uncontrolled proliferation — the cancer cells resist programmed cell death through overexpression of BCL-2. Treatment has been revolutionized by targeted therapies: BTK inhibitors (ibrutinib, acalabrutinib, zanubrutinib) and the BCL-2 inhibitor venetoclax have replaced chemotherapy for most patients, with many early-stage patients managed by “watch and wait” active surveillance.',
         subDiseases: [],
         treatments: [
             { name: 'BTK Inhibitors (Ibrutinib, Acalabrutinib, Zanubrutinib)', url: 'https://bloodcancerunited.org/blood-cancer-care/adults/types-blood-cancer-treatment/drug-therapies' },
@@ -216,8 +221,9 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
     mm: {
         id: 'mm',
         name: 'Multiple Myeloma',
-        headerQuestion: 'What is Multiple Myeloma?',
+        headerQuestion: 'What is Multiple Myeloma (MM)?',
         description: 'Multiple Myeloma is a cancer of the plasma cells. It can cause bone pain, kidney problems, and anemia, and it often requires ongoing management with targeted therapies.',
+        extendedDescription: 'Multiple Myeloma is a cancer of plasma cells — specialized B-lymphocytes that normally produce antibodies to fight infections. In myeloma, a single clone of abnormal plasma cells multiplies uncontrollably in the bone marrow and produces large quantities of a non-functional antibody called the M-protein (monoclonal protein).\n\nMyeloma almost always evolves through a precursor pathway: MGUS (Monoclonal Gammopathy of Undetermined Significance) → Smoldering Myeloma → Active Myeloma. The disease causes damage through bone destruction, kidney injury, immune suppression, and bone marrow failure. Modern combination therapies and immunotherapies have dramatically improved outcomes, with median survival now exceeding 8-10 years.',
         subDiseases: [],
         treatments: [
             { name: 'Proteasome Inhibitors (Bortezomib, Carfilzomib)', url: 'https://bloodcancerunited.org/blood-cancer/myeloma/treatment' },
@@ -226,9 +232,33 @@ const DISEASE_GROUPS: Record<string, DiseaseInfo> = {
         ],
         diseases: ['MM'],
         clinicalTrialsQuery: 'Multiple Myeloma'
+    },
+    mgus: {
+        id: 'mgus',
+        name: 'MGUS',
+        headerQuestion: 'What is Monoclonal Gammopathy of Undetermined Significance (MGUS)?',
+        description: 'MGUS is a precursor condition where abnormal plasma cells produce a small amount of monoclonal protein. It is not cancer but requires monitoring as about 1% of cases progress to myeloma each year.',
+        extendedDescription: 'Monoclonal Gammopathy of Undetermined Significance (MGUS) is a benign precursor condition found in ~3-4% of adults over 50. A small clone of abnormal plasma cells produces a detectable M-protein, but at levels too low to cause organ damage. MGUS carries a ~1% per year risk of progressing to multiple myeloma, Waldenström\'s macroglobulinemia, or AL amyloidosis.\\n\\nMGUS requires no treatment — only monitoring with regular blood tests (SPEP, free light chains). Risk of progression depends on the M-protein level, isotype (IgG vs non-IgG), and free light chain ratio. While most MGUS patients never progress, lifelong monitoring is essential because the risk persists indefinitely.',
+        subDiseases: [],
+        treatments: [],
+        diseases: ['MM'],
+        clinicalTrialsQuery: 'Monoclonal Gammopathy of Undetermined Significance'
+    },
+    smm: {
+        id: 'smm',
+        name: 'Smoldering Myeloma',
+        headerQuestion: 'What is Smoldering Multiple Myeloma (SMM)?',
+        description: 'SMM is an intermediate stage between MGUS and active myeloma. There are more abnormal plasma cells than in MGUS but no organ damage yet. About 10% of patients progress each year for the first 5 years.',
+        extendedDescription: 'Smoldering Multiple Myeloma (SMM) sits between MGUS and active myeloma on the plasma cell disorder spectrum. Patients have a higher M-protein level (≥3 g/dL) or bone marrow plasma cell percentage (10-59%) compared to MGUS, but do not yet have the organ damage (CRAB criteria) that defines active myeloma.\\n\\nSMM carries a much higher progression risk than MGUS — approximately 10% per year for the first 5 years. Risk stratification using the Mayo 20/2/20 model helps identify high-risk patients who may benefit from early intervention. The decision to treat versus monitor is one of the most active debates in myeloma, with clinical trials testing whether early targeted therapy can intercept progression and improve long-term outcomes.',
+        subDiseases: [],
+        treatments: [
+            { name: 'Active Surveillance (standard)', url: 'https://www.myeloma.org/understanding-smoldering-multiple-myeloma' },
+            { name: 'Clinical Trials (high-risk SMM)', url: 'https://clinicaltrials.gov/search?cond=Smoldering+Multiple+Myeloma' }
+        ],
+        diseases: ['MM'],
+        clinicalTrialsQuery: 'Smoldering Multiple Myeloma'
     }
 };
-
 interface DiseasePageProps {
     groupId: string;
     apiBaseUrl: string;
@@ -284,6 +314,42 @@ export const DiseasePage: React.FC<DiseasePageProps> = ({ groupId, apiBaseUrl, o
                                 <p className="text-gray-600 text-sm mb-4">
                                     Treatment for AML depends on subtype, genetic mutations, patient age, and fitness.
                                     The main categories include:
+                                </p>
+                            )}
+                            {groupId === 'all' && (
+                                <p className="text-gray-600 text-sm mb-4">
+                                    Treatment for ALL spans 2-3 years and varies by age group, genetic subtype, and
+                                    response to initial therapy (measured by MRD). Key approaches include:
+                                </p>
+                            )}
+                            {groupId === 'mm' && (
+                                <p className="text-gray-600 text-sm mb-4">
+                                    Treatment for myeloma involves induction, possible stem cell transplant, and long-term
+                                    maintenance — with novel immunotherapies transforming outcomes at relapse:
+                                </p>
+                            )}
+                            {groupId === 'cml' && (
+                                <p className="text-gray-600 text-sm mb-4">
+                                    CML treatment centers on tyrosine kinase inhibitors (TKIs) that target the BCR-ABL1
+                                    oncoprotein — with multiple generations available for resistance or intolerance:
+                                </p>
+                            )}
+                            {groupId === 'mds' && (
+                                <p className="text-gray-600 text-sm mb-4">
+                                    MDS treatment is risk-adapted — ranging from supportive care for lower-risk disease
+                                    to disease-modifying therapies and transplant for higher-risk MDS:
+                                </p>
+                            )}
+                            {groupId === 'cll' && (
+                                <p className="text-gray-600 text-sm mb-4">
+                                    CLL treatment has shifted to targeted, chemotherapy-free approaches — with many
+                                    early-stage patients safely monitored without treatment:
+                                </p>
+                            )}
+                            {groupId === 'mpn' && (
+                                <p className="text-gray-600 text-sm mb-4">
+                                    MPN treatment is tailored to the specific subtype (PV, ET, or MF) and risk level —
+                                    ranging from phlebotomy and aspirin to JAK inhibitors and stem cell transplant:
                                 </p>
                             )}
                             <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
