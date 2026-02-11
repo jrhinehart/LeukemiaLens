@@ -24,6 +24,58 @@ type Bindings = {
     VECTORIZE: VectorizeIndex;
 };
 
+interface RefinementResult {
+    refinedQuery: string;
+    intent: 'simple' | 'complex' | 'analytical';
+    isMedical: boolean;
+    suggestedFilters?: any;
+}
+
+async function refineUserQuery(c: any, rawQuery: string): Promise<RefinementResult> {
+    const systemPrompt = `You are a medical query optimizer for LeukemiaLens. 
+    Your task is to:
+    1. Fix typos in medical terms (e.g. "flt3" -> "FLT3", "venetoclax" -> "venetoclax").
+    2. Expand common acronyms: MRD -> Minimal Residual Disease, SCT -> Stem Cell Transplant, OS -> Overall Survival, CR -> Complete Remission, NGS -> Next Generation Sequencing.
+    3. Categorize intent:
+       - 'simple': Basic definitions, simple facts, or single-concept questions.
+       - 'complex': Questions requiring cross-study comparisons, deep literature synthesis, or detailed evidence.
+       - 'analytical': Requests for specific data points, hazard ratios, or meta-analysis type summaries.
+    4. Determine if the query is medical/scientific in nature (isMedical).
+    
+    Respond ONLY in JSON format:
+    {
+      "refinedQuery": "Cleaned up and expanded query",
+      "intent": "simple|complex|analytical",
+      "isMedical": true|false
+    }`;
+
+    try {
+        const response = await c.env.AI.run('@cf/meta/llama-3-8b-instruct', {
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: rawQuery }
+            ]
+        });
+
+        if (response?.response) {
+            let jsonStr = response.response.trim();
+            if (jsonStr.startsWith('```')) {
+                jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+            }
+            return JSON.parse(jsonStr);
+        }
+    } catch (e) {
+        console.error('[Refine] Query refinement failed:', e);
+    }
+
+    // Pass-through fallback
+    return {
+        refinedQuery: rawQuery,
+        intent: 'complex',
+        isMedical: true
+    };
+}
+
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('/*', cors());
@@ -302,6 +354,11 @@ app.post('/api/smart-query', async (c) => {
             return c.json({ error: 'Query is required' }, 400);
         }
 
+        // Step 0: Refine and Classify
+        const refinement = await refineUserQuery(c, query);
+        const processingQuery = refinement.refinedQuery;
+        const processingIntent = refinement.intent;
+
         // Step 1: Parse query to extract filters using Llama
         const filterSystemPrompt = `You are a search filter extractor for a leukemia research database.
 Given a natural language query, extract structured filters as JSON.
@@ -327,7 +384,7 @@ Rules:
             const parseResponse = await c.env.AI.run('@cf/meta/llama-2-7b-chat-int8', {
                 messages: [
                     { role: 'system', content: filterSystemPrompt },
-                    { role: 'user', content: query }
+                    { role: 'user', content: processingQuery }
                 ]
             });
 
@@ -468,7 +525,7 @@ Rules:
         ).run();
 
         // Step 5: Launch Map-Reduce orchestration with the question as context
-        c.executionCtx.waitUntil(orchestrateMapReduceSummary(c, insightId, truncatedArticles, query));
+        c.executionCtx.waitUntil(orchestrateMapReduceSummary(c, insightId, truncatedArticles, processingQuery, processingIntent));
 
         return c.json({
             success: true,
@@ -554,7 +611,7 @@ app.post('/api/summarize', async (c) => {
         }
 
         // Launch background orchestration
-        c.executionCtx.waitUntil(orchestrateMapReduceSummary(c, insightId, truncatedArticles, query));
+        c.executionCtx.waitUntil(orchestrateMapReduceSummary(c, insightId, truncatedArticles, query, 'complex'));
 
         return c.json({
             success: true,
@@ -653,11 +710,15 @@ async function callLLMWithFallback(c: any, prompt: string, system: string, maxTo
     }
 }
 
-async function orchestrateMapReduceSummary(c: any, insightId: string, articles: any[], query: string | undefined) {
+async function orchestrateMapReduceSummary(c: any, insightId: string, articles: any[], query?: string, intent: string = 'complex') {
     let articlesToProcess = articles;
 
     // Phase 0: Intelligent Relevance Selection (only if query/question is provided)
-    if (query && articles.length > 20) {
+    if (intent === 'simple') {
+        // For simple queries, we only need the top 5 articles to be fast
+        articlesToProcess = articles.slice(0, 5);
+        console.log(`[Insights] Simple intent detected, using top 5 articles.`);
+    } else if (query && articles.length > 20) {
         console.log(`[Insights] Running relevance selection for ${articles.length} articles...`);
         const selectionPrompt = `You are a medical research assistant. I have ${articles.length} articles found by a database search.
 The user has a specific question: "${query}"
@@ -707,7 +768,7 @@ Rules:
         }
     }
 
-    const batchSize = 10;
+    const batchSize = intent === 'simple' ? 5 : 10;
     const batches: any[] = [];
     for (let i = 0; i < articlesToProcess.length; i += batchSize) {
         batches.push(articlesToProcess.slice(i, i + batchSize));
@@ -888,7 +949,9 @@ RESEARCH DATA:
 ${combinedHighlights}`;
 
         const systemPrompt = query
-            ? "You are a knowledgeable medical research assistant. Answer the user's question directly using the provided research data. Be accurate, cite sources, and use clear language accessible to patients while maintaining scientific precision."
+            ? (intent === 'simple'
+                ? "You are a helpful medical research assistant. The user is asking a basic question. Provide a direct, concise, and clear answer using the provided data. Skip the technical reporting structure."
+                : "You are a knowledgeable medical research assistant. Answer the user's question directly using the provided research data. Be accurate, cite sources, and use clear language accessible to patients while maintaining scientific precision.")
             : "Master scientific report writer. Synthesize multi-batch data into a final structured report.";
 
         const { text: summary, model: finalModel } = await callLLMWithFallback(
@@ -2324,9 +2387,14 @@ app.post('/api/rag/query', async (c) => {
         const topK = Math.min(body.topK || 15, 50);
         const maxContextTokens = body.maxContextTokens || 150000;
 
+        // Step 0: Refine and Classify
+        const refinement = await refineUserQuery(c, body.query);
+        const processingQuery = refinement.refinedQuery;
+        const processingIntent = refinement.intent;
+
         // Step 1: Generate query embedding
         const embeddingResult = await c.env.AI.run('@cf/baai/bge-base-en-v1.5', {
-            text: body.query
+            text: processingQuery
         }) as { data: number[][] };
 
         if (!embeddingResult.data?.[0]) {
@@ -2428,7 +2496,9 @@ app.post('/api/rag/query', async (c) => {
             baseURL: "https://gateway.ai.cloudflare.com/v1/1b25ef24f4a16951ae24e59e1f80cd40/leukemialens/anthropic"
         });
 
-        const systemPrompt = `You are a knowledgeable medical research assistant specializing in hematologic malignancies (leukemia, lymphoma, myeloma). You help patients, caregivers, and researchers understand scientific literature.
+        const systemPrompt = processingIntent === 'simple'
+            ? `You are a helpful medical research assistant. The user is asking a basic question. Provide a direct, concise, and clear answer based ONLY on the excerpts provided. Reference [1], [2] as needed. Be brief and to the point. No research report formatting required.`
+            : `You are a knowledgeable medical research assistant specializing in hematologic malignancies (leukemia, lymphoma, myeloma). You help patients, caregivers, and researchers understand scientific literature.
 
 IMPORTANT GUIDELINES:
 - Synthesize information from the provided research excerpts to answer the user's question
