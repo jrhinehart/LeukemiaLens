@@ -28,25 +28,28 @@ interface RefinementResult {
     refinedQuery: string;
     intent: 'simple' | 'complex' | 'analytical';
     isMedical: boolean;
-    suggestedFilters?: any;
+    filters?: any;
 }
 
-async function refineUserQuery(c: any, rawQuery: string): Promise<RefinementResult> {
-    const systemPrompt = `You are a medical query optimizer for LeukemiaLens. 
+async function refineAndParseQuery(c: any, rawQuery: string): Promise<RefinementResult> {
+    const systemPrompt = `You are a medical query optimizer and filter extractor for LeukemiaLens.
     Your task is to:
-    1. Fix typos in medical terms (e.g. "flt3" -> "FLT3", "venetoclax" -> "venetoclax").
-    2. Expand common acronyms: MRD -> Minimal Residual Disease, SCT -> Stem Cell Transplant, OS -> Overall Survival, CR -> Complete Remission, NGS -> Next Generation Sequencing.
-    3. Categorize intent:
-       - 'simple': Basic definitions, simple facts, or single-concept questions.
-       - 'complex': Questions requiring cross-study comparisons, deep literature synthesis, or detailed evidence.
-       - 'analytical': Requests for specific data points, hazard ratios, or meta-analysis type summaries.
-    4. Determine if the query is medical/scientific in nature (isMedical).
+    1. Fix typos in medical terms and expand acronyms (e.g. "flt3" -> "FLT3", "SCT" -> "Stem Cell Transplant").
+    2. Categorize intent: 'simple' (definitions/facts), 'complex' (literature synthesis), 'analytical' (specific metrics).
+    3. Extract structured filters based on these categories:
+       - q: Keywords NOT in other categories.
+       - mutations: gene symbols (FLT3, NPM1, IDH1, IDH2, etc).
+       - diseases: AML, ALL, CML, CLL, MDS, MPN, DLBCL, MM.
+       - treatments: drugs (AZA, VEN, decitabine, etc).
+       - tags: topics (Prognosis, Biomarkers, MRD, Clinical Trial, Transplant).
+       - yearStart/yearEnd: YYYY format.
     
     Respond ONLY in JSON format:
     {
-      "refinedQuery": "Cleaned up and expanded query",
+      "refinedQuery": "Cleaned and expanded query",
       "intent": "simple|complex|analytical",
-      "isMedical": true|false
+      "isMedical": true|false,
+      "filters": { "q": "...", "mutations": [], "diseases": [], ... }
     }`;
 
     try {
@@ -65,15 +68,10 @@ async function refineUserQuery(c: any, rawQuery: string): Promise<RefinementResu
             return JSON.parse(jsonStr);
         }
     } catch (e) {
-        console.error('[Refine] Query refinement failed:', e);
+        console.error('[RefineParse] Consolidated call failed:', e);
     }
 
-    // Pass-through fallback
-    return {
-        refinedQuery: rawQuery,
-        intent: 'complex',
-        isMedical: true
-    };
+    return { refinedQuery: rawQuery, intent: 'complex', isMedical: true, filters: { q: rawQuery } };
 }
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -350,54 +348,11 @@ app.post('/api/smart-query', async (c) => {
         const body = await c.req.json().catch(() => ({})) as any;
         const { query } = body;
 
-        if (!query || typeof query !== 'string') {
-            return c.json({ error: 'Query is required' }, 400);
-        }
-
-        // Step 0: Refine and Classify
-        const refinement = await refineUserQuery(c, query);
+        // Step 1: Consolidate Refine, Classify, and Parse
+        const refinement = await refineAndParseQuery(c, query);
         const processingQuery = refinement.refinedQuery;
         const processingIntent = refinement.intent;
-
-        // Step 1: Parse query to extract filters using Llama
-        const filterSystemPrompt = `You are a search filter extractor for a leukemia research database.
-Given a natural language query, extract structured filters as JSON.
-
-Available filters:
-- q: ONLY for keywords that do NOT match any other filter category below. Do not put gene names, disease names, treatments, or other recognized terms here.
-- mutations: gene symbols like FLT3, NPM1, IDH1, IDH2, TP53, DNMT3A, TET2, ASXL1, RUNX1, CEBPA, KRAS, NRAS, WT1, SF3B1, GATA2, BCR-ABL1, PML-RARA, KIT
-- diseases: AML (Acute Myeloid Leukemia), ALL (Acute Lymphoblastic Leukemia), CML (Chronic Myeloid Leukemia), CLL (Chronic Lymphocytic Leukemia), MDS (Myelodysplastic Syndromes), MPN (Myeloproliferative Neoplasms), DLBCL, MM
-- treatments: chemotherapy drugs and protocols like "7+3", azacitidine (AZA), venetoclax (VEN), decitabine, cytarabine, daunorubicin, idarubicin
-- tags: study topics like Prognosis, Biomarkers, MRD (Minimal Residual Disease), Clinical Trial, Transplant, Pediatric, Relapsed, Refractory
-- yearStart: publication start year (YYYY format)
-- yearEnd: publication end year (YYYY format)
-
-Rules:
-1. ONLY include categorical fields (mutations, diseases, treatments, tags) if you are HIGHLY CONFIDENT (>95%) that the term is an exact match for that category.
-2. If you are GUESSING, unsure of the correct category, or if the term is a general medical concept, put it in the "q" field.
-3. PRESERVE as much technical intent as possible. All terms not 100% matched to a filter MUST go into the "q" field.
-4. "recent" or "latest" means yearStart should be current year minus 2.
-5. Respond ONLY with valid JSON object, no explanation or markdown.`;
-
-        let filters: any = {};
-        try {
-            const parseResponse = await c.env.AI.run('@cf/meta/llama-2-7b-chat-int8', {
-                messages: [
-                    { role: 'system', content: filterSystemPrompt },
-                    { role: 'user', content: processingQuery }
-                ]
-            });
-
-            if (parseResponse?.response) {
-                let jsonStr = parseResponse.response.trim();
-                if (jsonStr.startsWith('```')) {
-                    jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
-                }
-                filters = JSON.parse(jsonStr);
-            }
-        } catch (parseErr) {
-            console.warn('[SmartQuery] Filter parsing failed, continuing with empty filters:', parseErr);
-        }
+        const filters = refinement.filters || {};
 
         // Step 2: Build query to fetch matching articles
         let dbQuery = `SELECT DISTINCT s.* FROM studies s`;
@@ -775,76 +730,71 @@ Rules:
     }
 
     try {
-        // Step 1: Technical Analysis of each batch sequentially (Map Phase)
-        // Sequential processing reduces concurrent load and prevents provider overload
+        // Step 1: Technical Analysis (Map Phase) - Skip for simple queries
         const mappedResults: any[] = [];
         let lastUsedModel = 'unknown';
 
-        for (let bIdx = 0; bIdx < batches.length; bIdx++) {
-            const batch = batches[bIdx];
-            const batchPmids = batch.map((a: any) => a.pubmed_id || a.pmid || '').filter(Boolean);
+        if (intent !== 'simple') {
+            for (let bIdx = 0; bIdx < batches.length; bIdx++) {
+                const batch = batches[bIdx];
+                const batchPmids = batch.map((a: any) => a.pubmed_id || a.pmid || '').filter(Boolean);
 
-            let technicalContext = '';
-            let docsWithFullText = 0;
-            let fullTextPmidsInBatch: string[] = [];
+                let technicalContext = '';
+                let docsWithFullText = 0;
+                let fullTextPmidsInBatch: string[] = [];
 
-            if (batchPmids.length > 0) {
-                const { results: fullTextDocs } = await c.env.DB.prepare(`
-                    SELECT id, pmid, filename FROM documents 
-                    WHERE (pmid IN (${batchPmids.map(() => '?').join(',')})) AND status = 'ready'
-                `).bind(...batchPmids).run();
+                if (batchPmids.length > 0) {
+                    const { results: fullTextDocs } = await c.env.DB.prepare(`
+                        SELECT id, pmid, filename FROM documents 
+                        WHERE (pmid IN (${batchPmids.map(() => '?').join(',')})) AND status = 'ready'
+                    `).bind(...batchPmids).run();
 
-                if (fullTextDocs && fullTextDocs.length > 0) {
-                    docsWithFullText = fullTextDocs.length;
-                    fullTextPmidsInBatch = fullTextDocs.map((d: any) => d.pmid);
-                    const docIds = fullTextDocs.map((d: any) => d.id);
+                    if (fullTextDocs && fullTextDocs.length > 0) {
+                        docsWithFullText = fullTextDocs.length;
+                        fullTextPmidsInBatch = fullTextDocs.map((d: any) => d.pmid);
+                        const docIds = fullTextDocs.map((d: any) => d.id);
 
-                    const { results: chunksMetadata } = await c.env.DB.prepare(`
-                        SELECT id, document_id, chunk_index FROM chunks 
-                        WHERE document_id IN (${docIds.map(() => '?').join(',')}) AND chunk_index < 5
-                    `).bind(...docIds).run();
+                        const { results: chunksMetadata } = await c.env.DB.prepare(`
+                            SELECT id, document_id, chunk_index FROM chunks 
+                            WHERE document_id IN (${docIds.map(() => '?').join(',')}) AND chunk_index < 5
+                        `).bind(...docIds).run();
 
-                    const docContentPromises = fullTextDocs.map(async (doc: any) => {
-                        let content = "";
-                        try {
-                            const r2Key = `chunks/${doc.id}.json`;
-                            const object = await c.env.DOCUMENTS.get(r2Key);
-                            if (object) {
-                                const data: any = await object.json();
-                                if (data && data.chunks) {
-                                    content = data.chunks.slice(0, 5).map((ch: any) => ch.content).join("\n");
+                        const docContentPromises = fullTextDocs.map(async (doc: any) => {
+                            let content = "";
+                            try {
+                                const r2Key = `chunks/${doc.id}.json`;
+                                const object = await c.env.DOCUMENTS.get(r2Key);
+                                if (object) {
+                                    const data: any = await object.json();
+                                    if (data && data.chunks) {
+                                        content = data.chunks.slice(0, 5).map((ch: any) => ch.content).join("\n");
+                                    }
                                 }
+                            } catch (e) {
+                                console.warn(`[Insights] Failed to fetch R2 content for ${doc.id}:`, e);
                             }
-                        } catch (e) {
-                            console.warn(`[Insights] Failed to fetch R2 content for ${doc.id}:`, e);
-                        }
 
-                        if (!content && chunksMetadata) {
-                            const docChunks = (chunksMetadata as any[]).filter(ch => ch.document_id === doc.id);
-                            // Note: R2 fetch is now the primary source. If fetch fails, we skip content for this doc.
-                        }
+                            if (content) {
+                                const articleNum = articlesToProcess.findIndex(a => (a.pubmed_id || a.pmid || a.pubmedId) === doc.pmid) + 1;
+                                return `Ref [#${articleNum}]:\n${content}\n\n`;
+                            }
+                            return "";
+                        });
 
-                        if (content) {
-                            const articleNum = articlesToProcess.findIndex(a => (a.pubmed_id || a.pmid || a.pubmedId) === doc.pmid) + 1;
-                            return `Ref [#${articleNum}]:\n${content}\n\n`;
-                        }
-                        return "";
-                    });
-
-                    const contents = await Promise.all(docContentPromises);
-                    technicalContext = "\nFULL-TEXT EXCERPTS (TOP 5 CHUNKS):\n" + contents.join("");
+                        const contents = await Promise.all(docContentPromises);
+                        technicalContext = "\nFULL-TEXT EXCERPTS (TOP 5 CHUNKS):\n" + contents.join("");
+                    }
                 }
-            }
 
-            const startIdx = bIdx * batchSize;
-            const batchContent = batch.map((a: any, idx: number) => `
+                const startIdx = bIdx * batchSize;
+                const batchContent = batch.map((a: any, idx: number) => `
 Article [#${startIdx + idx + 1}]:
 Title: ${a.title}
 Abstract: ${a.abstract || 'N/A'}
 Year: ${a.year || a.pub_date?.substring(0, 4)}
 `).join('\n---\n');
 
-            const mapPrompt = `You are a scientific analyst. Extract precise metrics (ORR, OS, hazard ratios, p-values), key molecular findings, and trial designs for the following leukemia research articles. 
+                const mapPrompt = `You are a scientific analyst. Extract precise metrics (ORR, OS, hazard ratios, p-values), key molecular findings, and trial designs for the following leukemia research articles. 
 Be technical, dense, and concise. Cite article numbers [#N] for every data point. Include findings from both abstracts and any provided full-text excerpts.
 
 ARTICLES:
@@ -854,25 +804,27 @@ ${technicalContext}
 
 Provide a dense bulleted list of technical highlights for this batch.`;
 
-            const { text, model } = await callLLMWithFallback(
-                c,
-                mapPrompt,
-                "Scientific data extractor. Output only technical highlights with citations.",
-                2048
-            );
-            lastUsedModel = model;
+                const { text, model } = await callLLMWithFallback(
+                    c,
+                    mapPrompt,
+                    "Technical data extractor. Output citations.",
+                    2048
+                );
+                lastUsedModel = model;
 
-            mappedResults.push({
-                text,
-                hasFullText: docsWithFullText > 0,
-                fullTextPmids: fullTextPmidsInBatch,
-                docsWithFullText
-            });
+                mappedResults.push({
+                    text,
+                    hasFullText: docsWithFullText > 0,
+                    fullTextPmids: fullTextPmidsInBatch,
+                    docsWithFullText
+                });
 
-            // Small delay between batches to further reduce spike load
-            if (bIdx < batches.length - 1) {
-                await sleep(500);
+                if (bIdx < batches.length - 1) await sleep(500);
             }
+        } else {
+            // Simple Intent: Skip technical batch extraction
+            const simpleContext = articlesToProcess.map((a, i) => `Article [#${i + 1}]: ${a.title}\nAbstract: ${a.abstract}`).join('\n\n');
+            mappedResults.push({ text: simpleContext, hasFullText: false, docsWithFullText: 0 });
         }
 
         // Step 2: Global Synthesis (Reduce Phase)
@@ -2387,8 +2339,8 @@ app.post('/api/rag/query', async (c) => {
         const topK = Math.min(body.topK || 15, 50);
         const maxContextTokens = body.maxContextTokens || 150000;
 
-        // Step 0: Refine and Classify
-        const refinement = await refineUserQuery(c, body.query);
+        // Step 0: Refine and Classify (Consolidated call)
+        const refinement = await refineAndParseQuery(c, body.query);
         const processingQuery = refinement.refinedQuery;
         const processingIntent = refinement.intent;
 
