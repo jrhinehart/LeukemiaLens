@@ -570,7 +570,10 @@ app.post('/api/summarize', async (c) => {
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function callLLMWithFallback(c: any, prompt: string, system: string, maxTokens: number = 2048): Promise<{ text: string, model: string }> {
-    const anthropic = new Anthropic({ apiKey: c.env.ANTHROPIC_API_KEY });
+    const anthropic = new Anthropic({
+        apiKey: c.env.ANTHROPIC_API_KEY,
+        baseURL: "https://gateway.ai.cloudflare.com/v1/1b25ef24f4a16951ae24e59e1f80cd40/leukemialens/anthropic"
+    });
 
     console.log(`[LLM] Starting call. API Key present: ${!!c.env.ANTHROPIC_API_KEY}`);
     if (c.env.ANTHROPIC_API_KEY) {
@@ -2420,7 +2423,10 @@ app.post('/api/rag/query', async (c) => {
         const { context, sources, tokensUsed } = buildContext(scoredChunks, maxContextTokens);
 
         // Step 5: Call Claude
-        const anthropic = new Anthropic({ apiKey: c.env.ANTHROPIC_API_KEY });
+        const anthropic = new Anthropic({
+            apiKey: c.env.ANTHROPIC_API_KEY,
+            baseURL: "https://gateway.ai.cloudflare.com/v1/1b25ef24f4a16951ae24e59e1f80cd40/leukemialens/anthropic"
+        });
 
         const systemPrompt = `You are a knowledgeable medical research assistant specializing in hematologic malignancies (leukemia, lymphoma, myeloma). You help patients, caregivers, and researchers understand scientific literature.
 
