@@ -374,7 +374,9 @@ export const DiseasePage: React.FC<DiseasePageProps> = ({ groupId, apiBaseUrl, o
                             </ul>
                         </section>
 
-                        <DeepDive />
+                        <React.Suspense fallback={<div className="h-64 flex items-center justify-center bg-white rounded-2xl shadow-sm border border-gray-200 animate-pulse text-gray-400">Loading disease details...</div>}>
+                            <DeepDive />
+                        </React.Suspense>
 
                         {/* Tools & Focused Research — at the end for deep dive pages */}
                         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">

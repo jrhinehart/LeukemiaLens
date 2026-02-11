@@ -1,13 +1,31 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense, lazy } from 'react'
 import axios from 'axios'
 import bannerImage from './assets/LL-logo-banner.jpg'
-import { AboutPage, ContactPage, ResourcesPage } from './Pages'
-import { StatsPage } from './StatsPage'
-import { LandingPage } from './LandingPage'
-import { DiseasePage } from './DiseasePage'
-import { BloodCellProductionPage, MutationsPage, RiskStratificationPage, StemCellTransplantPage, LabResultsPage, ClinicalTrialsPage, LeukemiaHistoryPage } from './EducationPages'
-import { CommonTreatmentsPage, MedicationsPage } from './TreatmentPages'
-import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput, ResearchInsights, ResourcesLayout, ConfirmationModal } from './components'
+
+// Lazy loaded pages
+const AboutPage = lazy(() => import('./Pages').then(m => ({ default: m.AboutPage })))
+const ContactPage = lazy(() => import('./Pages').then(m => ({ default: m.ContactPage })))
+const ResourcesPage = lazy(() => import('./Pages').then(m => ({ default: m.ResourcesPage })))
+const StatsPage = lazy(() => import('./StatsPage').then(m => ({ default: m.StatsPage })))
+const LandingPage = lazy(() => import('./LandingPage').then(m => ({ default: m.LandingPage })))
+const DiseasePage = lazy(() => import('./DiseasePage').then(m => ({ default: m.DiseasePage })))
+
+// Lazy loaded educational pages
+const BloodCellProductionPage = lazy(() => import('./EducationPages').then(m => ({ default: m.BloodCellProductionPage })))
+const MutationsPage = lazy(() => import('./EducationPages').then(m => ({ default: m.MutationsPage })))
+const RiskStratificationPage = lazy(() => import('./EducationPages').then(m => ({ default: m.RiskStratificationPage })))
+const StemCellTransplantPage = lazy(() => import('./EducationPages').then(m => ({ default: m.StemCellTransplantPage })))
+const LabResultsPage = lazy(() => import('./EducationPages').then(m => ({ default: m.LabResultsPage })))
+const ClinicalTrialsPage = lazy(() => import('./EducationPages').then(m => ({ default: m.ClinicalTrialsPage })))
+const LeukemiaHistoryPage = lazy(() => import('./EducationPages').then(m => ({ default: m.LeukemiaHistoryPage })))
+
+// Lazy loaded treatment pages
+const CommonTreatmentsPage = lazy(() => import('./TreatmentPages').then(m => ({ default: m.CommonTreatmentsPage })))
+const MedicationsPage = lazy(() => import('./TreatmentPages').then(m => ({ default: m.MedicationsPage })))
+
+const ResearchInsights = lazy(() => import('./components/ResearchInsights').then(m => ({ default: m.ResearchInsights })))
+
+import { SimpleListFilter, SearchableListFilter, TextSearchFilter, DateRangeFilter, ErrorModal, GroupedMutationFilter, SmartSearchInput, ResourcesLayout, ConfirmationModal } from './components'
 import type { ParsedFilters } from './components'
 
 // Helper to serialize arrays as repeat params: key=val1&key=val2
@@ -410,7 +428,9 @@ function App() {
   if (currentPage === 'stats') {
     return (
       <ResourcesLayout title="Analytics & Stats" activeNavId="stats" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
-        <StatsPage />
+        <Suspense fallback={<div className="h-64 flex items-center justify-center">Loading stats...</div>}>
+          <StatsPage />
+        </Suspense>
       </ResourcesLayout>
     );
   }
@@ -418,7 +438,9 @@ function App() {
   if (currentPage === 'about') {
     return (
       <ResourcesLayout title="About LeukemiaLens" activeNavId="about" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
-        <AboutPage />
+        <Suspense fallback={<div className="h-64 flex items-center justify-center">Loading...</div>}>
+          <AboutPage />
+        </Suspense>
       </ResourcesLayout>
     );
   }
@@ -426,7 +448,9 @@ function App() {
   if (currentPage === 'contact') {
     return (
       <ResourcesLayout title="Contact Us" activeNavId="contact" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
-        <ContactPage />
+        <Suspense fallback={<div className="h-64 flex items-center justify-center">Loading...</div>}>
+          <ContactPage />
+        </Suspense>
       </ResourcesLayout>
     );
   }
@@ -434,7 +458,9 @@ function App() {
   if (currentPage === 'resources') {
     return (
       <ResourcesLayout title="Research Resources" activeNavId="resources" onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
-        <ResourcesPage onNavigateToLearn={navigateToLearn} />
+        <Suspense fallback={<div className="h-64 flex items-center justify-center">Loading resources...</div>}>
+          <ResourcesPage onNavigateToLearn={navigateToLearn} />
+        </Suspense>
       </ResourcesLayout>
     );
   }
@@ -444,19 +470,21 @@ function App() {
     const groupId = currentPage.startsWith('disease-') ? currentPage.split('-')[1] : currentPage;
     return (
       <ResourcesLayout title="Disease Information" activeNavId={groupId} onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
-        <DiseasePage
-          groupId={groupId}
-          apiBaseUrl={API_BASE_URL}
-          onNavigate={navigateToResource}
-          onStartSearch={(initialDisease) => {
-            if (initialDisease) {
-              setSelectedDisease([initialDisease]);
-            }
-            setCurrentPage('search');
-            window.history.pushState({}, '', '/search');
-            window.scrollTo(0, 0);
-          }}
-        />
+        <Suspense fallback={<div className="h-64 flex items-center justify-center">Loading disease details...</div>}>
+          <DiseasePage
+            groupId={groupId}
+            apiBaseUrl={API_BASE_URL}
+            onNavigate={navigateToResource}
+            onStartSearch={(initialDisease) => {
+              if (initialDisease) {
+                setSelectedDisease([initialDisease]);
+              }
+              setCurrentPage('search');
+              window.history.pushState({}, '', '/search');
+              window.scrollTo(0, 0);
+            }}
+          />
+        </Suspense>
       </ResourcesLayout>
     );
   }
@@ -478,7 +506,9 @@ function App() {
     const { component: PageComp, title, navId } = educationPages[currentPage];
     return (
       <ResourcesLayout title={title} activeNavId={navId} onNavigateHome={onNavigateHome} onNavigate={navigateToResource}>
-        <PageComp onNavigateHome={onNavigateHome} onNavigateToLearn={navigateToLearn} />
+        <Suspense fallback={<div className="h-64 flex items-center justify-center">Loading educational content...</div>}>
+          <PageComp onNavigateHome={onNavigateHome} onNavigateToLearn={navigateToLearn} />
+        </Suspense>
       </ResourcesLayout>
     );
   }
@@ -486,24 +516,26 @@ function App() {
   // If home, show the new landing page
   if (currentPage === 'home') {
     return (
-      <LandingPage
-        onNavigateToDisease={(id) => {
-          setCurrentPage(id as any);
-          window.history.pushState({}, '', `/${id}`);
-          window.scrollTo(0, 0);
-        }}
-        onStartSearch={() => {
-          setCurrentPage('search');
-          window.history.pushState({}, '', '/search');
-          window.scrollTo(0, 0);
-        }}
-        onNavigateToPage={(page) => {
-          setCurrentPage(page);
-          window.history.pushState({}, '', `/${page}`);
-          window.scrollTo(0, 0);
-        }}
-        onNavigateToLearn={navigateToLearn}
-      />
+      <Suspense fallback={<div className="min-h-screen bg-gray-200 flex items-center justify-center">Loading...</div>}>
+        <LandingPage
+          onNavigateToDisease={(id) => {
+            setCurrentPage(id as any);
+            window.history.pushState({}, '', `/${id}`);
+            window.scrollTo(0, 0);
+          }}
+          onStartSearch={() => {
+            setCurrentPage('search');
+            window.history.pushState({}, '', '/search');
+            window.scrollTo(0, 0);
+          }}
+          onNavigateToPage={(page) => {
+            setCurrentPage(page);
+            window.history.pushState({}, '', `/${page}`);
+            window.scrollTo(0, 0);
+          }}
+          onNavigateToLearn={navigateToLearn}
+        />
+      </Suspense>
     );
   }
 
@@ -906,26 +938,28 @@ function App() {
                     </svg>
                     <span className="hidden sm:inline">Export</span>
                   </button>
-                  <ResearchInsights
-                    articles={articles}
-                    searchQuery={searchQuery}
-                    selectedFilters={{
-                      mutations: selectedMutation,
-                      diseases: selectedDisease,
-                      treatments: selectedTreatment,
-                      tags: selectedTag
-                    }}
-                    isOpen={isInsightsPanelOpen}
-                    onToggleOpen={() => setIsInsightsPanelOpen(!isInsightsPanelOpen)}
-                    initialInsightId={smartSearchInsightId}
-                    initialQuestion={smartSearchQuestion}
-                    initialArticleCount={smartSearchArticleCount}
-                    onClearInitial={() => {
-                      setSmartSearchInsightId(null)
-                      setSmartSearchQuestion(null)
-                      setSmartSearchArticleCount(0)
-                    }}
-                  />
+                  <Suspense fallback={<div className="bg-white border border-gray-300 text-gray-400 px-3 py-1 rounded-md text-sm">Loading Insights...</div>}>
+                    <ResearchInsights
+                      articles={articles}
+                      searchQuery={searchQuery}
+                      selectedFilters={{
+                        mutations: selectedMutation,
+                        diseases: selectedDisease,
+                        treatments: selectedTreatment,
+                        tags: selectedTag
+                      }}
+                      isOpen={isInsightsPanelOpen}
+                      onToggleOpen={() => setIsInsightsPanelOpen(!isInsightsPanelOpen)}
+                      initialInsightId={smartSearchInsightId}
+                      initialQuestion={smartSearchQuestion}
+                      initialArticleCount={smartSearchArticleCount}
+                      onClearInitial={() => {
+                        setSmartSearchInsightId(null)
+                        setSmartSearchQuestion(null)
+                        setSmartSearchArticleCount(0)
+                      }}
+                    />
+                  </Suspense>
                 </div>
               </div>
 

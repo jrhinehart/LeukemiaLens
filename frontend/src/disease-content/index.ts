@@ -12,15 +12,15 @@
  *   3. Optionally add `extendedDescription` to DISEASE_GROUPS in DiseasePage.tsx
  */
 import React from 'react';
-import AMLDeepDive from './AMLDeepDive';
-import ALLDeepDive from './ALLDeepDive';
-import MMDeepDive from './MMDeepDive';
-import CMLDeepDive from './CMLDeepDive';
-import MDSDeepDive from './MDSDeepDive';
-import CLLDeepDive from './CLLDeepDive';
-import MPNDeepDive from './MPNDeepDive';
-import MGUSDeepDive from './MGUSDeepDive';
-import SMMDeepDive from './SMMDeepDive';
+const AMLDeepDive = React.lazy(() => import('./AMLDeepDive'));
+const ALLDeepDive = React.lazy(() => import('./ALLDeepDive'));
+const MMDeepDive = React.lazy(() => import('./MMDeepDive'));
+const CMLDeepDive = React.lazy(() => import('./CMLDeepDive'));
+const MDSDeepDive = React.lazy(() => import('./MDSDeepDive'));
+const CLLDeepDive = React.lazy(() => import('./CLLDeepDive'));
+const MPNDeepDive = React.lazy(() => import('./MPNDeepDive'));
+const MGUSDeepDive = React.lazy(() => import('./MGUSDeepDive'));
+const SMMDeepDive = React.lazy(() => import('./SMMDeepDive'));
 
 export const DISEASE_DEEP_DIVES: Record<string, React.FC> = {
     aml: AMLDeepDive,
