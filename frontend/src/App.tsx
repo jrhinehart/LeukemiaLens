@@ -1,7 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react'
 import axios from 'axios'
 import bannerImage from './assets/LL-logo-banner.jpg'
-
 // Lazy loaded pages
 const AboutPage = lazy(() => import('./Pages').then(m => ({ default: m.AboutPage })))
 const ContactPage = lazy(() => import('./Pages').then(m => ({ default: m.ContactPage })))
@@ -15,6 +14,7 @@ const BloodCellProductionPage = lazy(() => import('./EducationPages').then(m => 
 const MutationsPage = lazy(() => import('./EducationPages').then(m => ({ default: m.MutationsPage })))
 const RiskStratificationPage = lazy(() => import('./EducationPages').then(m => ({ default: m.RiskStratificationPage })))
 const StemCellTransplantPage = lazy(() => import('./EducationPages').then(m => ({ default: m.StemCellTransplantPage })))
+const PalliativeCarePage = lazy(() => import('./EducationPages').then(m => ({ default: m.PalliativeCarePage })))
 const LabResultsPage = lazy(() => import('./EducationPages').then(m => ({ default: m.LabResultsPage })))
 const ClinicalTrialsPage = lazy(() => import('./EducationPages').then(m => ({ default: m.ClinicalTrialsPage })))
 const LeukemiaHistoryPage = lazy(() => import('./EducationPages').then(m => ({ default: m.LeukemiaHistoryPage })))
@@ -86,7 +86,7 @@ function App() {
   // Page routing - check URL pathname
   type Page = 'home' | 'about' | 'contact' | 'resources' | 'stats' | 'search' | 'myeloid' | 'lymphoid' | 'myeloma' |
     'learn-blood-cells' | 'learn-mutations' | 'learn-risk' | 'learn-transplant' | 'learn-lab-results' | 'learn-clinical-trials' |
-    'learn-treatments' | 'learn-medications' | 'learn-history' |
+    'learn-treatments' | 'learn-medications' | 'learn-palliative' | 'learn-history' |
     'disease-aml' | 'disease-mds' | 'disease-cml' | 'disease-mpn' | 'disease-all' | 'disease-cll' | 'disease-mm' | 'disease-mgus' | 'disease-smm';
 
   const [currentPage, setCurrentPage] = useState<Page>(() => {
@@ -107,6 +107,7 @@ function App() {
     if (path === '/learn/transplant') return 'learn-transplant'
     if (path === '/learn/lab-results') return 'learn-lab-results'
     if (path === '/learn/clinical-trials') return 'learn-clinical-trials'
+    if (path === '/learn/palliative') return 'learn-palliative'
     if (path === '/learn/history') return 'learn-history'
     if (path.startsWith('/disease/')) return `disease-${path.split('/')[2]}` as Page
     return 'home'
@@ -133,6 +134,7 @@ function App() {
       else if (path === '/learn/transplant') setCurrentPage('learn-transplant')
       else if (path === '/learn/lab-results') setCurrentPage('learn-lab-results')
       else if (path === '/learn/clinical-trials') setCurrentPage('learn-clinical-trials')
+      else if (path === '/learn/palliative') setCurrentPage('learn-palliative')
       else if (path === '/learn/history') setCurrentPage('learn-history')
       else if (path.startsWith('/disease/')) setCurrentPage(`disease-${path.split('/')[2]}` as Page)
       else setCurrentPage('home')
@@ -162,6 +164,7 @@ function App() {
     else if (path === '/learn/transplant') targetPage = 'learn-transplant';
     else if (path === '/learn/lab-results') targetPage = 'learn-lab-results';
     else if (path === '/learn/clinical-trials') targetPage = 'learn-clinical-trials';
+    else if (path === '/learn/palliative') targetPage = 'learn-palliative';
     else if (path === '/learn/history') targetPage = 'learn-history';
     else if (path.startsWith('/disease/')) targetPage = `disease-${path.split('/')[2]}` as Page;
 
@@ -254,12 +257,9 @@ function App() {
       const hash = window.location.hash.slice(1)
       if (hash === 'about' || hash === 'contact' || hash === 'resources') {
         setCurrentPage(hash)
-      } else if (hash) {
-        // Only override to 'home' if there's actually a hash that we don't recognize
-        setCurrentPage('home')
       }
-      // If no hash, don't override — let the pathname-based routing from useState handle it
     }
+    // If no hash, don't override — let the pathname-based routing from useState handle it
     handleHashChange()
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
@@ -497,6 +497,7 @@ function App() {
     'learn-treatments': { component: CommonTreatmentsPage, title: 'Treatment Regimens', navId: 'treatments' },
     'learn-medications': { component: MedicationsPage, title: 'Leukemia Medications', navId: 'medications' },
     'learn-transplant': { component: StemCellTransplantPage, title: 'Stem Cell Transplants', navId: 'transplant' },
+    'learn-palliative': { component: PalliativeCarePage, title: 'Supportive Care', navId: 'palliative' },
     'learn-lab-results': { component: LabResultsPage, title: 'Lab Results', navId: 'lab-results' },
     'learn-clinical-trials': { component: ClinicalTrialsPage, title: 'Clinical Trials', navId: 'clinical-trials' },
     'learn-history': { component: LeukemiaHistoryPage, title: 'History of Leukemia', navId: 'history' },

@@ -1,3 +1,9 @@
+import bcuLogo from './assets/bcu-logo.png'
+import nmdpLogo from './assets/nmdp-logo.png'
+import acsLogo from './assets/acs-logo.svg'
+import cancercareLogo from './assets/cancercare-logo.png'
+import redcrossLogo from './assets/redcross-logo.png'
+
 export const AboutPage = () => {
     return (
         <div className="py-6">
@@ -396,48 +402,85 @@ export const ResourcesPage = ({ onNavigateToLearn }: { onNavigateToLearn: (topic
                         href="https://www.lls.org/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group flex flex-col sm:flex-row items-center sm:items-start gap-6"
                     >
-                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">Leukemia & Lymphoma Society (LLS)</h3>
-                        <p className="text-sm text-gray-600">
-                            The world's largest voluntary health organization dedicated to funding blood cancer research and providing patient support.
-                        </p>
+                        <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded-lg p-2">
+                            <img src={bcuLogo} alt="Blood Cancer United" className="max-w-full max-h-full object-contain" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">Blood Cancer United</h3>
+                            <p className="text-sm text-gray-600">
+                                The world's largest voluntary health organization dedicated to funding blood cancer research and providing patient support.
+                            </p>
+                        </div>
                     </a>
 
                     <a
                         href="https://bethematch.org/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group flex flex-col sm:flex-row items-center sm:items-start gap-6"
                     >
-                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">Be The Match (NMDP)</h3>
-                        <p className="text-sm text-gray-600">
-                            National Marrow Donor Program - connecting patients with life-saving marrow and cord blood transplants.
-                        </p>
+                        <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded-lg p-2">
+                            <img src={nmdpLogo} alt="Be The Match (NMDP)" className="max-w-full max-h-full object-contain" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">Be The Match (NMDP)</h3>
+                            <p className="text-sm text-gray-600">
+                                National Marrow Donor Program - connecting patients with life-saving marrow and cord blood transplants.
+                            </p>
+                        </div>
                     </a>
 
                     <a
                         href="https://www.cancer.org/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group flex flex-col sm:flex-row items-center sm:items-start gap-6"
                     >
-                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">American Cancer Society</h3>
-                        <p className="text-sm text-gray-600">
-                            Nationwide organization providing cancer research, patient support, and educational resources for all cancer types.
-                        </p>
+                        <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded-lg p-2">
+                            <img src={acsLogo} alt="American Cancer Society" className="max-w-full max-h-full object-contain" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">American Cancer Society</h3>
+                            <p className="text-sm text-gray-600">
+                                Nationwide organization providing cancer research, patient support, and educational resources for all cancer types.
+                            </p>
+                        </div>
                     </a>
 
                     <a
                         href="https://www.cancercare.org/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group flex flex-col sm:flex-row items-center sm:items-start gap-6"
                     >
-                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">CancerCare</h3>
-                        <p className="text-sm text-gray-600">
-                            Free, professional support services for anyone affected by cancer, including counseling, support groups, and financial assistance.
-                        </p>
+                        <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded-lg p-2">
+                            <img src={cancercareLogo} alt="CancerCare" className="max-w-full max-h-full object-contain" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">CancerCare</h3>
+                            <p className="text-sm text-gray-600">
+                                Free, professional support services for anyone affected by cancer, including counseling, support groups, and financial assistance.
+                            </p>
+                        </div>
+                    </a>
+
+                    <a
+                        href="https://www.redcross.org/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all group flex flex-col sm:flex-row items-center sm:items-start gap-6"
+                    >
+                        <div className="w-24 h-24 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded-lg p-2">
+                            <img src={redcrossLogo} alt="American Red Cross" className="max-w-full max-h-full object-contain" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 mb-2">American Red Cross</h3>
+                            <p className="text-sm text-gray-600">
+                                Providing critical blood products and support services to patients across the country, especially those undergoing intensive treatment.
+                            </p>
+                        </div>
                     </a>
                 </div>
             </section>

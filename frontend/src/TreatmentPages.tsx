@@ -26,6 +26,7 @@ const RelatedTopics: React.FC<{ currentTopic: string; onNavigate: (topic: string
         { id: 'transplant', label: 'Transplants', icon: '🏥' },
         { id: 'treatments', label: 'Treatments', icon: '💊' },
         { id: 'medications', label: 'Medications', icon: '🧪' },
+        { id: 'palliative', label: 'Supportive Care', icon: '🤝' },
         { id: 'history', label: 'History', icon: '📜' },
     ];
 
@@ -348,13 +349,18 @@ export const CommonTreatmentsPage: React.FC<EducationPageProps> = ({ onNavigateT
                                 </ExternalLink>
                             </div>
                             <div>
-                                <ExternalLink href="https://www.lls.org/treatment/types-treatment">
-                                    Types of Treatment (Leukemia & Lymphoma Society)
+                                <ExternalLink href="https://www.cancer.org/cancer/acute-myeloid-leukemia/treating/typical-treatment-of-aml.html">
+                                    Typical Treatment of AML (American Cancer Society)
                                 </ExternalLink>
                             </div>
                             <div>
-                                <ExternalLink href="https://www.lls.org/treatment/types-treatment/immunotherapy/chimeric-antigen-receptor-car-t-cell-therapy">
-                                    CAR-T Cell Therapy (LLS)
+                                <ExternalLink href="https://bloodcancerunited.org/blood-cancer-care/adults/types-blood-cancer-treatment">
+                                    Types of Treatment (Blood Cancer United)
+                                </ExternalLink>
+                            </div>
+                            <div>
+                                <ExternalLink href="https://bloodcancerunited.org/blood-cancer-care/adults/types-blood-cancer-treatment/immunotherapy/chimeric-antigen-receptor-car-t-cell-therapy">
+                                    CAR-T Cell Therapy (BCU)
                                 </ExternalLink>
                             </div>
                             <div>
@@ -442,24 +448,69 @@ export const MedicationsPage: React.FC<EducationPageProps> = ({ onNavigateToLear
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 <tr>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Cytarabine (Ara-C)</td>
+                                    <td className="px-4 py-3 text-gray-600">Chemotherapy</td>
+                                    <td className="px-4 py-3 text-gray-600">Standard for AML (7+3), ALL, and Lymphoma</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Daunorubicin / Idarubicin</td>
+                                    <td className="px-4 py-3 text-gray-600">Anthracycline</td>
+                                    <td className="px-4 py-3 text-gray-600">Induction for AML and ALL</td>
+                                </tr>
+                                <tr>
                                     <td className="px-4 py-3 font-bold text-gray-900">Venetoclax</td>
                                     <td className="px-4 py-3 text-gray-600">BCL-2 Inhibitor</td>
                                     <td className="px-4 py-3 text-gray-600">AML, CLL (Often with HMA)</td>
                                 </tr>
                                 <tr>
-                                    <td className="px-4 py-3 font-bold text-gray-900">Azacitidine</td>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Azacitidine / Decitabine</td>
                                     <td className="px-4 py-3 text-gray-600">HMA</td>
                                     <td className="px-4 py-3 text-gray-600">MDS, AML</td>
                                 </tr>
                                 <tr>
-                                    <td className="px-4 py-3 font-bold text-gray-900">Imatinib</td>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Imatinib (Gleevec)</td>
                                     <td className="px-4 py-3 text-gray-600">TKI</td>
-                                    <td className="px-4 py-3 text-gray-600">CML, Ph+ ALL</td>
+                                    <td className="px-4 py-3 text-gray-600">CML (1st Gen), Ph+ ALL</td>
                                 </tr>
                                 <tr>
-                                    <td className="px-4 py-3 font-bold text-gray-900">Gilteritinib</td>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Dasatinib (Sprycel)</td>
+                                    <td className="px-4 py-3 text-gray-600">TKI</td>
+                                    <td className="px-4 py-3 text-gray-600">CML, ALL (2nd Gen)</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Nilotinib (Tasigna)</td>
+                                    <td className="px-4 py-3 text-gray-600">TKI</td>
+                                    <td className="px-4 py-3 text-gray-600">CML (2nd Gen)</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Ponatinib (Iclusig)</td>
+                                    <td className="px-4 py-3 text-gray-600">TKI</td>
+                                    <td className="px-4 py-3 text-gray-600">Refractory CML/ALL (3rd Gen)</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Midostaurin (Rydapt)</td>
+                                    <td className="px-4 py-3 text-gray-600">FLT3 Inhibitor</td>
+                                    <td className="px-4 py-3 text-gray-600">Newly diagnosed FLT3+ AML</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Gilteritinib (Xospata)</td>
                                     <td className="px-4 py-3 text-gray-600">FLT3 Inhibitor</td>
                                     <td className="px-4 py-3 text-gray-600">Relapsed/Refractory FLT3+ AML</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Ruxolitinib (Jakafi)</td>
+                                    <td className="px-4 py-3 text-gray-600">JAK Inhibitor</td>
+                                    <td className="px-4 py-3 text-gray-600">MPNs (MF, PV), Graft-vs-Host Disease</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Blinatumomab (Blincyto)</td>
+                                    <td className="px-4 py-3 text-gray-600">BiTE (Immunotherapy)</td>
+                                    <td className="px-4 py-3 text-gray-600">B-cell ALL</td>
+                                </tr>
+                                <tr>
+                                    <td className="px-4 py-3 font-bold text-gray-900">Ibrutinib (Imbruvica)</td>
+                                    <td className="px-4 py-3 text-gray-600">BTK Inhibitor</td>
+                                    <td className="px-4 py-3 text-gray-600">CLL, MCL</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -475,8 +526,8 @@ export const MedicationsPage: React.FC<EducationPageProps> = ({ onNavigateToLear
                     </div>
 
                     <div className="mt-10">
-                        <ExternalLink href="https://www.lls.org/treatment/types-treatment/drug-therapy">
-                            LLS Drug Therapy Information
+                        <ExternalLink href="https://bloodcancerunited.org/blood-cancer-care/adults/types-blood-cancer-treatment">
+                            BCU Drug Therapy Information
                         </ExternalLink>
                     </div>
                 </div>

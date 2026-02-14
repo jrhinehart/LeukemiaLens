@@ -10,6 +10,12 @@ interface NavItem {
 
 const NAV_TREE: NavItem[] = [
     {
+        id: 'resources',
+        label: 'Research Resources',
+        icon: '🔗',
+        path: '/resources'
+    },
+    {
         id: 'research',
         label: 'Research Hub',
         icon: '🔍',
@@ -59,15 +65,15 @@ const NAV_TREE: NavItem[] = [
         label: 'Patient Knowledge Base',
         icon: '📚',
         children: [
-            { id: 'blood-cells', label: 'Blood Production', path: '/learn/blood-cells' },
-            { id: 'mutations', label: 'Mutations', path: '/learn/mutations' },
-            { id: 'risk', label: 'Risk Assessment', path: '/learn/risk' },
-            { id: 'treatments', label: 'Treatments', path: '/learn/treatments' },
-            { id: 'medications', label: 'Medications', path: '/learn/medications' },
-            { id: 'transplant', label: 'Transplants', path: '/learn/transplant' },
-            { id: 'lab-results', label: 'Lab Results', path: '/learn/lab-results' },
-            { id: 'clinical-trials', label: 'Clinical Trials', path: '/learn/clinical-trials' },
-            { id: 'history', label: 'History of Leukemia', path: '/learn/history' },
+            { id: 'blood-cells', label: 'Blood Production', icon: '🩸', path: '/learn/blood-cells' },
+            { id: 'mutations', label: 'Mutations', icon: '🧬', path: '/learn/mutations' },
+            { id: 'transplant', label: 'Transplants', icon: '🏥', path: '/learn/transplant' },
+            { id: 'treatments', label: 'Treatments', icon: '💊', path: '/learn/treatments' },
+            { id: 'medications', label: 'Medications', icon: '🧪', path: '/learn/medications' },
+            { id: 'palliative', label: 'Supportive Care', icon: '🤝', path: '/learn/palliative' },
+            { id: 'lab-results', label: 'Lab Results', icon: '🔬', path: '/learn/lab-results' },
+            { id: 'clinical-trials', label: 'Clinical Trials', icon: '🏃', path: '/learn/clinical-trials' },
+            { id: 'history', label: 'History of Leukemia', icon: '📜', path: '/learn/history' },
         ]
     },
     {
@@ -78,7 +84,6 @@ const NAV_TREE: NavItem[] = [
             { id: 'stats', label: 'Analytics & Stats', path: '/stats' },
             { id: 'about', label: 'About', path: '/about' },
             { id: 'contact', label: 'Contact', path: '/contact' },
-            { id: 'resources', label: 'General Resources', path: '/resources' },
         ]
     }
 ];

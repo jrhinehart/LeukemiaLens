@@ -25,10 +25,11 @@ const RelatedTopics: React.FC<{ currentTopic: string; onNavigate: (topic: string
         { id: 'blood-cells', label: 'Blood Cell Production', icon: '🩸' },
         { id: 'mutations', label: 'Mutations', icon: '🧬' },
         { id: 'risk', label: 'Risk Stratification', icon: '📊' },
-        { id: 'transplant', label: 'Stem Cell Transplants', icon: '🏥' },
+        { id: 'transplant', label: 'Transplants', icon: '🏥' },
+        { id: 'palliative', label: 'Supportive Care', icon: '🤝' },
         { id: 'lab-results', label: 'Lab Results', icon: '🔬' },
         { id: 'clinical-trials', label: 'Clinical Trials', icon: '🧪' },
-        { id: 'history', label: 'History of Leukemia', icon: '📜' },
+        { id: 'history', label: 'History', icon: '📜' },
     ];
 
     return (
@@ -573,12 +574,56 @@ export const StemCellTransplantPage: React.FC<EducationPageProps> = ({ onNavigat
                     </div>
 
                     <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4">The Transplant Process</h2>
-                    <ol className="list-decimal pl-6 space-y-3 my-4">
-                        <li><strong>Conditioning</strong>: High-dose chemotherapy (and sometimes radiation) to destroy cancer cells and make room for new stem cells</li>
-                        <li><strong>Transplant day</strong>: Healthy stem cells are infused through an IV, similar to a blood transfusion</li>
-                        <li><strong>Engraftment</strong>: New stem cells travel to your bone marrow and begin making healthy blood cells (usually 2-4 weeks)</li>
-                        <li><strong>Recovery</strong>: Gradual immune system recovery over months to years</li>
-                    </ol>
+                    <div className="space-y-8 my-6">
+                        <div className="relative pl-8 border-l-2 border-blue-200">
+                            <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-600"></div>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">Phase 1: Conditioning</h3>
+                            <p className="text-sm text-gray-700 mb-3">
+                                Conditioning is the period of high-dose chemotherapy and/or radiation therapy delivered in the week before transplant.
+                                It destroys remaining cancer cells and suppresses your immune system to make room for the new stem cells.
+                            </p>
+                            <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                                <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-2">Common Regimens</h4>
+                                <ul className="text-sm text-amber-700 space-y-1">
+                                    <li>• <strong>Chemo</strong>: Common drugs include <em>Busulfan</em>, <em>Fludarabine</em>, <em>Cyclophosphamide</em>, or <em>Melphalan</em>.</li>
+                                    <li>• <strong>TBI</strong>: Total Body Irradiation may be used to help clear the marrow.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div className="relative pl-8 border-l-2 border-blue-200">
+                            <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-400"></div>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">Phase 2: Transplant Day (Day 0)</h3>
+                            <p className="text-sm text-gray-700">
+                                The transplant itself is similar to a blood transfusion. Healthy stem cells are infused through your central line and
+                                naturally "home" to your bone marrow to begin their work.
+                            </p>
+                        </div>
+
+                        <div className="relative pl-8 border-l-2 border-red-200">
+                            <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-red-500"></div>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">Phase 3: The Nadir (White Count Zero)</h3>
+                            <p className="text-sm text-gray-700 mb-3">
+                                In the days following transplant, your blood counts will drop to zero (the <strong>nadir</strong>).
+                                During this 1-2 week period, you have no immune system and require intensive support.
+                            </p>
+                            <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                                <ul className="text-sm text-red-700 space-y-2">
+                                    <li className="flex items-center gap-2"><span>🛡️</span> <strong>Isolation</strong>: Strict precautions to prevent infection while neutropenic.</li>
+                                    <li className="flex items-center gap-2"><span>🩸</span> <strong>Transfusions</strong>: Frequent red cell and platelet support.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div className="relative pl-8 border-l-2 border-green-200">
+                            <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-green-500"></div>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">Phase 4: Engraftment</h3>
+                            <p className="text-sm text-gray-700">
+                                Usually 14-21 days after transplant, the new cells begin to function. Your white blood cell count (ANC)
+                                will begin to rise, followed by platelets and red cells. This marks the start of your new immune system.
+                            </p>
+                        </div>
+                    </div>
 
                     <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4">Finding a Donor</h2>
                     <p>
@@ -620,9 +665,33 @@ export const StemCellTransplantPage: React.FC<EducationPageProps> = ({ onNavigat
                         </ul>
                     </div>
 
-                    <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4">Understanding GVHD</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4">Side Effects & Complications</h2>
+                    <p className="text-sm text-gray-600 mb-6">
+                        Transplant is a major procedure that affects many systems in your body. Your care team will monitor you closely for these common issues:
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+                        <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                            <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                                <span className="text-xl">👅</span> Mucositis
+                            </h3>
+                            <p className="text-xs text-gray-600 leading-relaxed">
+                                Painful inflammation and sores in the mouth and digestive tract caused by conditioning regimens. Often requires specialized oral care and pain management.
+                            </p>
+                        </div>
+                        <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
+                            <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                                <span className="text-xl">🦠</span> Infection Risks
+                            </h3>
+                            <p className="text-xs text-gray-600 leading-relaxed">
+                                Because your new immune system is "new," you are at risk for viral, bacterial, and fungal infections, including <strong>CMV</strong> or <strong>EBV</strong> reactivation.
+                            </p>
+                        </div>
+                    </div>
+
+                    <h3 className="text-lg font-bold text-gray-900 mt-6 mb-4">Understanding GVHD</h3>
                     <p>
-                        <strong>Graft-versus-Host Disease (GVHD)</strong> is a common complication of allogeneic transplants where the donor's immune cells recognize your body as "foreign" and attack it.
+                        <strong>Graft-versus-Host Disease (GVHD)</strong> occurs when the donor's immune cells recognize your body as "foreign" and attack it.
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
                         <div className="bg-amber-50 p-5 rounded-xl border border-amber-100">
@@ -645,9 +714,11 @@ export const StemCellTransplantPage: React.FC<EducationPageProps> = ({ onNavigat
                         </div>
                     </div>
                     <div className="bg-green-50 p-4 rounded-xl border border-green-100">
-                        <h4 className="font-bold text-green-800 mb-2">💡 The Silver Lining</h4>
+                        <h4 className="font-bold text-green-800 mb-2 flex items-center gap-2 text-sm">
+                            <span className="text-lg">💡</span> The Graft-versus-Leukemia Effect
+                        </h4>
                         <p className="text-sm text-green-700">
-                            Mild GVHD can actually be beneficial—it's a sign that the donor immune cells are active and may help prevent cancer relapse (graft-versus-leukemia effect).
+                            While GVHD is a challenge, a small amount of it is actually beneficial—it's a sign that the donor immune cells are active and can help prevent cancer relapse by attacking any leftover leukemia cells.
                         </p>
                     </div>
 
@@ -865,10 +936,6 @@ export const ClinicalTrialsPage: React.FC<EducationPageProps> = ({ onNavigateToL
                         Clinical trials offer access to promising new treatments before they're widely available. Understanding how they work can help you decide if a trial is right for you.
                     </p>
 
-                    <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4">What is a Clinical Trial?</h2>
-                    <p>
-                        A <strong>clinical trial</strong> is a carefully designed research study that tests new treatments, drugs, or procedures in people. Every approved cancer treatment was once tested in a clinical trial.
-                    </p>
                     <div className="bg-green-50 p-5 rounded-xl border border-green-100 my-6">
                         <h4 className="font-bold text-green-800 mb-2">✨ Why Consider a Trial?</h4>
                         <ul className="space-y-2 text-sm text-green-700">
@@ -1270,6 +1337,114 @@ export const LeukemiaHistoryPage: React.FC<EducationPageProps> = ({ onNavigateTo
                 </div>
 
                 <RelatedTopics currentTopic="history" onNavigate={onNavigateToLearn} />
+            </div>
+        </div>
+    );
+};
+
+export const PalliativeCarePage: React.FC<EducationPageProps> = ({ onNavigateToLearn }) => {
+    return (
+        <div className="py-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                <div className="flex items-center gap-3 mb-6">
+                    <span className="text-4xl">🤝</span>
+                    <h1 className="text-3xl font-bold text-gray-900">Palliative & Supportive Care</h1>
+                </div>
+
+                <div className="prose prose-lg max-w-none text-gray-700">
+                    <p className="lead text-xl text-gray-600 mb-6">
+                        Palliative care is a specialized form of medical care focused on providing relief from the symptoms
+                        and stress of a serious illness like leukemia. The goal is to improve quality of life for both the
+                        patient and the family.
+                    </p>
+
+                    <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 my-8">
+                        <h2 className="text-blue-900 font-bold text-lg mb-2 flex items-center gap-2">
+                            <span className="text-2xl">💡</span> It's Not Just for End-of-Life
+                        </h2>
+                        <p className="text-blue-800">
+                            A common misconception is that palliative care is the same as hospice. <strong>It is not.</strong>
+                            While hospice focus on end-of-life, palliative care can be provided at <strong>any stage</strong> of
+                            disease and <strong>alongside curative treatments</strong> like chemotherapy or transplant.
+                        </p>
+                    </div>
+
+                    <h2 className="text-2xl font-bold text-gray-900 mt-10 mb-4">What Palliative Care Includes</h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
+                            <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                <span className="text-xl">💪</span> Physical Support
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-3">
+                                Managing the physical toll of treatment is a primary focus. This involves:
+                            </p>
+                            <ul className="text-xs text-gray-500 space-y-2 list-disc pl-4">
+                                <li><strong>Symptom Control</strong>: Managing pain, fatigue, nausea, and shortness of breath.</li>
+                                <li><strong>Physical Therapy</strong>: Specialized exercises to maintain strength and mobility during long hospital stays.</li>
+                                <li><strong>Nutrition</strong>: Working with dietitians to manage appetite changes and weight loss.</li>
+                            </ul>
+                        </div>
+
+                        <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
+                            <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                <span className="text-xl">🧠</span> Emotional & Mental Health
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-3">
+                                A leukemia diagnosis affects the mind as much as the body.
+                            </p>
+                            <ul className="text-xs text-gray-500 space-y-2 list-disc pl-4">
+                                <li><strong>Counseling</strong>: Access to social workers or psychologists who specialize in oncology.</li>
+                                <li><strong>Anxiety & Depression</strong>: Medical and therapeutic management of the heavy emotional burden.</li>
+                                <li><strong>Resource Navigation</strong>: Helping families find support groups and financial assistance.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h2 className="text-2xl font-bold text-gray-900 mt-10 mb-4">Navigating Quality of Life</h2>
+                    <p>
+                        Beyond the clinic, palliative care addresses how illness impacts your daily life and identity.
+                    </p>
+
+                    <div className="space-y-6 my-6">
+                        <div className="border-l-4 border-purple-400 pl-4">
+                            <h4 className="font-bold text-gray-900">Relationships & Communication</h4>
+                            <p className="text-sm text-gray-600 leading-relaxed">
+                                Illness can strain relationships with partners, children, and friends. Palliative teams help facilitate
+                                difficult conversations and provide tools for families to support each other.
+                            </p>
+                        </div>
+                        <div className="border-l-4 border-pink-400 pl-4">
+                            <h4 className="font-bold text-gray-900">Intimacy & Sex Life</h4>
+                            <p className="text-sm text-gray-600 leading-relaxed">
+                                Chemotherapy and transplant often cause significant changes in libido, physical comfort, and body image.
+                                These are valid medical concerns. Your palliative team can provide guidance and resources for maintaining
+                                intimacy and addressing physical changes.
+                            </p>
+                        </div>
+                        <div className="border-l-4 border-green-400 pl-4">
+                            <h4 className="font-bold text-gray-900">Spiritual Wellbeing</h4>
+                            <p className="text-sm text-gray-600 leading-relaxed">
+                                Finding meaning and purpose during treatment is essential for many. Chaplains and spiritual counselors
+                                are often part of the supportive care team.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="mt-12 p-6 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-2xl border border-teal-100">
+                        <h3 className="text-lg font-bold text-teal-900 mb-4 text-center">Your Supportive Care Team</h3>
+                        <div className="flex flex-wrap justify-center gap-4 text-sm">
+                            <span className="px-3 py-1 bg-white rounded-full border border-teal-200 text-teal-700">Palliative Doctors</span>
+                            <span className="px-3 py-1 bg-white rounded-full border border-teal-200 text-teal-700">Nurses</span>
+                            <span className="px-3 py-1 bg-white rounded-full border border-teal-200 text-teal-700">Social Workers</span>
+                            <span className="px-3 py-1 bg-white rounded-full border border-teal-200 text-teal-700">Dietitians</span>
+                            <span className="px-3 py-1 bg-white rounded-full border border-teal-200 text-teal-700">Physical Therapists</span>
+                            <span className="px-3 py-1 bg-white rounded-full border border-teal-200 text-teal-700">Chaplains</span>
+                        </div>
+                    </div>
+                </div>
+
+                <RelatedTopics currentTopic="palliative" onNavigate={onNavigateToLearn} />
             </div>
         </div>
     );
